@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+
+    <properties>
+        <property name="logPath">d:/123/log</property>
+    </properties>
+
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5p %c{1}:%L - %msg%n" />
+        </Console>
+
+        <RollingFile name="LogFile" filename="${logPath}/farm.log"
+                     filepattern="${logPath}/farm-%i.log">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5p %c{1}:%L - %msg%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="10" />
+        </RollingFile>
+
+        <RollingFile name="ErrorFile" filename="${logPath}/error.log"
+                     filepattern="${logPath}/error-%i.log">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5p %c{1}:%L - %msg%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="10" />
+        </RollingFile>
+
+        <RollingFile name="DebugFile" filename="${logPath}/debug.log"
+                     filepattern="${logPath}/debug-%i.log">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5p %c{1}:%L - %msg%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="10" />
+        </RollingFile>
+
+    </Appenders>
+
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="DebugFile" />
+            <AppenderRef ref="LogFile" level="info" />
+            <AppenderRef ref="ErrorFile" level = "error"/>
+        </Root>
+    </Loggers>
+</Configuration>
