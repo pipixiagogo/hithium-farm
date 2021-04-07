@@ -26,6 +26,7 @@ public class BreakDownLogService {
         query.is("deviceName", deviceName);
         if (!PagetLimitUtil.pageLimit(query, params)) return ResHelper.pamIll();
         if(!PagetLimitUtil.orderField(query,params)) return ResHelper.pamIll();
+        query.sortDesc("_id");
         BuguPageQuery.Page<BreakDownLog> downLogPage = query.resultsWithPage();
         return ResHelper.success("", downLogPage);
     }

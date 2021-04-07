@@ -1,5 +1,4 @@
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\controller\pri\EquipmentController.java
-D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\service\KCEssDeviceService.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\HithiumFarmWebApplication.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\service\EquipmentService.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\entity\AirConditionDataDic.java
@@ -37,7 +36,6 @@ D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarm
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\entity\BamsDataDicBA.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\entity\OperationLog.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\utils\PagetLimitUtil.java
-D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\trans\MessageTransformer.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\controller\pub\LoginController.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\dao\CaptchaDao.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\dto\DeviceStationsInfo.java
@@ -77,7 +75,6 @@ D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarm
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\vo\UserVo.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\entity\BmsCellVoltDataDic.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\dao\AmmeterDataDicDao.java
-D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\service\UnknowService.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\dto\PccsInfo.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\bo\RoleEntityBo.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\dao\BmsCellTempDataDicDao.java
@@ -122,7 +119,6 @@ D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarm
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\controller\pri\StatisticsController.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\controller\pub\EmsWebController.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\vo\InfoUserVo.java
-D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\message\JMessage.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\entity\PcsChannelDic.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\http\dao\UserDao.java
 D:\zhouh\demo\hithium-farm\hithium-farm-web\src\main\java\com\bugull\hithiumfarmweb\config\RedisConfig.java

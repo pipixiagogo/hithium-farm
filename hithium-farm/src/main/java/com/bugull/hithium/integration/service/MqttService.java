@@ -24,6 +24,7 @@ import org.springframework.integration.mqtt.outbound.MqttPahoMessageHandler;
 import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
 import org.springframework.messaging.MessageHandler;
 
+import javax.annotation.Resource;
 import java.util.concurrent.Executors;
 
 import static com.bugull.hithium.core.common.Const.TAKE_MAIN_TASK;
@@ -33,7 +34,7 @@ import static com.bugull.hithium.core.common.Const.TAKE_MAIN_TASK;
 @EnableConfigurationProperties(PropertiesConfig.class)
 public class MqttService {
 
-    @Autowired
+    @Resource
     private PropertiesConfig propertiesConfig;
 
     @Bean

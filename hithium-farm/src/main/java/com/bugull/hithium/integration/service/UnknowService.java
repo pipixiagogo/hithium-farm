@@ -47,7 +47,7 @@ public class UnknowService {
     }
 
 
-    @Scheduled(cron = "${energy.untrans.report.interval}")
+//    @Scheduled(cron = "${energy.untrans.report.interval}")
     public void sendKafkaMsg(){
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("DATATYPE", "REAL_TIME_DATA");

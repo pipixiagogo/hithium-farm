@@ -18,6 +18,8 @@ public class PropertiesConfig {
     public static final String MONGO_USERNAME = "mongo.username";
     public static final String MONGO_PASSWORD = "mongo.password";
 
+
+
     @Value("${mqtt.server}")
     private String mqttServer;
 

@@ -101,8 +101,8 @@ public class UserService {
         if (!PagetLimitUtil.pageLimit(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<User> userResults = query.resultsWithPage();
-
         List<User> userList = userResults.getDatas();
         List<InfoUserVo> infoUserVos;
         if (userList != null && userList.size() > 0) {

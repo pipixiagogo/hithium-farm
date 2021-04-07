@@ -45,6 +45,7 @@ public class RoleService {
         if (!PagetLimitUtil.pageLimit(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<RoleEntity> roleEntityPage = query.resultsWithPage();
         return ResHelper.success("", roleEntityPage);
     }

@@ -1,20 +1,26 @@
 package com.bugull.hithiumfarmweb.http.service;
 
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
+import com.bugull.hithiumfarmweb.http.bo.BamsLatestBo;
+import com.bugull.hithiumfarmweb.http.bo.BcuDataBo;
 import com.bugull.hithiumfarmweb.http.bo.BmsTempMsgBo;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
+import com.bugull.mongo.BuguQuery;
+import com.mongodb.DBObject;
+import org.bson.types.ObjectId;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.mongodb.client.model.Aggregates.count;
 
 @Service
 public class RealTimeDataService {
@@ -49,6 +55,7 @@ public class RealTimeDataService {
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<AmmeterDataDic> ammeterDataDicPage = query.resultsWithPage();
         return ResHelper.success("", ammeterDataDicPage);
     }
@@ -58,6 +65,7 @@ public class RealTimeDataService {
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<BamsDataDicBA> bamsDataDicBAPage = query.resultsWithPage();
         return ResHelper.success("", bamsDataDicBAPage);
     }
@@ -76,6 +84,7 @@ public class RealTimeDataService {
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<BmsCellTempDataDic> bmsCellTempDataDicPage = query.resultsWithPage();
         return ResHelper.success("", bmsCellTempDataDicPage);
     }
@@ -85,6 +94,7 @@ public class RealTimeDataService {
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<BmsCellVoltDataDic> bmsCellVoltDataDicPage = query.resultsWithPage();
         return ResHelper.success("", bmsCellVoltDataDicPage);
     }
@@ -94,6 +104,7 @@ public class RealTimeDataService {
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<BcuDataDicBCU> bcuDataDicBCUPage = query.resultsWithPage();
         return ResHelper.success("", bcuDataDicBCUPage);
     }
@@ -103,6 +114,7 @@ public class RealTimeDataService {
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<PcsCabinetDic> pcsCabinetDicPage = query.resultsWithPage();
         return ResHelper.success("", pcsCabinetDicPage);
     }
@@ -112,6 +124,7 @@ public class RealTimeDataService {
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<PcsChannelDic> pcsChannelDicPage = query.resultsWithPage();
         return ResHelper.success("", pcsChannelDicPage);
     }
@@ -121,6 +134,7 @@ public class RealTimeDataService {
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<AirConditionDataDic> airConditionDataDicPage = query.resultsWithPage();
         return ResHelper.success("", airConditionDataDicPage);
     }
@@ -130,6 +144,7 @@ public class RealTimeDataService {
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<TemperatureMeterDataDic> temperatureMeterDataDicPage = query.resultsWithPage();
         return ResHelper.success("", temperatureMeterDataDicPage);
     }
@@ -140,6 +155,7 @@ public class RealTimeDataService {
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<FireControlDataDic> fireControlDataDicPage = query.resultsWithPage();
         return ResHelper.success("", fireControlDataDicPage);
     }
@@ -149,41 +165,75 @@ public class RealTimeDataService {
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<UpsPowerDataDic> upsPowerDataDicPage = query.resultsWithPage();
         return ResHelper.success("", upsPowerDataDicPage);
     }
 
     public ResHelper<List<BmsTempMsgBo>> bmsTempMsg(String deviceName) {
+        /**
+         * 用这个看下 聚合快 还是查询快
+         */
         List<Equipment> equipment = equipmentDao.query().is("deviceName", deviceName).results();
         List<BmsTempMsgBo> bos = new ArrayList<>();
         equipment.stream().forEach(euip -> {
-            long count = temperatureMeterDataDicDao.query().is("deviceName", deviceName)
-                    .is("equipmentId", euip.getEquipmentId()).count();
+            BuguQuery<TemperatureMeterDataDic> dicBuguQuery = temperatureMeterDataDicDao.query().is("deviceName", deviceName)
+                    .is("equipmentId", euip.getEquipmentId());
+            long count = dicBuguQuery.count();
             if (count > 0) {
-                List<TemperatureMeterDataDic> temperatureMeterDataDics = temperatureMeterDataDicDao.query().is("deviceName", deviceName)
-                        .is("equipmentId", euip.getEquipmentId())
-                        .sortDesc("generationDataTime")
+                List<TemperatureMeterDataDic> temperatureMeterDataDic = dicBuguQuery
+                        .pageSize(1)
+                        .pageNumber(Integer.parseInt(String.valueOf(count)))
                         .results();
-                TemperatureMeterDataDic temperatureMeterDataDic = temperatureMeterDataDics.get(0);
-//                List<TemperatureMeterDataDic> temperatureMeterDataDic = temperatureMeterDataDicDao.query().is("deviceName", deviceName)
-//                        .is("equipmentId", euip.getEquipmentId())
-//                        .pageSize(1)
-//                        .pageNumber(Integer.parseInt(String.valueOf(count)))
-//                        .results();
-//                if (!CollectionUtils.isEmpty(temperatureMeterDataDic) && temperatureMeterDataDic.size() > 0) {
-//                    TemperatureMeterDataDic temperatureMeterDataDic1 = temperatureMeterDataDic.get(0);
-//                    if (temperatureMeterDataDic1 != null) {
-//                        BmsTempMsgBo bmsTempMsgBo = new BmsTempMsgBo();
-//                        bmsTempMsgBo.setName(temperatureMeterDataDic1.getName());
-//                        bmsTempMsgBo.setTemperature(temperatureMeterDataDic1.getTemperature());
-//                        bmsTempMsgBo.setHumidity(temperatureMeterDataDic1.getHumidity());
-//                        bmsTempMsgBo.setCreateDate(temperatureMeterDataDic1.getGenerationDataTime());
-//                        bos.add(bmsTempMsgBo);
-//                    }
-//                }
+                if (!CollectionUtils.isEmpty(temperatureMeterDataDic) && temperatureMeterDataDic.size() > 0) {
+                    TemperatureMeterDataDic temperatureMeterDataDic1 = temperatureMeterDataDic.get(0);
+                    if (temperatureMeterDataDic1 != null) {
+                        BmsTempMsgBo bmsTempMsgBo = new BmsTempMsgBo();
+                        bmsTempMsgBo.setName(temperatureMeterDataDic1.getName());
+                        bmsTempMsgBo.setTemperature(temperatureMeterDataDic1.getTemperature());
+                        bmsTempMsgBo.setHumidity(temperatureMeterDataDic1.getHumidity());
+                        bmsTempMsgBo.setCreateDate(temperatureMeterDataDic1.getGenerationDataTime());
+                        bos.add(bmsTempMsgBo);
+                    }
+                }
             }
-
         });
         return ResHelper.success("", bos);
+    }
+
+
+    public ResHelper<BamsLatestBo> bamsLatestData(String deviceName) {
+        Iterable<DBObject> iterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is("deviceName", deviceName))
+                .group("{_id:'$name','dataId':{$last:'$_id'}}")
+                .sort("{generationDataTime:-1}").results();
+        String queryId = null;
+        for (DBObject object : iterable) {
+            ObjectId dataId = (ObjectId) object.get("dataId");
+            queryId = dataId.toString();
+        }
+        if (!StringUtils.isEmpty(queryId)) {
+            BamsDataDicBA bamsDataDicBA = bamsDataDicBADao.query().is("_id", queryId).result();
+            BamsLatestBo bamsLatestBo = new BamsLatestBo();
+            BeanUtils.copyProperties(bamsDataDicBA, bamsLatestBo);
+            return ResHelper.success("", bamsLatestBo);
+        }
+        return ResHelper.success("");
+    }
+
+    public ResHelper<BcuDataBo> bcuDataqueryByName(String deviceName,String name) {
+
+        Iterable<DBObject> iterable = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is("name","集装箱电池簇1").is("deviceName",deviceName))
+                .group("{_id:'$"+name+"','dataId':{$last:'$_id'}}")
+                .sort("{generationDataTime:-1}").results();
+        for (DBObject object : iterable) {
+            ObjectId dataId = (ObjectId) object.get("dataId");
+            String queryId = dataId.toString();
+            if(!StringUtils.isEmpty(queryId)){
+                BcuDataDicBCU bcuDataDicBCU = bcuDataDicBCUDao.query().is("_id", queryId).result();
+
+            }
+        }
+
+        return null;
     }
 }

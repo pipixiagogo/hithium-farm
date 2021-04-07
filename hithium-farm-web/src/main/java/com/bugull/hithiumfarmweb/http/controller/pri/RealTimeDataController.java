@@ -1,6 +1,8 @@
 package com.bugull.hithiumfarmweb.http.controller.pri;
 
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
+import com.bugull.hithiumfarmweb.http.bo.BamsLatestBo;
+import com.bugull.hithiumfarmweb.http.bo.BcuDataBo;
 import com.bugull.hithiumfarmweb.http.bo.BmsTempMsgBo;
 import com.bugull.hithiumfarmweb.http.entity.*;
 import com.bugull.hithiumfarmweb.http.service.RealTimeDataService;
@@ -175,9 +177,8 @@ public class RealTimeDataController extends AbstractController {
 
     /**
      * BMS最近一次 平均温度 最高温度 最低温度
-     *
      */
-    @ApiOperation(value = "BMS最近一次 平均温度 最高温度 最低温度")
+    @ApiOperation(value = "BMS最近一次 温度 湿度")
     @RequestMapping(value = "/bmsTempMsg", method = RequestMethod.GET)
     @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class)
     public ResHelper<List<BmsTempMsgBo>> bmsTempMsg(@ApiIgnore @RequestParam(value = "deviceName", required = true) String deviceName) {
@@ -185,6 +186,33 @@ public class RealTimeDataController extends AbstractController {
             return ResHelper.error("设备名称不能为空");
         }
         return realTimeDataService.bmsTempMsg(deviceName);
+    }
+
+    /**
+     * 获取BAMS最新一条数据更新充放电电量
+     */
+    @ApiOperation(value = "BAMS最新一条数据更新充放电电量")
+    @RequestMapping(value = "/bamsLatestData", method = RequestMethod.GET)
+    @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class)
+    public ResHelper<BamsLatestBo> bamsLatestData(@ApiIgnore @RequestParam(value = "deviceName", required = true) String deviceName) {
+        if (StringUtils.isEmpty(deviceName)) {
+            return ResHelper.error("设备名称不能为空");
+        }
+        return realTimeDataService.bamsLatestData(deviceName);
+    }
+
+    /**
+     * BCU簇数据 状态查询
+     */
+    @ApiOperation(value = "集装箱电池簇状态查询")
+    @RequestMapping(value = "/bcuDataqueryByName", method = RequestMethod.GET)
+    @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称唯一标识"),
+            @ApiImplicitParam(name = "name", required = true, paramType = "query", value = "电池簇名称")}
+    )
+    public ResHelper<BcuDataBo> bcuDataqueryByName(@ApiIgnore @RequestParam(value = "deviceName", required = true) String deviceName,
+                                                   @ApiIgnore @RequestParam(value = "name", required = true) String name) {
+
+        return realTimeDataService.bcuDataqueryByName(deviceName, name);
     }
 
 

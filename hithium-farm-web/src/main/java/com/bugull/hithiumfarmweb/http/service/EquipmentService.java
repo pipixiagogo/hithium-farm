@@ -27,8 +27,8 @@ public class EquipmentService {
         if(!PagetLimitUtil.pageLimit(query, params)){
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<Equipment> results = query.resultsWithPage();
-
         return ResHelper.success("", results);
     }
 

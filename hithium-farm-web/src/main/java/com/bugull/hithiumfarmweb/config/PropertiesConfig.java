@@ -23,8 +23,6 @@ public class PropertiesConfig {
     @Value("${mqtt.clientid.subscriber}")
     private String mqttClientIdSub;
 
-    @Value("#{'${mqtt.subtopic}'.split(',')}")
-    private List<String> mqttSubtopics;
 
     @Value("${mqtt.complete.timeout}")
     private int completeTimeout;
@@ -46,16 +44,6 @@ public class PropertiesConfig {
 
     @Value("${mqtt.clientid.publisher}")
     private String mqttClientIdPub;
-
-    public String getMqttClientIdSub() {
-        return mqttClientIdSub;
-    }
-
-    public String[] getMqttSubtopics() {
-        String[] topics = new String[mqttSubtopics.size()];
-        topics = mqttSubtopics.toArray(topics);
-        return topics;
-    }
 
     public Integer getCompleteTimeout() {
         return completeTimeout;

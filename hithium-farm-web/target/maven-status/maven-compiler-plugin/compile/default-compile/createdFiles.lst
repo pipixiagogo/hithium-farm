@@ -12,9 +12,7 @@ com\bugull\hithiumfarmweb\common\validator\group\AddGroup.class
 com\bugull\hithiumfarmweb\http\service\RoleService.class
 com\bugull\hithiumfarmweb\dto\DeviceStationsInfo.class
 com\bugull\hithiumfarmweb\http\entity\BcuDataDicBCU.class
-com\bugull\hithiumfarmweb\message\JMessage.class
 com\bugull\hithiumfarmweb\http\oauth2\OAuth2Realm.class
-com\bugull\hithiumfarmweb\trans\MessageTransformer.class
 com\bugull\hithiumfarmweb\utils\ResHelper.class
 com\bugull\hithiumfarmweb\http\entity\Equipment.class
 com\bugull\hithiumfarmweb\http\entity\PcsCabinetDic.class
@@ -26,8 +24,6 @@ com\bugull\hithiumfarmweb\common\BuguPageQuery.class
 com\bugull\hithiumfarmweb\http\service\DeviceService.class
 com\bugull\hithiumfarmweb\http\dao\AirConditionDataDicDao.class
 com\bugull\hithiumfarmweb\http\dao\EquipmentDao.class
-com\bugull\hithiumfarmweb\service\UnknowService.class
-com\bugull\hithiumfarmweb\service\KCEssDeviceService$2.class
 com\bugull\hithiumfarmweb\http\controller\pri\OperationLogController.class
 com\bugull\hithiumfarmweb\http\vo\CityVo.class
 com\bugull\hithiumfarmweb\http\entity\BreakDownLog.class
@@ -88,7 +84,6 @@ com\bugull\hithiumfarmweb\dto\CabinsInfo.class
 com\bugull\hithiumfarmweb\http\dao\AmmeterDataDicDao.class
 com\bugull\hithiumfarmweb\http\dao\TemperatureMeterDataDicDao.class
 com\bugull\hithiumfarmweb\http\entity\AirConditionDataDic.class
-com\bugull\hithiumfarmweb\service\KCEssDeviceService$1.class
 com\bugull\hithiumfarmweb\config\SwaggerConfig.class
 com\bugull\hithiumfarmweb\http\vo\InfoUserVo.class
 com\bugull\hithiumfarmweb\http\entity\OperationLog.class
@@ -108,7 +103,6 @@ com\bugull\hithiumfarmweb\http\entity\BamsDataDicBA.class
 com\bugull\hithiumfarmweb\http\dao\UpsPowerDataDicDao.class
 com\bugull\hithiumfarmweb\common\exception\ValidatorExceptionHandler.class
 com\bugull\hithiumfarmweb\http\entity\BmsCellTempDataDic.class
-com\bugull\hithiumfarmweb\service\KCEssDeviceService.class
 com\bugull\hithiumfarmweb\http\dao\PcsCabinetDicDao.class
 com\bugull\hithiumfarmweb\http\dao\PccsDao.class
 com\bugull\hithiumfarmweb\http\controller\pri\AbstractController.class

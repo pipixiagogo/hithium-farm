@@ -8,7 +8,9 @@ import com.bugull.hithium.core.dao.*;
 import com.bugull.hithium.core.dto.*;
 import com.bugull.hithium.core.entity.*;
 import com.bugull.hithium.core.enumerate.DataType;
+import com.bugull.hithium.core.util.PropertiesConfig;
 import com.bugull.hithium.integration.message.JMessage;
+import com.bugull.hithium.integration.util.redis.RedisPoolUtil;
 import com.bugull.mongo.BuguQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +20,7 @@ import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import redis.clients.jedis.Jedis;
 
 import javax.annotation.Resource;
 import java.lang.reflect.Type;
@@ -88,6 +91,10 @@ public class KCEssDeviceService {
     private AirConditionDataDicDao airConditionDataDicDao;
     @Resource
     private BreakDownLogDao breakDownLogDao;
+    @Resource
+    private RedisPoolUtil redisPoolUtil;
+    @Resource
+    private PropertiesConfig propertiesConfig;
 
     /**
      * 处理设备
@@ -115,6 +122,7 @@ public class KCEssDeviceService {
     }
 
     private void handleRealTimeData(JMessage jMessage) {
+        Jedis jedis = redisPoolUtil.getJedis();
         try {
             String deviceName = jMessage.getDeviceName();
             log.info("设备上报实时数据:{}", deviceName);
@@ -122,12 +130,18 @@ public class KCEssDeviceService {
             JSONObject datajson = (JSONObject) jsonObject.get(Const.DATA);
             List<Equipment> equipmentList = equipmentDao.query().is("deviceName", deviceName).results();
             if (equipmentList != null && equipmentList.size() > 0) {
+//                CACHEMAP.put(deviceName + "-REALDATA", datajson);
+                jedis.set("REALDATA-"+deviceName,datajson.toString());
                 resolvingRealDataTime(datajson, equipmentList);
             } else {
                 log.info("设备上报实时数据未查到对应设备:{}", deviceName);
             }
         } catch (Exception e) {
             log.error("设备上报实时数据格式错误,丢弃:{}",jMessage.getPayloadMsg());
+        }finally {
+            if(jedis != null){
+                jedis.close();
+            }
         }
     }
 
@@ -338,6 +352,7 @@ public class KCEssDeviceService {
     }
 
     private void handleBreakDownLog(JMessage jMessage) {
+        Jedis jedis = redisPoolUtil.getJedis();
         try {
             String deviceName = jMessage.getDeviceName();
             log.info("设备告警日志上报 deviceName:{}", deviceName);
@@ -345,42 +360,54 @@ public class KCEssDeviceService {
             if (!StringUtils.isEmpty(messagePayloadMsg)) {
                 JSONObject jsonObject = JSONObject.parseObject(jMessage.getPayloadMsg());
                 JSONArray dataArray = (JSONArray) jsonObject.get(Const.DATA);
+//                CACHEMAP.put(deviceName + "-BREAKDOWNLOG", dataArray);
                 List<BreakDownLog> breakDownLogs = JSONArray.parseArray(dataArray.toJSONString(), BreakDownLog.class);
                 if (breakDownLogs != null && breakDownLogs.size() > 0) {
+                    jedis.set("BREAKDOWNLOG-"+deviceName,dataArray.toString());
                     List<Equipment> equipmentDbList = equipmentDao.query().is("deviceName", deviceName).results();
                     List<BreakDownLog> breakDownLogList = new ArrayList<>();
-                    for (BreakDownLog breakDownLog : breakDownLogs) {
-                        Equipment equipment = equipmentDbList.stream().filter(equip -> {
-                            return breakDownLog.getEquipmentId() == equip.getEquipmentId();
-                        }).findFirst().get();
-                        //防止空指针
-                        if (equipment == null) {
-                            continue;
+                    if(!CollectionUtils.isEmpty(equipmentDbList) && equipmentDbList.size() >0){
+                        for (BreakDownLog breakDownLog : breakDownLogs) {
+                            Equipment equipment = equipmentDbList.stream().filter(equip -> {
+                                return breakDownLog.getEquipmentId() == equip.getEquipmentId();
+                            }).findFirst().get();
+                            //防止空指针
+                            if (equipment == null) {
+                                continue;
+                            }
+                            breakDownLog.setId(null);
+                            breakDownLog.setGenerationDataTime(strToDate(breakDownLog.getTime()));
+                            breakDownLog.setName(equipment.getName());
+                            breakDownLog.setRemoveData(strToDate(breakDownLog.getRemoveTime()));
+                            breakDownLog.setDeviceName(equipment.getDeviceName());
+                            breakDownLogList.add(breakDownLog);
                         }
-                        breakDownLog.setId(null);
-                        breakDownLog.setGenerationDataTime(strToDate(breakDownLog.getTime()));
-                        breakDownLog.setName(equipment.getName());
-                        breakDownLog.setRemoveData(strToDate(breakDownLog.getRemoveTime()));
-                        breakDownLog.setDeviceName(equipment.getDeviceName());
-                        breakDownLogList.add(breakDownLog);
+                        breakDownLogDao.insert(breakDownLogList);
                     }
-                    breakDownLogDao.insert(breakDownLogList);
                 }
             } else {
                 log.info("设备告警日志上报为空 Data:{} deviceName:{}", new Date(), deviceName);
             }
         }catch (Exception e){
             log.error("设备告警处理错误",e);
+        }finally {
+            if(jedis !=null){
+                jedis.close();
+            }
         }
 
     }
 
     private void handleDeviceInfo(JMessage jMessage) {
+        Jedis jedis=redisPoolUtil.getJedis();
         try {
             String deviceName = jMessage.getDeviceName();
             log.info("设备列表信息上报 deviceName:{}", deviceName);
             JSONObject jsonObject = JSONObject.parseObject(jMessage.getPayloadMsg());
             JSONObject dataJson = (JSONObject) jsonObject.get(Const.DATA);
+//            CACHEMAP.put(deviceName + "-DEVICEINFO", dataJson);
+            jedis.set("DEVICEINFO-"+deviceName,dataJson.toString());
+
             JSONArray stationsArray = (JSONArray) dataJson.get(DEVICE_STATION);
             JSONArray pccsArray = (JSONArray) dataJson.get(DEVICE_PCCS);
             JSONArray cubesArray = (JSONArray) dataJson.get(DEVICE_CUBES);
@@ -424,6 +451,10 @@ public class KCEssDeviceService {
             cabinMsgHanlder(deviceName, equipmentDbList, cabinsInfos);
         } catch (Exception e) {
             log.error("解析上报设备列表信息失败:{}", e);
+        }finally {
+            if(jedis != null){
+                jedis.close();
+            }
         }
     }
 

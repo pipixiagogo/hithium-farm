@@ -36,6 +36,7 @@ public class OperationLogService {
         if (!PagetLimitUtil.pageLimit(query, params)) {
             return ResHelper.pamIll();
         }
+        query.sortDesc("_id");
         BuguPageQuery.Page<OperationLog> operationLogPage = query.resultsWithPage();
         return ResHelper.success("", operationLogPage);
     }
