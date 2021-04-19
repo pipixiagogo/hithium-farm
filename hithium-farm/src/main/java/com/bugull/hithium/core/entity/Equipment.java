@@ -1,14 +1,21 @@
 package com.bugull.hithium.core.entity;
 
 import com.bugull.mongo.SimpleEntity;
+import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import lombok.Data;
 import lombok.ToString;
 
 @Data
 @Entity
-@ToString
+@EnsureIndex("{deviceName:1}")
 public class Equipment extends SimpleEntity {
+
+    private Boolean isHasData=false;
+    /**
+     * 数据类型
+     */
+    private String dataType;
 
     private Integer pccId;
     private Integer cubeId;

@@ -3,6 +3,10 @@ package com.bugull.hithium.core.common;
 
 public class Const {
 
+
+    public static final String DISCHARGECAPACITYSUM="DISCHARGE-CAPACITY-SUM-";
+    public static final String CHARGECAPACITYSUM="CHARGE-CAPACITY-SUM-";
+
     /**
      * 科创储能上报数据 key
      */

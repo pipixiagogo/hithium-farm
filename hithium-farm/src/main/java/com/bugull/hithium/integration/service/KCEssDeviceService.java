@@ -24,6 +24,7 @@ import redis.clients.jedis.Jedis;
 
 import javax.annotation.Resource;
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -54,19 +55,14 @@ public class KCEssDeviceService {
 
     @Resource
     private PccsDao pccsDao;
-
     @Resource
     private CubeDao cubeDao;
-
     @Resource
     private CabinDao cabinDao;
-
     @Resource
     private EquipmentDao equipmentDao;
-
     @Resource
     private DeviceDao deviceDao;
-
     @Resource
     private AmmeterDataDicDao ammeterDataDicDao;
     @Resource
@@ -130,22 +126,21 @@ public class KCEssDeviceService {
             JSONObject datajson = (JSONObject) jsonObject.get(Const.DATA);
             List<Equipment> equipmentList = equipmentDao.query().is("deviceName", deviceName).results();
             if (equipmentList != null && equipmentList.size() > 0) {
-//                CACHEMAP.put(deviceName + "-REALDATA", datajson);
-                jedis.set("REALDATA-"+deviceName,datajson.toString());
-                resolvingRealDataTime(datajson, equipmentList);
+                jedis.set("REALDATA-" + deviceName, datajson.toString());
+                resolvingRealDataTime(datajson, equipmentList, deviceName);
             } else {
                 log.info("设备上报实时数据未查到对应设备:{}", deviceName);
             }
         } catch (Exception e) {
-            log.error("设备上报实时数据格式错误,丢弃:{}",jMessage.getPayloadMsg());
-        }finally {
-            if(jedis != null){
+            log.error("设备上报实时数据格式错误,丢弃:{}", jMessage.getPayloadMsg());
+        } finally {
+            if (jedis != null) {
                 jedis.close();
             }
         }
     }
 
-    private void resolvingRealDataTime(JSONObject datajson, List<Equipment> equipmentList) {
+    private void resolvingRealDataTime(JSONObject datajson, List<Equipment> equipmentList, String deviceName) {
         for (Map.Entry<String, Object> entry : REAL_TIME_DATA_TYPE.entrySet()) {
             JSONObject bodyJSONObject = datajson.getJSONObject(entry.getKey());
             if (bodyJSONObject != null) {
@@ -201,7 +196,7 @@ public class KCEssDeviceService {
 
     private void handleFireControlData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         FireControlDataDic fireControlDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if(fireControlDataDic != null){
+        if (fireControlDataDic != null) {
             fireControlDataDic.setName(equipment.getName());
             fireControlDataDic.setDeviceName(equipment.getDeviceName());
             fireControlDataDic.setGenerationDataTime(strToDate(fireControlDataDic.getTime()));
@@ -211,7 +206,7 @@ public class KCEssDeviceService {
 
     private void handleAirConditionData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         AirConditionDataDic airConditionDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if(airConditionDataDic != null){
+        if (airConditionDataDic != null) {
             airConditionDataDic.setName(equipment.getName());
             airConditionDataDic.setDeviceName(equipment.getDeviceName());
             airConditionDataDic.setGenerationDataTime(strToDate(airConditionDataDic.getTime()));
@@ -221,7 +216,7 @@ public class KCEssDeviceService {
 
     private void handleBcuData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         BcuDataDicBCU bcuDataDicBCU = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if(bcuDataDicBCU!= null){
+        if (bcuDataDicBCU != null) {
             bcuDataDicBCU.setName(equipment.getName());
             bcuDataDicBCU.setDeviceName(equipment.getDeviceName());
             bcuDataDicBCU.setGenerationDataTime(strToDate(bcuDataDicBCU.getTime()));
@@ -231,7 +226,7 @@ public class KCEssDeviceService {
 
     private void handleAmmeterData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         AmmeterDataDic ammeterDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if(ammeterDataDic != null){
+        if (ammeterDataDic != null) {
             ammeterDataDic.setDeviceName(equipment.getDeviceName());
             ammeterDataDic.setName(equipment.getName());
             ammeterDataDic.setGenerationDataTime(strToDate(ammeterDataDic.getTime()));
@@ -241,7 +236,7 @@ public class KCEssDeviceService {
 
     private void handleTemperatureData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         TemperatureMeterDataDic temperatureMeterDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if(temperatureMeterDataDic!=null){
+        if (temperatureMeterDataDic != null) {
             temperatureMeterDataDic.setName(equipment.getName());
             temperatureMeterDataDic.setDeviceName(equipment.getDeviceName());
             temperatureMeterDataDic.setGenerationDataTime(strToDate(temperatureMeterDataDic.getTime()));
@@ -251,7 +246,7 @@ public class KCEssDeviceService {
 
     private void handleBmsCellVolData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         BmsCellVoltDataDic bmsCellVoltDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if(bmsCellVoltDataDic != null){
+        if (bmsCellVoltDataDic != null) {
             bmsCellVoltDataDic.setName(equipment.getName());
             bmsCellVoltDataDic.setDeviceName(equipment.getDeviceName());
             bmsCellVoltDataDic.setVolMap(getListOfTempAndVol(jsonObject, "Vol"));
@@ -262,17 +257,35 @@ public class KCEssDeviceService {
 
     private void handleBamsData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         BamsDataDicBA bamsDataDicBA = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if(bamsDataDicBA != null){
+        if (bamsDataDicBA != null) {
             bamsDataDicBA.setDeviceName(equipment.getDeviceName());
             bamsDataDicBA.setName(equipment.getName());
             bamsDataDicBA.setGenerationDataTime(strToDate(bamsDataDicBA.getTime()));
             bamsDataDicBADao.insert(bamsDataDicBA);
         }
+        Jedis jedis = null;
+        try {
+            jedis = redisPoolUtil.getJedis();
+            /**
+             * 单台总放电量
+             */
+            String dischargeCapacitySum = bamsDataDicBA.getDischargeCapacitySum();
+            jedis.set(DISCHARGECAPACITYSUM + equipment.getDeviceName(), dischargeCapacitySum);
+            /**
+             * 总充电量
+             */
+            String chargeCapacitySum = bamsDataDicBA.getChargeCapacitySum();
+            jedis.set(CHARGECAPACITYSUM + equipment.getDeviceName(), chargeCapacitySum);
+        } finally {
+            if (jedis != null) {
+                jedis.close();
+            }
+        }
     }
 
     private void handleBmsCellTempData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         BmsCellTempDataDic tempDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if(tempDataDic != null){
+        if (tempDataDic != null) {
             tempDataDic.setName(equipment.getName());
             tempDataDic.setDeviceName(equipment.getDeviceName());
             tempDataDic.setTempMap(getListOfTempAndVol(jsonObject, "Temp"));
@@ -283,7 +296,7 @@ public class KCEssDeviceService {
 
     private void handlePcsChannelData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         PcsChannelDic pcsChannelDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if(pcsChannelDic != null){
+        if (pcsChannelDic != null) {
             pcsChannelDic.setName(equipment.getName());
             pcsChannelDic.setDeviceName(equipment.getDeviceName());
             pcsChannelDic.setGenerationDataTime(strToDate(pcsChannelDic.getTime()));
@@ -293,7 +306,7 @@ public class KCEssDeviceService {
 
     private void handlePcsData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         PcsCabinetDic pcsCabinetDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if(pcsCabinetDic != null){
+        if (pcsCabinetDic != null) {
             pcsCabinetDic.setName(equipment.getName());
             pcsCabinetDic.setGenerationDataTime(strToDate(pcsCabinetDic.getTime()));
             pcsCabinetDic.setDeviceName(equipment.getDeviceName());
@@ -303,7 +316,7 @@ public class KCEssDeviceService {
 
     private void handleUpsPowerData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         UpsPowerDataDic upsPowerDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if(upsPowerDataDic != null){
+        if (upsPowerDataDic != null) {
             upsPowerDataDic.setName(equipment.getName());
             upsPowerDataDic.setDeviceName(equipment.getDeviceName());
             upsPowerDataDic.setGenerationDataTime(strToDate(upsPowerDataDic.getTime()));
@@ -360,13 +373,12 @@ public class KCEssDeviceService {
             if (!StringUtils.isEmpty(messagePayloadMsg)) {
                 JSONObject jsonObject = JSONObject.parseObject(jMessage.getPayloadMsg());
                 JSONArray dataArray = (JSONArray) jsonObject.get(Const.DATA);
-//                CACHEMAP.put(deviceName + "-BREAKDOWNLOG", dataArray);
                 List<BreakDownLog> breakDownLogs = JSONArray.parseArray(dataArray.toJSONString(), BreakDownLog.class);
                 if (breakDownLogs != null && breakDownLogs.size() > 0) {
-                    jedis.set("BREAKDOWNLOG-"+deviceName,dataArray.toString());
+                    jedis.set("BREAKDOWNLOG-" + deviceName, dataArray.toString());
                     List<Equipment> equipmentDbList = equipmentDao.query().is("deviceName", deviceName).results();
                     List<BreakDownLog> breakDownLogList = new ArrayList<>();
-                    if(!CollectionUtils.isEmpty(equipmentDbList) && equipmentDbList.size() >0){
+                    if (!CollectionUtils.isEmpty(equipmentDbList) && equipmentDbList.size() > 0) {
                         for (BreakDownLog breakDownLog : breakDownLogs) {
                             Equipment equipment = equipmentDbList.stream().filter(equip -> {
                                 return breakDownLog.getEquipmentId() == equip.getEquipmentId();
@@ -388,10 +400,10 @@ public class KCEssDeviceService {
             } else {
                 log.info("设备告警日志上报为空 Data:{} deviceName:{}", new Date(), deviceName);
             }
-        }catch (Exception e){
-            log.error("设备告警处理错误",e);
-        }finally {
-            if(jedis !=null){
+        } catch (Exception e) {
+            log.error("设备告警处理错误", e);
+        } finally {
+            if (jedis != null) {
                 jedis.close();
             }
         }
@@ -399,14 +411,13 @@ public class KCEssDeviceService {
     }
 
     private void handleDeviceInfo(JMessage jMessage) {
-        Jedis jedis=redisPoolUtil.getJedis();
+        Jedis jedis = redisPoolUtil.getJedis();
         try {
             String deviceName = jMessage.getDeviceName();
             log.info("设备列表信息上报 deviceName:{}", deviceName);
             JSONObject jsonObject = JSONObject.parseObject(jMessage.getPayloadMsg());
             JSONObject dataJson = (JSONObject) jsonObject.get(Const.DATA);
-//            CACHEMAP.put(deviceName + "-DEVICEINFO", dataJson);
-            jedis.set("DEVICEINFO-"+deviceName,dataJson.toString());
+            jedis.set("DEVICEINFO-" + deviceName, dataJson.toString());
 
             JSONArray stationsArray = (JSONArray) dataJson.get(DEVICE_STATION);
             JSONArray pccsArray = (JSONArray) dataJson.get(DEVICE_PCCS);
@@ -419,7 +430,7 @@ public class KCEssDeviceService {
             List<CabinsInfo> cabinsInfos = JSONArray.parseArray(cabinsArray.toJSONString(), CabinsInfo.class);
             List<EquipmentInfo> equipmentInfos = JSONArray.parseArray(equipmentsArray.toJSONString(), EquipmentInfo.class);
             List<Equipment> equipmentList;
-            if(equipmentInfos != null && equipmentInfos.size()>0){
+            if (equipmentInfos != null && equipmentInfos.size() > 0) {
                 equipmentList = equipmentInfos.stream().map(equipmentInfo -> {
                     Equipment equipment = new Equipment();
                     BeanUtils.copyProperties(equipmentInfo, equipment, Const.IGNORE_ID);
@@ -427,7 +438,7 @@ public class KCEssDeviceService {
                     equipment.setDeviceName(deviceName);
                     return equipment;
                 }).collect(Collectors.toList());
-            }else {
+            } else {
                 return;
             }
 
@@ -451,8 +462,8 @@ public class KCEssDeviceService {
             cabinMsgHanlder(deviceName, equipmentDbList, cabinsInfos);
         } catch (Exception e) {
             log.error("解析上报设备列表信息失败:{}", e);
-        }finally {
-            if(jedis != null){
+        } finally {
+            if (jedis != null) {
                 jedis.close();
             }
         }
@@ -501,8 +512,8 @@ public class KCEssDeviceService {
                     .is("cabinId", cabin.getCabinId());
             if (query.exists()) {
                 cabinDao.update().set("equipmentIds", cabin.getEquipmentIds())
-                        .set("cabinType",cabin.getCabinType())
-                        .set("name",cabin.getName())
+                        .set("cabinType", cabin.getCabinType())
+                        .set("name", cabin.getName())
                         .execute(query);
             } else {
                 cabinDao.insert(cabinList);
@@ -532,17 +543,17 @@ public class KCEssDeviceService {
                     .is("pccId", cube.getPccId()).is("cubeId", cube.getCubeId());
             if (query.exists()) {
                 cubeDao.update().set("equipmentIds", cube.getEquipmentIds())
-                        .set("batteryType",cube.getBatteryType())
-                        .set("batteryLevel",cube.getBatteryLevel())
-                        .set("batteryChargeDischargeRate",cube.getBatteryChargeDischargeRate())
-                        .set("cubeModel",cube.getCubeModel())
-                        .set("cubeCapacity",cube.getCubeCapacity())
-                        .set("cubePower",cube.getCubePower())
-                        .set("batteryManufacturer",cube.getBatteryManufacturer())
-                        .set("cellCapacity",cube.getCellCapacity())
-                        .set("coolingMode",cube.getCoolingMode())
-                        .set("name",cube.getName())
-                        .set("description",cube.getDescription())
+                        .set("batteryType", cube.getBatteryType())
+                        .set("batteryLevel", cube.getBatteryLevel())
+                        .set("batteryChargeDischargeRate", cube.getBatteryChargeDischargeRate())
+                        .set("cubeModel", cube.getCubeModel())
+                        .set("cubeCapacity", cube.getCubeCapacity())
+                        .set("cubePower", cube.getCubePower())
+                        .set("batteryManufacturer", cube.getBatteryManufacturer())
+                        .set("cellCapacity", cube.getCellCapacity())
+                        .set("coolingMode", cube.getCoolingMode())
+                        .set("name", cube.getName())
+                        .set("description", cube.getDescription())
                         .execute(query);
             } else {
                 cubeDao.insert(cube);
@@ -584,8 +595,8 @@ public class KCEssDeviceService {
                     .is("pccsId", pccs.getPccsId()).result();
             if (pccs1 != null) {
                 pccsDao.update().set("equipmentIds", pccs.getEquipmentIds())
-                        .set("name",pccs.getName())
-                        .set("description",pccs.getDescription())
+                        .set("name", pccs.getName())
+                        .set("description", pccs.getDescription())
                         .execute(pccs1);
             } else {
                 pccsDao.insert(pccs);
@@ -595,28 +606,29 @@ public class KCEssDeviceService {
             return pccs.getId();
         }).collect(Collectors.toList());
         device.setPccsIds(pccIds);
+        device.setAccessTime(new Date());
         if (deviceDao.query().is("deviceName", deviceName)
                 .is("stationId", device.getStationId()).exists()) {
             deviceDao.update().set("equipmentIds", device.getEquipmentIds())
-                    .set("name",device.getName())
-                    .set("description",device.getDescription())
-                    .set("stationCapacity",device.getStationCapacity())
-                    .set("stationPower",device.getStationPower())
-                    .set("province",device.getProvince())
-                    .set("city",device.getCity())
-                    .set("longitude",device.getLongitude())
-                    .set("latitude",device.getLatitude())
-                    .set("applicationScenarios",device.getApplicationScenarios())
-                    .set("applicationScenariosItem",device.getApplicationScenariosItem())
+                    .set("name", device.getName())
+                    .set("description", device.getDescription())
+                    .set("stationCapacity", device.getStationCapacity())
+                    .set("stationPower", device.getStationPower())
+                    .set("province", device.getProvince())
+                    .set("city", device.getCity())
+                    .set("longitude", device.getLongitude())
+                    .set("latitude", device.getLatitude())
+                    .set("applicationScenarios", device.getApplicationScenarios())
+                    .set("applicationScenariosItem", device.getApplicationScenariosItem())
                     .execute(deviceDao.query().is("deviceName", deviceName)
-                    .is("stationId", device.getStationId()));
+                            .is("stationId", device.getStationId()));
         } else {
             deviceDao.insert(device);
         }
     }
 
     private void updateDeviceList(List<Equipment> equipmentList, String deviceName) {
-        if(CollectionUtils.isEmpty(equipmentList)){
+        if (CollectionUtils.isEmpty(equipmentList)) {
             return;
         }
         /**

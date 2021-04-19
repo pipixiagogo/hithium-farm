@@ -1,9 +1,11 @@
 package com.bugull.hithium.core.entity;
 
 import com.bugull.mongo.SimpleEntity;
+import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import lombok.Data;
 
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -11,6 +13,7 @@ import java.util.List;
  */
 @Entity
 @Data
+@EnsureIndex("{deviceName:1}")
 public class Device extends SimpleEntity {
 
     //设备唯一名称
@@ -48,6 +51,8 @@ public class Device extends SimpleEntity {
     private List<String> pccsIds;
 
     private List<String> equipmentIds;
+
+    private Date accessTime;
 
 
 }
