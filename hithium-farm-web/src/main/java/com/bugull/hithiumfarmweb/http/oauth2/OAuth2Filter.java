@@ -25,6 +25,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+import static org.aspectj.lang.reflect.DeclareAnnotation.Kind.Type;
+
 /**
  * oauth2过滤器
  *调用接口时，接受传过来的token后，保证token有效及用户权限呢
@@ -58,9 +60,10 @@ public class OAuth2Filter extends AuthenticatingFilter {
         String token = getRequestToken((HttpServletRequest) request);
         if (StringUtils.isBlank(token)) {
             HttpServletResponse httpResponse = (HttpServletResponse) response;
+            httpResponse.setContentType("application/json;charset=utf-8");
             httpResponse.setHeader("Access-Control-Allow-Credentials", "true");
             httpResponse.setHeader("Access-Control-Allow-Origin", HttpContextUtils.getOrigin());
-            String json = new Gson().toJson(ResHelper.error(HttpStatus.UNAUTHORIZED.value(), "invalid token"));
+            String json = new Gson().toJson(ResHelper.error(HttpStatus.UNAUTHORIZED.value(), "无效token,请重新登录"));
             httpResponse.getWriter().print(json);
             return false;
         }

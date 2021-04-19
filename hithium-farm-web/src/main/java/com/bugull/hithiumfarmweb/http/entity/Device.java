@@ -4,6 +4,7 @@ import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.Entity;
 import lombok.Data;
 
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -48,6 +49,8 @@ public class Device extends SimpleEntity {
     private List<String> pccsIds;
 
     private List<String> equipmentIds;
+
+    private Date accessTime;
 
 
 }

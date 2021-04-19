@@ -30,7 +30,7 @@ public class EquipmentController extends AbstractController{
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1",name = "page", value = "当前页码",paramType = "query",required = true,dataType = "int",dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10",name = "pageSize", value = "每页记录数",paramType = "query",required = true,dataType = "int",dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true,paramType = "query",value = "设备名称",dataType = "String",dataTypeClass = String.class)})
+            @ApiImplicitParam(name = "deviceName", required = false,paramType = "query",value = "设备码  唯一标识",dataType = "String",dataTypeClass = String.class)})
     public ResHelper<BuguPageQuery.Page<Equipment>> queryEquipment(@ApiIgnore @RequestParam Map<String, Object> params) {
         return equipmentService.queryEquipment(params);
     }

@@ -32,6 +32,7 @@ public class UpsPowerDataDic extends SimpleEntity {
      * BattVoltage	String	电池电压	精度0.1V
      * ShortVoltageV	String	短路电压	精度0.1V
      */
+
     private String name;//设备名称
     private Date generationDataTime;
     @Ignore

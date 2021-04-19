@@ -16,8 +16,10 @@ import org.apache.shiro.authz.SimpleAuthorizationInfo;
 import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.subject.PrincipalCollection;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Resource;
 import java.util.Set;
 
 /**
@@ -26,7 +28,8 @@ import java.util.Set;
  */
 @Component
 public class OAuth2Realm extends AuthorizingRealm {
-    @Autowired
+    @Resource
+    @Lazy
     private ShiroService shiroService;
 
     @Override
@@ -61,10 +64,10 @@ public class OAuth2Realm extends AuthorizingRealm {
         User tokenEntity = shiroService.queryByToken(accessToken);
         //token失效
         if (tokenEntity == null ){
-           throw new IncorrectCredentialsException("无效token");
+           throw new IncorrectCredentialsException("无效token,请重新登录");
         }
         if(tokenEntity.getTokenExpireTime().getTime() < System.currentTimeMillis()) {
-            throw new IncorrectCredentialsException("token过期，请重新登录");
+            throw new IncorrectCredentialsException("token过期,请重新登录");
         }
         SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(tokenEntity, accessToken, getName());
         return info;

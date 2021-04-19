@@ -1,5 +1,7 @@
 package com.bugull.hithiumfarmweb.http.controller.pub;
 
+import com.bugull.hithiumfarmweb.common.validator.ValidatorUtils;
+import com.bugull.hithiumfarmweb.common.validator.group.UpdateGroup;
 import com.bugull.hithiumfarmweb.http.bo.LoginFormBo;
 import com.bugull.hithiumfarmweb.http.bo.UpdateUserBo;
 import com.bugull.hithiumfarmweb.http.controller.pri.AbstractController;
@@ -13,6 +15,8 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.io.IOUtils;
+import org.omg.CORBA.TRANSACTION_MODE;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import springfox.documentation.annotations.ApiIgnore;
 
@@ -38,11 +42,10 @@ public class LoginController{
 
     @ApiOperation("获取验证码")
     @GetMapping("captcha.jpg")
-    @ApiImplicitParam(name = "uuid", value = "UUID随机码", required = true)
+    @ApiImplicitParam(name = "uuid", value = "UUID随机码 保证每次请求唯一", required = true)
     public void captcha(HttpServletResponse response, @RequestParam(name = "uuid",required = true) String uuid ) throws IOException {
         response.setHeader("Cache-Control", "no-store, no-cache");
         response.setContentType("image/jpeg");
-
         //获取图片验证码
         BufferedImage image = captchaService.getCaptcha(uuid);
 
@@ -55,7 +58,11 @@ public class LoginController{
     @PostMapping("login")
     @ApiImplicitParam(name = "loginFormBo", value = "登录接口", required = true, paramType = "body", dataTypeClass = LoginFormBo.class, dataType = "LoginFormBo")
     public ResHelper<LoginVo> login(@RequestBody LoginFormBo loginFormBo) {
+        ValidatorUtils.validateEntity(loginFormBo, UpdateGroup.class);
         Captcha captcha = captchaService.validaCaptcha(loginFormBo.getUuid());
+        if(captcha== null){
+            return ResHelper.error("登录失败,验证码错误");
+        }
         if (captcha != null && !captcha.getCode().equalsIgnoreCase(loginFormBo.getCaptcha())) {
             return ResHelper.error("登录失败,验证码错误");
         }

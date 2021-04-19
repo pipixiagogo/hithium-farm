@@ -6,6 +6,7 @@ import com.bugull.hithiumfarmweb.http.service.MenuService;
 import com.bugull.hithiumfarmweb.http.service.ShiroService;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import io.swagger.annotations.ApiOperation;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -27,6 +28,7 @@ public class MenuController extends AbstractController {
     @Resource
     private MenuService menuService;
     @Resource
+    @Lazy
     private ShiroService shiroService;
 
     @ApiOperation(value = "查询菜单列表", response = ResHelper.class)

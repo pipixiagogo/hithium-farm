@@ -7,6 +7,7 @@ import com.bugull.hithiumfarmweb.http.entity.Equipment;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import java.util.Map;
@@ -24,10 +25,14 @@ public class EquipmentService {
     public ResHelper<BuguPageQuery.Page<Equipment>> queryEquipment(Map<String, Object> params) {
 
         BuguPageQuery<Equipment> query = (BuguPageQuery<Equipment>) equipmentDao.pageQuery();
+        String deviceName=(String) params.get("deviceName");
+        if(!StringUtils.isEmpty(deviceName)){
+            query.is("deviceName",deviceName);
+        }
+        query.is("enabled",true);
         if(!PagetLimitUtil.pageLimit(query, params)){
             return ResHelper.pamIll();
         }
-        query.sortDesc("_id");
         BuguPageQuery.Page<Equipment> results = query.resultsWithPage();
         return ResHelper.success("", results);
     }

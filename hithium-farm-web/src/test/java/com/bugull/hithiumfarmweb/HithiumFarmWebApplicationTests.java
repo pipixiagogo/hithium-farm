@@ -5,6 +5,8 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.bugull.hithiumfarmweb.enumerate.DataType;
 import com.bugull.hithiumfarmweb.utils.UUIDUtil;
+import com.bugull.mongo.BuguConnection;
+import com.bugull.mongo.BuguFramework;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.shiro.crypto.hash.Sha256Hash;
 import org.junit.Test;
@@ -20,11 +22,11 @@ public class HithiumFarmWebApplicationTests {
         System.out.println(salt);
         System.out.println(s);
     }
+
     @Test
-    public void createUUID(){
+    public void createUUID() {
         String str = UUIDUtil.get32Str();
         System.out.println(str);
-
 //        JSONObject jsonObject = new JSONObject();
 //        jsonObject.put("DATATYPE", "REAL_TIME_DATA");
 //        jsonObject.put("PROJECTTYPE", "KC_ESS");
@@ -36,7 +38,7 @@ public class HithiumFarmWebApplicationTests {
     }
 
     @Test
-    public void createDeviceInfo(){
+    public void createDeviceInfo() {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("DATATYPE", DataType.DEVICE_LIST_DATA);
         jsonObject.put("PROJECTTYPE", "KC_ESS");
@@ -49,7 +51,7 @@ public class HithiumFarmWebApplicationTests {
     }
 
     @Test
-    public void testBreakDownLog(){
+    public void testBreakDownLog() {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("DATATYPE", DataType.BREAKDOWNLOG_DATA);
         jsonObject.put("PROJECTTYPE", "KC_ESS");
@@ -59,10 +61,17 @@ public class HithiumFarmWebApplicationTests {
         JSONObject jsonObject2 = new JSONObject();
 
         jsonObject1.add(jsonObject2);
-        for(int i=10;i<20;i++){
-            jsonObject2.put("pipi"+i,"xia"+i);
+        for (int i = 10; i < 20; i++) {
+            jsonObject2.put("pipi" + i, "xia" + i);
         }
         System.out.println(jsonObject);
+    }
+
+    @Test
+    public void testEquipment(){
+       int i=54;
+        System.out.println(i<54);
+
     }
 
 }

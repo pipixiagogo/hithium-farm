@@ -45,6 +45,7 @@ public class User implements BuguEntity {
     private String mobile;
     @NotBlank(message="邮箱不能为空", groups = { UpdateGroup.class, AddGroup.class})
     @Email(message="邮箱格式不正确", groups = { UpdateGroup.class,AddGroup.class})
+    @ApiModelProperty(name = "email",value = "邮箱")
     private String email;
 
     /**
@@ -58,7 +59,7 @@ public class User implements BuguEntity {
     private Date createTime;
     @ApiModelProperty(hidden = true)
     private Date tokenExpireTime;
-    @ApiModelProperty(name ="权限ID列表,可不传 代表无任何权限")
+    @ApiModelProperty(name ="roleIds",value = "权限ID列表,可不传 代表无任何权限")
     private List<String> roleIds;
 
     /**
@@ -69,7 +70,7 @@ public class User implements BuguEntity {
     /**
      * 刷新token过期时间
      */
-    @ApiModelProperty
+    @ApiModelProperty(hidden = true)
     private Date refreshTokenExpireTime;
 
 

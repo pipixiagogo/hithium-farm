@@ -3,6 +3,7 @@ package com.bugull.hithiumfarmweb.utils;
 
 import com.bugull.hithiumfarmweb.common.Const;
 import com.bugull.mongo.utils.StringUtil;
+import io.swagger.annotations.ApiModelProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,10 +21,13 @@ public class ResHelper<T> {
     public static final int ERROR = 0;
     //1:成功
     //0：失败
+    @ApiModelProperty(value = "1:成功 0:失败")
     private int code;
 
+    @ApiModelProperty(value = "异常信息")
     private String msg;
 
+    @ApiModelProperty(value = "数据内容")
     private T data;
 
     private boolean success;

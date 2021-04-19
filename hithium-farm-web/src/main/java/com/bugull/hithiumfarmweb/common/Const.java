@@ -11,8 +11,17 @@ import java.util.concurrent.ConcurrentHashMap;
  * 常量类
  */
 public class Const {
+    /**
+     * 充放电电量
+     */
+    public static final String DISCHARGECAPACITYSUM="DISCHARGE-CAPACITY-SUM-";
+    public static final String CHARGECAPACITYSUM="CHARGE-CAPACITY-SUM-";
 
-    public static ConcurrentHashMap<String,Object> CACHEMAP=new ConcurrentHashMap<>();
+    public static final String MONTH ="MONTH";
+    public static final String QUARTER ="QUARTER";
+    public static final int MAX_YEAR = 2200;
+    public static final int MIN_YEAR = 2000;
+    public static final String RESET_PWD="123456";
     /**
      * 科创实时数据类型
      */

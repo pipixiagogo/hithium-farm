@@ -53,7 +53,6 @@ public class CaptchaService {
 
     public Captcha validaCaptcha( String uuid) {
         Captcha captchaEntity = captchaDao.query().is("uuid", uuid).result();
-
         captchaDao.remove(captchaDao.query().lessThan("expireTime",new Date()).pageNumber(20).pageSize(1));
         return captchaEntity;
     }

@@ -3,6 +3,7 @@ package com.bugull.hithiumfarmweb.http.controller.pri;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.http.bo.BamsLatestBo;
 import com.bugull.hithiumfarmweb.http.bo.BcuDataBo;
+import com.bugull.hithiumfarmweb.http.bo.BmsCellDataBo;
 import com.bugull.hithiumfarmweb.http.bo.BmsTempMsgBo;
 import com.bugull.hithiumfarmweb.http.entity.*;
 import com.bugull.hithiumfarmweb.http.service.RealTimeDataService;
@@ -37,7 +38,7 @@ public class RealTimeDataController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
     })
@@ -50,7 +51,7 @@ public class RealTimeDataController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
     })
@@ -63,7 +64,7 @@ public class RealTimeDataController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
     })
@@ -76,7 +77,7 @@ public class RealTimeDataController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
     })
@@ -89,7 +90,7 @@ public class RealTimeDataController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
     })
@@ -102,7 +103,7 @@ public class RealTimeDataController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
     })
@@ -115,7 +116,7 @@ public class RealTimeDataController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
     })
@@ -128,7 +129,7 @@ public class RealTimeDataController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
     })
@@ -141,7 +142,7 @@ public class RealTimeDataController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
     })
@@ -154,7 +155,7 @@ public class RealTimeDataController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
     })
@@ -167,7 +168,7 @@ public class RealTimeDataController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
     })
@@ -180,10 +181,10 @@ public class RealTimeDataController extends AbstractController {
      */
     @ApiOperation(value = "BMS最近一次 温度 湿度")
     @RequestMapping(value = "/bmsTempMsg", method = RequestMethod.GET)
-    @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class)
-    public ResHelper<List<BmsTempMsgBo>> bmsTempMsg(@ApiIgnore @RequestParam(value = "deviceName", required = true) String deviceName) {
+    @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class)
+    public ResHelper<List<BmsTempMsgBo>> bmsTempMsg(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
         if (StringUtils.isEmpty(deviceName)) {
-            return ResHelper.error("设备名称不能为空");
+            return ResHelper.pamIll();
         }
         return realTimeDataService.bmsTempMsg(deviceName);
     }
@@ -193,10 +194,10 @@ public class RealTimeDataController extends AbstractController {
      */
     @ApiOperation(value = "BAMS最新一条数据更新充放电电量")
     @RequestMapping(value = "/bamsLatestData", method = RequestMethod.GET)
-    @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class)
-    public ResHelper<BamsLatestBo> bamsLatestData(@ApiIgnore @RequestParam(value = "deviceName", required = true) String deviceName) {
+    @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class)
+    public ResHelper<BamsLatestBo> bamsLatestData(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
         if (StringUtils.isEmpty(deviceName)) {
-            return ResHelper.error("设备名称不能为空");
+            return ResHelper.pamIll();
         }
         return realTimeDataService.bamsLatestData(deviceName);
     }
@@ -206,14 +207,43 @@ public class RealTimeDataController extends AbstractController {
      */
     @ApiOperation(value = "集装箱电池簇状态查询")
     @RequestMapping(value = "/bcuDataqueryByName", method = RequestMethod.GET)
-    @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备名称唯一标识"),
-            @ApiImplicitParam(name = "name", required = true, paramType = "query", value = "电池簇名称")}
+    @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识"),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID")}
     )
-    public ResHelper<BcuDataBo> bcuDataqueryByName(@ApiIgnore @RequestParam(value = "deviceName", required = true) String deviceName,
-                                                   @ApiIgnore @RequestParam(value = "name", required = true) String name) {
+    public ResHelper<BcuDataBo> bcuDataqueryByName(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName,
+                                                   @ApiIgnore @RequestParam(value = "equipmentId", required = false) Integer equipmentId) {
+        if(StringUtils.isEmpty(deviceName) || equipmentId == null){
+            return ResHelper.pamIll();
+        }
 
-        return realTimeDataService.bcuDataqueryByName(deviceName, name);
+        return realTimeDataService.bcuDataqueryByName(deviceName, equipmentId);
     }
 
+    /**
+     * 根据电池簇获取对应 电池电压 跟温度信息
+     */
+    @ApiOperation(value = "集装箱电池簇对应电池详细信息查询")
+    @RequestMapping(value = "/bmscellDataQuery", method = RequestMethod.GET)
+    @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识"),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID")}
+    )
+    public ResHelper<List<BmsCellDataBo>> bmscellDataQuery(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName,
+                                                           @ApiIgnore @RequestParam(value = "equipmentId", required = false) Integer equipmentId) {
+        if(StringUtils.isEmpty(deviceName) ||equipmentId==null){
+            return ResHelper.pamIll();
+        }
+        return realTimeDataService.bmscellDataQuery(deviceName,equipmentId);
+    }
 
+    @ApiOperation(value = "集装箱信息设备查询")
+    @RequestMapping(value = "/stationInformationQuery",method = RequestMethod.GET)
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备码  唯一标识"),
+            @ApiImplicitParam(name = "equipmentId", required = true, paramType = "query", value = "设备ID")
+    })
+    public ResHelper<Object> stationInformationQuery(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName,
+                                                     @ApiIgnore @RequestParam(value = "equipmentId", required = false) Integer equipmentId){
+
+        return realTimeDataService.stationInformationQuery(deviceName,equipmentId);
+    }
 }

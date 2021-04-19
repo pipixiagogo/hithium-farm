@@ -5,7 +5,6 @@ import com.bugull.hithiumfarmweb.http.bo.RoleEntityBo;
 import com.bugull.hithiumfarmweb.http.dao.MenuEntityDao;
 import com.bugull.hithiumfarmweb.http.dao.RoleEntityDao;
 import com.bugull.hithiumfarmweb.http.dao.UserDao;
-import com.bugull.hithiumfarmweb.http.entity.MenuEntity;
 import com.bugull.hithiumfarmweb.http.entity.RoleEntity;
 import com.bugull.hithiumfarmweb.http.entity.User;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
@@ -51,6 +50,9 @@ public class RoleService {
     }
 
     public ResHelper<Void> saveRole(RoleEntityBo roleEntityBo) {
+        if(roleEntityDao.query().is("roleName",roleEntityBo.getRoleName()).exists()){
+            return ResHelper.error("角色名称已存在");
+        }
         roleEntityBo.setCreateTime(new Date());
         RoleEntity roleEntity = new RoleEntity();
         BeanUtils.copyProperties(roleEntityBo, roleEntity);

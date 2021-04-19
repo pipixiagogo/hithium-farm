@@ -1,2 +1,0 @@
-org.springframework.context.ApplicationContextInitializer=\
-com.bugull.hithiumfarmweb.config.MongodbInit

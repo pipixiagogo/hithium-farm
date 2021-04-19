@@ -30,10 +30,11 @@ public class EmsWebController {
      */
     @ApiOperation(value = "获取设备状态信息")
     @RequestMapping(method = RequestMethod.GET, value = "/GetEquipmentRealTimeData")
-    public JSONObject GetEquipmentRealTimeData(@RequestParam(value = "deviceName") String deviceName) {
+    public JSONObject GetEquipmentRealTimeData(@RequestParam(value = "deviceName",required = false) String deviceName) {
         Jedis jedis = redisPoolUtil.getJedis();
         try {
-            String realData = jedis.get("REALDATA" + deviceName);
+            String device="REALDATA-" + deviceName;
+            String realData = jedis.get(device);
             if (!StringUtils.isEmpty(realData)) {
                 JSONObject realDataJson = JSONObject.parseObject(realData);
                 if (realDataJson != null) {
@@ -48,7 +49,6 @@ public class EmsWebController {
                 jedis.close();
             }
         }
-
     }
 
     /**
@@ -56,10 +56,11 @@ public class EmsWebController {
      */
     @ApiOperation(value = "获取设备列表信息")
     @RequestMapping(method = RequestMethod.GET, value = "/GetAllEquipmentData")
-    public JSONObject GetAllEquipmentData(@RequestParam(value = "deviceName") String deviceName) {
+    public JSONObject GetAllEquipmentData(@RequestParam(value = "deviceName",required = false) String deviceName) {
         Jedis jedis = redisPoolUtil.getJedis();
         try {
-            String deviceInfoStr = jedis.get("DEVICEINFO-" + deviceName);
+            String device="DEVICEINFO-" + deviceName;
+            String deviceInfoStr = jedis.get(device);
             if (!StringUtils.isEmpty(deviceInfoStr)) {
                 JSONObject deviceInfoJson = JSONObject.parseObject(deviceInfoStr);
                 if (deviceInfoJson != null) {
@@ -84,7 +85,7 @@ public class EmsWebController {
      */
     @ApiOperation("获取告警日志信息")
     @RequestMapping(method = RequestMethod.GET, value = "/GetAlarmRealTimeData")
-    public JSONArray GetAlarmRealTimeData(@RequestParam(value = "deviceName") String deviceName) {
+    public JSONArray GetAlarmRealTimeData(@RequestParam(value = "deviceName",required = false) String deviceName) {
         Jedis jedis = redisPoolUtil.getJedis();
         try {
             String breakDownLogStr  = jedis.get("BREAKDOWNLOG-" + deviceName);

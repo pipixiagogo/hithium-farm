@@ -14,7 +14,6 @@ import com.bugull.hithiumfarmweb.http.oauth2.TokenGenerator;
 import com.bugull.hithiumfarmweb.http.vo.InfoUserVo;
 import com.bugull.hithiumfarmweb.http.vo.LoginVo;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
-import com.bugull.hithiumfarmweb.utils.PropertyUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import com.bugull.mongo.BuguUpdater;
 import org.apache.commons.lang.RandomStringUtils;
@@ -28,6 +27,8 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.bugull.hithiumfarmweb.common.Const.RESET_PWD;
 
 @Service
 public class UserService {
@@ -255,7 +256,7 @@ public class UserService {
             Date refreshTokenExpireTime = new Date(now.getTime() + 2 * propertiesConfig.getTokenExpireTime());
             users.forEach(userId->{
                 String salt = RandomStringUtils.randomAlphanumeric(20);
-                String resetPwd = new Sha256Hash("123456", salt).toHex();
+                String resetPwd = new Sha256Hash(RESET_PWD, salt).toHex();
                 userDao.update().set("salt",salt)
                         .set("password",resetPwd)
                         .set("token",TokenGenerator.generateValue())

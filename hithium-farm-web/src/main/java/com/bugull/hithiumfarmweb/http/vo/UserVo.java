@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.vo;
 
 import com.bugull.hithiumfarmweb.common.validator.group.UpdateGroup;
+import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 import javax.validation.constraints.Email;
@@ -9,7 +10,6 @@ import java.util.Date;
 
 @Data
 public class UserVo {
-
     private String userName;
     private String token;
     private Date createTime;

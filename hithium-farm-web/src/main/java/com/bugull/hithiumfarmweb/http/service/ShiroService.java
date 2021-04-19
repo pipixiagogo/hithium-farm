@@ -7,6 +7,7 @@ import com.bugull.hithiumfarmweb.http.entity.MenuEntity;
 import com.bugull.hithiumfarmweb.http.entity.RoleEntity;
 import com.bugull.hithiumfarmweb.http.entity.User;
 import org.apache.commons.lang.StringUtils;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -18,10 +19,13 @@ public class ShiroService {
 
 
     @Resource
+    @Lazy
     private UserDao userDao;
+    @Lazy
     @Resource
     private MenuEntityDao menuEntityDao;
     @Resource
+    @Lazy
     private RoleEntityDao roleEntityDao;
 
     public Set<String> getPermissions(User user) {
@@ -46,6 +50,9 @@ public class ShiroService {
                     List<MenuEntity> menus = menuEntityDao.query().in("_id", role.getMenuIdList()).results();
                     menuEntities.addAll(menus);
                 });
+                /**
+                 * 根据角色去重
+                 */
                 menuEntityList = menuEntities.stream().distinct().collect(Collectors.toList());
             }else {
                 /**
@@ -56,9 +63,7 @@ public class ShiroService {
 
         }
         Set<String> permsSet = new HashSet<>();
-        /**
-         * 根据角色去重
-         */
+
         if (menuEntityList.size() > 0 && menuEntityList != null) {
             for (MenuEntity perms : menuEntityList) {
                 if (StringUtils.isBlank(perms.getPerms())) {
