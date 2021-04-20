@@ -49,7 +49,6 @@ public class DeviceController extends AbstractController{
         return connetDeviceService.registerConnetDevice(connetBo);
     }
 
-    @RequiresPermissions(value = {"sys:user:delete","sys:user:delete123"},logical = Logical.OR)
     @RequestMapping(value = "/aggrationArea",method = RequestMethod.GET)
     @ApiOperation(value = "统计设备定位信息 地区+数量",httpMethod = "GET",response = ResHelper.class)
     public ResHelper<List<ProvinceVo>> aggrationArea(){

@@ -164,7 +164,6 @@ public class DeviceService {
 
                 });
                 equipmentBos.add(equipment);
-
                 List<Equipment> equips = equipmentDao.query().is("enabled",true).in("_id", pccs.getEquipmentIds())
                         .returnFields("name","equipmentId","_id").results();
                 equips.stream().forEach(ip -> {

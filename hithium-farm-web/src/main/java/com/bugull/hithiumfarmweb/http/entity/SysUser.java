@@ -26,7 +26,7 @@ import java.util.List;
 @ToString
 @ApiModel
 @Entity
-public class User implements BuguEntity {
+public class SysUser implements BuguEntity {
 
     @ApiModelProperty(hidden = true)
     @Id(type = IdType.AUTO_INCREASE,start = 1L)

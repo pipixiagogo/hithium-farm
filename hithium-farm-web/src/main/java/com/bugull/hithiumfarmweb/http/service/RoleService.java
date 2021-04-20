@@ -4,9 +4,9 @@ import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.http.bo.RoleEntityBo;
 import com.bugull.hithiumfarmweb.http.dao.MenuEntityDao;
 import com.bugull.hithiumfarmweb.http.dao.RoleEntityDao;
-import com.bugull.hithiumfarmweb.http.dao.UserDao;
+import com.bugull.hithiumfarmweb.http.dao.SysUserDao;
 import com.bugull.hithiumfarmweb.http.entity.RoleEntity;
-import com.bugull.hithiumfarmweb.http.entity.User;
+import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import com.bugull.mongo.BuguUpdater;
@@ -25,10 +25,10 @@ public class RoleService {
     @Resource
     private MenuEntityDao menuEntityDao;
     @Resource
-    private UserDao userDao;
+    private SysUserDao sysUserDao;
 
-    public ResHelper<List<RoleEntity>> select(User user) {
-        if (user.getUserName().equals("admin") && Integer.valueOf(user.getId()) == 1) {
+    public ResHelper<List<RoleEntity>> select(SysUser sysUser) {
+        if (Integer.valueOf(sysUser.getId()) == 1) {
             List<RoleEntity> results = roleEntityDao.query().results();
             return ResHelper.success("", results);
         }
@@ -39,7 +39,7 @@ public class RoleService {
         BuguPageQuery<RoleEntity> query = (BuguPageQuery<RoleEntity>) roleEntityDao.pageQuery();
         String roleName = (String) params.get("roleName");
         if (!StringUtils.isBlank(roleName)) {
-            query.is("roleName", roleName);
+            query.regexCaseInsensitive("roleName", roleName);
         }
         if (!PagetLimitUtil.pageLimit(query, params)) {
             return ResHelper.pamIll();
@@ -81,13 +81,13 @@ public class RoleService {
             /**
              * 删除user列表下的角色
              */
-            List<User> userList = userDao.query().in("roleIds", roIds).results();
+            List<SysUser> userList = sysUserDao.query().in("roleIds", roIds).results();
             if (userList != null && userList.size() > 0) {
                 Set<String> set = new HashSet<>(roIds);
                 userList.stream().forEach(user -> {
                     Set<String> userRoleSet = new HashSet<>(user.getRoleIds());
                     userRoleSet.removeAll(set);
-                    userDao.update().set("roleIds", userRoleSet).execute(user);
+                    sysUserDao.update().set("roleIds", userRoleSet).execute(user);
                 });
             }
             return ResHelper.success("删除角色成功");

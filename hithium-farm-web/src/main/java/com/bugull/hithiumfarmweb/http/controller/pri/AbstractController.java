@@ -8,7 +8,7 @@
 
 package com.bugull.hithiumfarmweb.http.controller.pri;
 
-import com.bugull.hithiumfarmweb.http.entity.User;
+import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import org.apache.shiro.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,8 +21,8 @@ import org.slf4j.LoggerFactory;
 public abstract class AbstractController {
 	protected Logger logger = LoggerFactory.getLogger(getClass());
 	
-	protected User getUser() {
-		return (User) SecurityUtils.getSubject().getPrincipal();
+	protected SysUser getUser() {
+		return (SysUser) SecurityUtils.getSubject().getPrincipal();
 	}
 
 	protected String getUserId() {

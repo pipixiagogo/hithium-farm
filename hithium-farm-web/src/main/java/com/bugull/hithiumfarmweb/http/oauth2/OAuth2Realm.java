@@ -8,14 +8,13 @@
 
 package com.bugull.hithiumfarmweb.http.oauth2;
 
-import com.bugull.hithiumfarmweb.http.entity.User;
+import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import com.bugull.hithiumfarmweb.http.service.ShiroService;
 import org.apache.shiro.authc.*;
 import org.apache.shiro.authz.AuthorizationInfo;
 import org.apache.shiro.authz.SimpleAuthorizationInfo;
 import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.subject.PrincipalCollection;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
@@ -42,7 +41,7 @@ public class OAuth2Realm extends AuthorizingRealm {
      */
     @Override
     protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
-        User userPrincipal = (User) principals.getPrimaryPrincipal();
+        SysUser userPrincipal = (SysUser) principals.getPrimaryPrincipal();
         //授权过程 用户权限列表
         Set<String> permsSet = shiroService.getPermissions(userPrincipal);
         SimpleAuthorizationInfo info = new SimpleAuthorizationInfo();
@@ -61,7 +60,7 @@ public class OAuth2Realm extends AuthorizingRealm {
         //得到token
         String accessToken = (String) token.getPrincipal();
         // 根据accessToken，查询用户信息
-        User tokenEntity = shiroService.queryByToken(accessToken);
+        SysUser tokenEntity = shiroService.queryByToken(accessToken);
         //token失效
         if (tokenEntity == null ){
            throw new IncorrectCredentialsException("无效token,请重新登录");

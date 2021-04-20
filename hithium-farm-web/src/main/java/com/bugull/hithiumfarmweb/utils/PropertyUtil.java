@@ -18,14 +18,40 @@ public class PropertyUtil {
     public static final String CONFIG_SPLIT_TOKEN = ",";
     private static final Properties PROPERTIES = new Properties();
 
-    static {
-        String configFile = System.getProperty("configFile");
-        configFile = StringUtils.isEmpty(configFile) ? CONFIG : configFile;
-        Resource resource = resourceLoader.getResource(configFile);
-        try (InputStream is = resource.getInputStream()) {
-            PROPERTIES.load(is);
-        } catch (IOException e) {
-            e.printStackTrace();
+//    static {
+//        String configFile = System.getProperty("configFile");
+//        configFile = StringUtils.isEmpty(configFile) ? CONFIG : configFile;
+//        Resource resource = resourceLoader.getResource(configFile);
+//        try (InputStream is = resource.getInputStream()) {
+//            PROPERTIES.load(is);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
+
+    public static void init( String configFilePath ){
+        InputStream in = null;
+        try {
+            if( !StringUtils.isEmpty(configFilePath) ){
+                in = new FileInputStream(configFilePath);
+            }else {
+                in = resourceLoader.getResource(CONFIG).getInputStream();
+            }
+            if( in != null ){
+                PROPERTIES.load(in);
+            }else {
+                throw new RuntimeException("配置文件未找到。");
+            }
+        }catch (Exception e){
+            throw new RuntimeException(e);
+        }finally {
+            if( in != null ){
+                try {
+                    in.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 

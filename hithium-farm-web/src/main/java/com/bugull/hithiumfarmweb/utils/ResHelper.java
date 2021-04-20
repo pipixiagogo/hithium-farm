@@ -32,6 +32,8 @@ public class ResHelper<T> {
 
     private boolean success;
 
+
+
     public static ResHelper pamIll() {
         return ResHelper.error(PARAM_ILL);
     }
@@ -69,7 +71,7 @@ public class ResHelper<T> {
     }
 
     public boolean isSuccess() {
-        return SUCCESS == code && data != null;
+        return SUCCESS == code || data != null;
     }
 
     private ResHelper() {

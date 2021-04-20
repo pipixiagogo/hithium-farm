@@ -38,7 +38,6 @@ public class BreakDownLogService {
         if (!PagetLimitUtil.orderField(query, params)) return ResHelper.pamIll();
         query.sortDesc("_id");
         BuguPageQuery.Page<BreakDownLog> downLogPage = query.resultsWithPage();
-
         List<BreakDownLog> datas = downLogPage.getDatas();
         List<BreakDownLogVo> breakDownLogBos = datas.stream().map(data -> {
             BreakDownLogVo breakDownLogVo = new BreakDownLogVo();

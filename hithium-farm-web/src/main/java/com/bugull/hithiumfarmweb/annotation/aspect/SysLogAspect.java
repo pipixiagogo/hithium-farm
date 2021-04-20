@@ -2,7 +2,7 @@ package com.bugull.hithiumfarmweb.annotation.aspect;
 
 import com.bugull.hithiumfarmweb.annotation.SysLog;
 import com.bugull.hithiumfarmweb.http.entity.OperationLog;
-import com.bugull.hithiumfarmweb.http.entity.User;
+import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import com.bugull.hithiumfarmweb.http.service.OperationLogService;
 import com.bugull.hithiumfarmweb.utils.HttpContextUtils;
 import com.bugull.hithiumfarmweb.utils.IPUtils;
@@ -24,7 +24,7 @@ import java.util.Date;
 
 @Aspect
 @Component
-@Order(Ordered.LOWEST_PRECEDENCE-2)
+@Order(Ordered.LOWEST_PRECEDENCE - 2)
 public class SysLogAspect {
     @Resource
     private OperationLogService operationLogService;
@@ -36,16 +36,14 @@ public class SysLogAspect {
 
     @Around("logPointCut()")
     public Object around(ProceedingJoinPoint point) throws Throwable {
-//        long beginTime = System.currentTimeMillis();
+        long beginTime = System.currentTimeMillis();
         //执行方法
-        System.out.println("SysLogAspect执行了");
         Object result = point.proceed();
+        //执行时长(毫秒)
+        long time = System.currentTimeMillis() - beginTime;
 
-//        //执行时长(毫秒)
-//        long time = System.currentTimeMillis() - beginTime;
-//
-//        //保存日志
-//        saveSysLog(point, time);
+        //保存日志
+        saveSysLog(point, time);
 
         return result;
     }
@@ -55,7 +53,7 @@ public class SysLogAspect {
         Method method = signature.getMethod();
         OperationLog operationLog = new OperationLog();
         SysLog syslog = method.getAnnotation(SysLog.class);
-        if(syslog != null){
+        if (syslog != null) {
             //注解上的描述
             operationLog.setOperation(syslog.value());
         }
@@ -65,10 +63,10 @@ public class SysLogAspect {
         operationLog.setMethod(className + "." + methodName + "()");
 //		//请求的参数
         Object[] args = joinPoint.getArgs();
-        try{
+        try {
             String params = new Gson().toJson(args);
             operationLog.setParams(params);
-        }catch (Exception e){
+        } catch (Exception e) {
 
         }
         //获取request
@@ -76,7 +74,7 @@ public class SysLogAspect {
         //设置IP地址
         operationLog.setIp(IPUtils.getIpAddr(request));
         //用户名
-        String username = ((User) SecurityUtils.getSubject().getPrincipal()).getUserName();
+        String username = ((SysUser) SecurityUtils.getSubject().getPrincipal()).getUserName();
         operationLog.setUsername(username);
         operationLog.setTime(time);
         operationLog.setCreateDate(new Date());

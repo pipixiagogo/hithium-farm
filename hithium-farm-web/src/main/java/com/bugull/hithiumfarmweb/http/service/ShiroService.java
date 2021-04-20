@@ -2,10 +2,10 @@ package com.bugull.hithiumfarmweb.http.service;
 
 import com.bugull.hithiumfarmweb.http.dao.MenuEntityDao;
 import com.bugull.hithiumfarmweb.http.dao.RoleEntityDao;
-import com.bugull.hithiumfarmweb.http.dao.UserDao;
+import com.bugull.hithiumfarmweb.http.dao.SysUserDao;
 import com.bugull.hithiumfarmweb.http.entity.MenuEntity;
 import com.bugull.hithiumfarmweb.http.entity.RoleEntity;
-import com.bugull.hithiumfarmweb.http.entity.User;
+import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,7 @@ public class ShiroService {
 
     @Resource
     @Lazy
-    private UserDao userDao;
+    private SysUserDao sysUserDao;
     @Lazy
     @Resource
     private MenuEntityDao menuEntityDao;
@@ -28,18 +28,18 @@ public class ShiroService {
     @Lazy
     private RoleEntityDao roleEntityDao;
 
-    public Set<String> getPermissions(User user) {
+    public Set<String> getPermissions(SysUser sysUser) {
         /**
          * 管理员
          */
         List<MenuEntity> menuEntityList;
-        if (user.getUserName().equals("admin") && Integer.valueOf(user.getId()) == 1) {
+        if (Integer.valueOf(sysUser.getId()) == 1) {
             menuEntityList = menuEntityDao.query().results();
         } else {
             /**
              * 非管理员
              */
-            User userById = userDao.query().is("_id", user.getId()).is("userName", user.getUserName()).result();
+            SysUser userById = sysUserDao.query().is("_id", sysUser.getId()).is("userName", sysUser.getUserName()).result();
             List<String> roleIds = userById.getRoleIds();
             if (roleIds != null && roleIds.size() > 0) {
                 List<RoleEntity> roleEntityList = roleIds.stream().map(role -> {
@@ -75,7 +75,7 @@ public class ShiroService {
         return permsSet;
     }
 
-    public User queryByToken(String accessToken) {
-        return userDao.query().is("token", accessToken).result();
+    public SysUser queryByToken(String accessToken) {
+        return sysUserDao.query().is("token", accessToken).result();
     }
 }
