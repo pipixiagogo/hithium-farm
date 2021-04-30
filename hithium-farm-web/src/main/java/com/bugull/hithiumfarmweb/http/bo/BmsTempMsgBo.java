@@ -18,6 +18,8 @@ public class BmsTempMsgBo {
     private String humidity;
 
     @ApiModelProperty(value = "发生时间")
-    private Date createDate;
+    private Date generationDataTime;
+    @ApiModelProperty(value = "设备编号")
+    private Integer equipmentId;
 
 }

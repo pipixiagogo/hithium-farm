@@ -1,17 +1,25 @@
 package com.bugull.hithiumfarmweb.http.entity;
 
+import com.bugull.hithiumfarmweb.http.bo.TimeOfPriceBo;
 import com.bugull.mongo.SimpleEntity;
+import com.bugull.mongo.annotations.EmbedList;
+import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
+import com.bugull.mongo.annotations.RefList;
+import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 储能站
  */
 @Entity
 @Data
+@EnsureIndex("{deviceName:1}")
 public class Device extends SimpleEntity {
 
     //设备唯一名称
@@ -52,5 +60,9 @@ public class Device extends SimpleEntity {
 
     private Date accessTime;
 
+    @EmbedList
+    private List<TimeOfPriceBo>priceOfTime;
+    //收益
+    private String income="0";
 
 }

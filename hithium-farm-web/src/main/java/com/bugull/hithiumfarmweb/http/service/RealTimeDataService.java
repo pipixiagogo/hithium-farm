@@ -11,6 +11,7 @@ import com.bugull.hithiumfarmweb.http.entity.*;
 import com.bugull.hithiumfarmweb.http.vo.BcuDataVolTemVo;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
+import com.bugull.mongo.utils.MapperUtil;
 import com.mongodb.DBObject;
 import org.bson.types.ObjectId;
 import org.springframework.beans.BeanUtils;
@@ -74,7 +75,7 @@ public class RealTimeDataService {
 
     private boolean queryOfParams(BuguPageQuery<?> query, Map<String, Object> params) {
         String deviceName = (String) params.get("deviceName");
-        if (!StringUtils.isEmpty(deviceName)){
+        if (!StringUtils.isEmpty(deviceName)) {
             query.is("deviceName", deviceName);
         }
         if (!PagetLimitUtil.pageLimit(query, params)) return false;
@@ -175,8 +176,8 @@ public class RealTimeDataService {
 
     public ResHelper<List<BmsTempMsgBo>> bmsTempMsg(String deviceName) {
         Iterable<DBObject> iterable = temperatureMeterDataDicDao.aggregate().match(temperatureMeterDataDicDao.query().is("deviceName", deviceName))
-                .group("{_id:'$deviceName','dataId':{$last:'$_id'}}")
-                .sort("{generationDataTime:-1}").results();
+                .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
+                .sort("{generationDataTime:-1}").limit(3).results();
         List<String> queryIds = new ArrayList<>();
         for (DBObject object : iterable) {
             ObjectId dataId = (ObjectId) object.get("dataId");
@@ -197,22 +198,15 @@ public class RealTimeDataService {
 
     public ResHelper<BamsLatestBo> bamsLatestData(String deviceName) {
         Iterable<DBObject> iterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is("deviceName", deviceName))
-                .group("{_id:'$deviceName','dataId':{$last:'$_id'}}")
-                .sort("{generationDataTime:-1}").results();
-        String queryId = null;
+                .sort("{generationDataTime:-1}").limit(1).results();
         if (iterable != null) {
             for (DBObject object : iterable) {
-                ObjectId dataId = (ObjectId) object.get("dataId");
-                queryId = dataId.toString();
+                BamsDataDicBA bamsDataDicBA = MapperUtil.fromDBObject(BamsDataDicBA.class, object);
+                BamsLatestBo bamsLatestBo = new BamsLatestBo();
+                BeanUtils.copyProperties(bamsDataDicBA, bamsLatestBo);
+                bamsLatestBo.setRunningStateMsg(getStateMsg(bamsDataDicBA.getRunningState()));
+                return ResHelper.success("", bamsLatestBo);
             }
-        }
-
-        if (!StringUtils.isEmpty(queryId)) {
-            BamsDataDicBA bamsDataDicBA = bamsDataDicBADao.query().is("_id", queryId).result();
-            BamsLatestBo bamsLatestBo = new BamsLatestBo();
-            BeanUtils.copyProperties(bamsDataDicBA, bamsLatestBo);
-            bamsLatestBo.setRunningStateMsg(getStateMsg(bamsDataDicBA.getRunningState()));
-            return ResHelper.success("", bamsLatestBo);
         }
         return ResHelper.success("");
     }
@@ -242,26 +236,30 @@ public class RealTimeDataService {
         }
     }
 
-    public ResHelper<BcuDataBo> bcuDataqueryByName(String deviceName, Integer equipmentId) {
-
-        Iterable<DBObject> iterable = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is("equipmentId", equipmentId).is("deviceName", deviceName))
-                .group("{_id:'$" + deviceName + "','dataId':{$last:'$_id'}}")
-                .sort("{generationDataTime:-1}").results();
+    public ResHelper<List<BcuDataBo>> bcuDataqueryByName(String deviceName) {
+        Iterable<DBObject> iterable = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is("deviceName", deviceName))
+                .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
+                .sort("{generationDataTime:-1}").limit(16).results();
+        List<String> queryIds = new ArrayList<>();
         if (iterable != null) {
             for (DBObject object : iterable) {
                 ObjectId dataId = (ObjectId) object.get("dataId");
                 String queryId = dataId.toString();
-                if (!StringUtils.isEmpty(queryId)) {
-                    BcuDataDicBCU bcuDataDicBCU = bcuDataDicBCUDao.query().is("_id", queryId).result();
-                    BcuDataBo bcuDataBo = new BcuDataBo();
-                    BeanUtils.copyProperties(bcuDataDicBCU, bcuDataBo);
-                    bcuDataBo.setGroupRunStatusMsg(getStateMsg(bcuDataDicBCU.getGroupRunStatus()));
-                    bcuDataBo.setGroupChargeDischargeStatusMsg(getDischargeStatusMsg(bcuDataDicBCU.getGroupChargeDischargeStatus()));
-                    return ResHelper.success("", bcuDataBo);
-                }
+                queryIds.add(queryId);
             }
         }
+        if (!CollectionUtils.isEmpty(queryIds) && queryIds.size() > 0) {
+            List<BcuDataDicBCU> bcuDataDicBCUs = bcuDataDicBCUDao.query().in("_id", queryIds).results();
+            List<BcuDataBo> bcuDataBoList = bcuDataDicBCUs.stream().map(bcuDataDicBCU -> {
+                BcuDataBo bcuDataBo = new BcuDataBo();
+                BeanUtils.copyProperties(bcuDataDicBCU, bcuDataBo);
+                bcuDataBo.setGroupRunStatusMsg(getStateMsg(bcuDataDicBCU.getGroupRunStatus()));
+                bcuDataBo.setGroupChargeDischargeStatusMsg(getDischargeStatusMsg(bcuDataDicBCU.getGroupChargeDischargeStatus()));
+                return bcuDataBo;
+            }).collect(Collectors.toList());
 
+            return ResHelper.success("", bcuDataBoList);
+        }
         return ResHelper.success("");
     }
 
@@ -282,55 +280,46 @@ public class RealTimeDataService {
         }
     }
 
-    public ResHelper<List<BmsCellDataBo>> bmscellDataQuery(String deviceName, Integer equipmentId) {
-        Iterable<DBObject> tempIterable = bmsCellTempDataDicDao.aggregate().match(bmsCellTempDataDicDao.query().is("deviceName", deviceName)
-                .is("equipmentId", equipmentId))
-                .group("{_id:'$deviceName','dataId':{$last:'$_id'}}")
-                .sort("{generationDataTime:-1}").results();
-
-        Iterable<DBObject> volIterable = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is("deviceName", deviceName)
-                .is("equipmentId", equipmentId))
-                .group("{_id:'$deviceName','dataId':{$last:'$_id'}}")
-                .sort("{generationDataTime:-1}").results();
-        Map<Integer, String> resultMap = new HashMap<>();
+    public ResHelper<List<BmsCellDataBo>> bmscellDataQuery(String deviceName) {
+        Iterable<DBObject> tempIterable = bmsCellTempDataDicDao.aggregate().match(bmsCellTempDataDicDao.query().is("deviceName", deviceName))
+                .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
+                .sort("{generationDataTime:-1}").limit(16).results();
+        Iterable<DBObject> volIterable = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is("deviceName", deviceName))
+                .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
+                .sort("{generationDataTime:-1}").limit(16).results();
+        List<String> tempIterableIds = new ArrayList<>();
+        List<String> volIterableIds = new ArrayList<>();
         if (tempIterable != null) {
             for (DBObject object : tempIterable) {
-                Integer euipmentId = (Integer) object.get("equipmentId");
-                Object dataId = (ObjectId) object.get("dataId");
-                resultMap.put(euipmentId, dataId.toString());
+                ObjectId dataId = (ObjectId) object.get("dataId");
+                tempIterableIds.add(dataId.toString());
             }
         }
         if (volIterable != null) {
             for (DBObject object : volIterable) {
-                Integer euipmentId = (Integer) object.get("equipmentId");
                 ObjectId dataId = (ObjectId) object.get("dataId");
-                if (!StringUtils.isEmpty(resultMap.get(euipmentId))) {
-                    resultMap.put(euipmentId, resultMap.get(euipmentId) + "-" + dataId.toString());
-                } else {
-                    resultMap.put(euipmentId, dataId.toString());
-                }
+                volIterableIds.add(dataId.toString());
             }
         }
+        List<BmsCellTempDataDic> bmsCellTempDataDicbyIds = bmsCellTempDataDicDao.query().in("_id", tempIterableIds).results();
+        List<BmsCellVoltDataDic> bmsCellVoltDataDicbyIds = bmsCellVoltDataDicDao.query().in("_id", volIterableIds).results();
         List<BmsCellDataBo> bmsCellDataBos = new ArrayList<>();
-        for (Map.Entry<Integer, String> entry : resultMap.entrySet()) {
-            String value = entry.getValue();
-            String[] tempAndVol = value.split("-");
-            BmsCellTempDataDic bmsCellTempDataDic = bmsCellTempDataDicDao.query().is("_id", tempAndVol[0]).result();
-
-            BmsCellVoltDataDic bmsCellVoltDataDic = bmsCellVoltDataDicDao.query().is("_id", tempAndVol[1]).result();
-
-            BmsCellDataBo bmsCellDataBo = new BmsCellDataBo();
-            bmsCellDataBo.setGenerationDataTime(bmsCellTempDataDic.getGenerationDataTime());
-            bmsCellDataBo.setName(bmsCellTempDataDic.getName());
-            Map<String, Short> tempMap = bmsCellTempDataDic.getTempMap();
-            Map<String, Short> volMap = bmsCellVoltDataDic.getVolMap();
-            /**
-             * TODO 转换温度跟电压单位
-             */
-            bmsCellDataBo.setTempMap(tempMap);
-            bmsCellDataBo.setVolMap(volMap);
-
-            bmsCellDataBos.add(bmsCellDataBo);
+        if (!CollectionUtils.isEmpty(bmsCellTempDataDicbyIds) && bmsCellTempDataDicbyIds.size() > 0 &&
+                !CollectionUtils.isEmpty(bmsCellVoltDataDicbyIds) && bmsCellVoltDataDicbyIds.size() > 0) {
+            for (BmsCellTempDataDic bmsCellTempDataDic : bmsCellTempDataDicbyIds) {
+                for (BmsCellVoltDataDic bmsCellVoltDataDic : bmsCellVoltDataDicbyIds) {
+                    if (bmsCellTempDataDic.getEquipmentId() == bmsCellVoltDataDic.getEquipmentId()) {
+                        BmsCellDataBo bmsCellDataBo = new BmsCellDataBo();
+                        bmsCellDataBo.setName(bmsCellTempDataDic.getName());
+                        bmsCellDataBo.setDeviceName(bmsCellTempDataDic.getDeviceName());
+                        bmsCellDataBo.setTempMap(bmsCellTempDataDic.getTempMap());
+                        bmsCellDataBo.setVolMap(bmsCellVoltDataDic.getVolMap());
+                        bmsCellDataBo.setEquipmentId(bmsCellTempDataDic.getEquipmentId());
+                        bmsCellDataBo.setGenerationDataTime(bmsCellTempDataDic.getGenerationDataTime());
+                        bmsCellDataBos.add(bmsCellDataBo);
+                    }
+                }
+            }
         }
         return ResHelper.success("", bmsCellDataBos);
     }
@@ -374,54 +363,61 @@ public class RealTimeDataService {
 
     private BcuDataVolTemVo bcuDataVolTemp(String deviceName, Integer equipmentId) {
         Iterable<DBObject> iterable = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is("deviceName", deviceName)
-                .is("equipmentId", equipmentId)).group("{_id:'$deviceName','dataId':{$last:'$_id'}}").results();
-        BcuDataVolTemVo bcuDataVolTemVo = new BcuDataVolTemVo();
+                .is("equipmentId", equipmentId)).sort("{generationDataTime:-1}").limit(1).results();
+        BcuDataVolTemVo bcuDataVolTemVo =null;
         if (iterable != null) {
             for (DBObject object : iterable) {
-                ObjectId dataId = (ObjectId) object.get("dataId");
-                if (!StringUtils.isEmpty(dataId.toString())) {
-                    BcuDataDicBCU bcuDataDicBCU = bcuDataDicBCUDao.query().is("_id", dataId.toString()).result();
-                    BeanUtils.copyProperties(bcuDataDicBCU, bcuDataVolTemVo);
-                }
+                bcuDataVolTemVo= new BcuDataVolTemVo();
+                BcuDataDicBCU bcuDataDicBCU = MapperUtil.fromDBObject(BcuDataDicBCU.class, object);
+                BeanUtils.copyProperties(bcuDataDicBCU, bcuDataVolTemVo);
             }
         }
-        Iterable<DBObject> cellTempIte = bmsCellTempDataDicDao.aggregate().match(bcuDataDicBCUDao.query().is("deviceName", deviceName).is("equipmentId", equipmentId))
-                .group("{_id:'$deviceName','dataId':{$last:'$_id'}}").results();
+        if(bcuDataVolTemVo == null){
+            return null;
+        }
+        Iterable<DBObject> cellTempIte = bmsCellTempDataDicDao.aggregate().match(bcuDataDicBCUDao.query().is("deviceName", deviceName)
+                .is("equipmentId", equipmentId))
+                .sort("{generationDataTime:-1}").limit(1).results();
         if (cellTempIte != null) {
             for (DBObject object : cellTempIte) {
-                ObjectId dataId = (ObjectId) object.get("dataId");
-                if (!StringUtils.isEmpty(dataId.toString())) {
-                    BmsCellTempDataDic bmsCellTempDataDic = bmsCellTempDataDicDao.query().is("_id", dataId.toString()).result();
-                    bcuDataVolTemVo.setTempMap(bmsCellTempDataDic.getTempMap());
+                BmsCellTempDataDic bmsCellTempDataDic = MapperUtil.fromDBObject(BmsCellTempDataDic.class, object);
+                Map<String, Integer> tempMap = bmsCellTempDataDic.getTempMap();
+                Iterator<Map.Entry<String, Integer>> iterator = tempMap.entrySet().iterator();
+                while (iterator.hasNext()){
+                    Map.Entry<String, Integer> next = iterator.next();
+                    if(next.getValue() == 0){
+                        iterator.remove();
+                    }
                 }
+                bcuDataVolTemVo.setTempMap(tempMap);
             }
         }
 
         Iterable<DBObject> cellVolIte = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is("deviceName", deviceName).is("equipmentId", equipmentId))
-                .group("{_id:'$deviceName','dataId':{$last:'$_id'}}").results();
+                .sort("{generationDataTime:-1}").limit(1).results();
         if (cellVolIte != null) {
             for (DBObject object : cellVolIte) {
-                ObjectId dataId = (ObjectId) object.get("dataId");
-                if (!StringUtils.isEmpty(dataId.toString())) {
-                    BmsCellVoltDataDic bmsCellVoltDataDic = bmsCellVoltDataDicDao.query().is("_id", dataId.toString()).result();
-                    bcuDataVolTemVo.setVolMap(bmsCellVoltDataDic.getVolMap());
+                BmsCellVoltDataDic bmsCellVoltDataDic = MapperUtil.fromDBObject(BmsCellVoltDataDic.class,object);
+                Map<String, Integer> volMap = bmsCellVoltDataDic.getVolMap();
+                Iterator<Map.Entry<String, Integer>> iterator = volMap.entrySet().iterator();
+                while (iterator.hasNext()){
+                    Map.Entry<String, Integer> next = iterator.next();
+                    if(next.getValue() == 0){
+                        iterator.remove();
+                    }
                 }
+                bcuDataVolTemVo.setVolMap(volMap);
             }
         }
-
         return bcuDataVolTemVo;
     }
 
     public Object stationInfoQuery(BuguPageDao buguPageDao, String deviceName, Integer equipmentId) {
         Iterable<DBObject> iterable = buguPageDao.aggregate().match(buguPageDao.query().is("deviceName", deviceName)
-                .is("equipmentId", equipmentId)).group("{_id:'$deviceName','dataId':{$last:'$_id'}}").results();
+                .is("equipmentId", equipmentId)).sort("{generationDataTime:-1}").limit(1).results();
         if (iterable != null) {
             for (DBObject object : iterable) {
-                ObjectId dataId = (ObjectId) object.get("dataId");
-                if (!StringUtils.isEmpty(dataId.toString())) {
-                    Object result = buguPageDao.query().is("_id", dataId.toString()).result();
-                    return result;
-                }
+               return MapperUtil.fromDBObject( buguPageDao.getEntityClass(),object);
             }
         }
         return null;

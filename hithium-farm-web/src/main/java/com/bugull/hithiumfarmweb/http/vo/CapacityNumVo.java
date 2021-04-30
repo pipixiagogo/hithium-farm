@@ -1,10 +1,10 @@
-package com.bugull.hithiumfarmweb.http.bo;
+package com.bugull.hithiumfarmweb.http.vo;
 
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 @Data
-public class CapacityNumBo {
+public class CapacityNumVo {
 
     /**
      * 充电电量累加值

@@ -5,7 +5,9 @@ import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.bo.LoginFormBo;
 import com.bugull.hithiumfarmweb.http.bo.PasswordForm;
+import com.bugull.hithiumfarmweb.http.bo.RoleEntityOfUserBo;
 import com.bugull.hithiumfarmweb.http.bo.UpdateUserBo;
+import com.bugull.hithiumfarmweb.http.dao.CaptchaDao;
 import com.bugull.hithiumfarmweb.http.dao.RoleEntityDao;
 import com.bugull.hithiumfarmweb.http.dao.SysUserDao;
 import com.bugull.hithiumfarmweb.http.entity.RoleEntity;
@@ -22,6 +24,7 @@ import org.apache.shiro.crypto.hash.Sha256Hash;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -33,32 +36,31 @@ import static com.bugull.hithiumfarmweb.common.Const.RESET_PWD;
 
 @Service
 public class SysUserService {
-    //12小时后过期
-    private final static int EXPIRE = 3600 * 12;
-    //    private final static int EXPIRE = 60 * 5;
     @Resource
     private SysUserDao sysUserDao;
     @Resource
     private RoleEntityDao roleEntityDao;
     @Resource
     private PropertiesConfig propertiesConfig;
+    @Resource
+    private CaptchaDao captchaDao;
     private static final Logger log = LoggerFactory.getLogger(SysUserService.class);
 
 
     public ResHelper<Void> saveUser(SysUser sysUser) {
-        if (!ResHelper.validatePhone(sysUser.getMobile())) {
-            return ResHelper.error("手机号格式错误");
-        }
+//        if (!ResHelper.validatePhone(sysUser.getMobile())) {
+//            return ResHelper.error("手机号格式错误");
+//        }
         /**
          * 邮箱+用户名相同  或者 电话 +用户名相同 即为同一用户
          */
         if (sysUserDao.query().is("userName", sysUser.getUserName()).exists()) {
             return ResHelper.error("用户已存在");
         }
-        if (sysUserDao.query().is("email", sysUser.getEmail()).exists() ||
-                sysUserDao.query().is("mobile", sysUser.getMobile()).exists()) {
-            return ResHelper.error("邮箱或手机号已被注册");
-        }
+//        if (sysUserDao.query().is("email", sysUser.getEmail()).exists() ||
+//                sysUserDao.query().is("mobile", sysUser.getMobile()).exists()) {
+//            return ResHelper.error("邮箱或手机号已被注册");
+//        }
         try {
             if (sysUser.getRoleIds() != null && sysUser.getRoleIds().size() > 0) {
                 /**
@@ -97,7 +99,7 @@ public class SysUserService {
         BuguPageQuery<SysUser> query = (BuguPageQuery<SysUser>) sysUserDao.pageQuery();
         String userName = (String) params.get("userName");
         if (!StringUtils.isBlank(userName)) {
-            query.is("userName", userName);
+            query.regexCaseInsensitive("userName", userName);
         }
         query.notReturnFields("salt", "password", "token", "tokenExpireTime");
         if (!PagetLimitUtil.pageLimit(query, params)) {
@@ -110,36 +112,60 @@ public class SysUserService {
         if (userList != null && userList.size() > 0) {
             infoUserVos = userList.stream().map(user -> {
                 InfoUserVo infoUserVo = new InfoUserVo();
+                List<RoleEntityOfUserBo> roleEntityOfUserBoList = new ArrayList<>();
+                if (user.getId().equals("1")) {
+                    RoleEntityOfUserBo roleEntity = new RoleEntityOfUserBo();
+                    roleEntity.setRoleName("超级管理员");
+                    roleEntityOfUserBoList.add(roleEntity);
+                    infoUserVo.setRoleEntityLsit(roleEntityOfUserBoList);
+                } else {
+                    if (!CollectionUtils.isEmpty(user.getRoleIds()) && user.getRoleIds().size() > 0) {
+                        List<RoleEntity> roleEntities = roleEntityDao.query().in("_id", user.getRoleIds()).results();
+                        BeanUtils.copyProperties(user, infoUserVo);
+                        for (RoleEntity roleEntity : roleEntities) {
+                            RoleEntityOfUserBo roleEntityOfUserBo = new RoleEntityOfUserBo();
+                            BeanUtils.copyProperties(roleEntity, roleEntityOfUserBo);
+                            roleEntityOfUserBoList.add(roleEntityOfUserBo);
+                        }
+                        infoUserVo.setRoleEntityLsit(roleEntityOfUserBoList);
+                    }
+                }
                 BeanUtils.copyProperties(user, infoUserVo);
                 return infoUserVo;
             }).collect(Collectors.toList());
         } else {
             infoUserVos = new ArrayList<>();
         }
-        BuguPageQuery.Page<InfoUserVo> infoUserVoPage = new BuguPageQuery.Page<>(userResults.getPage(), userResults.getPageSize(), userResults.getTotalPage(), infoUserVos);
+        BuguPageQuery.Page<InfoUserVo> infoUserVoPage = new BuguPageQuery.Page<>(userResults.getPage(), userResults.getPageSize(), userResults.getTotalRecord(), infoUserVos);
         return ResHelper.success("", infoUserVoPage);
-
     }
 
     public ResHelper<Void> updateById(UpdateUserBo user) {
 
-        if(sysUserDao.query().is("_id",String.valueOf(user.getId())).exists()){
+        if (sysUserDao.query().is("_id", String.valueOf(user.getId())).exists()) {
             /**
              * 验证手机号格式
              */
-            if (!ResHelper.validatePhone(user.getMobile())) {
-                return ResHelper.error("手机号格式错误");
-            }
+//            if (!ResHelper.validatePhone(user.getMobile())) {
+//                return ResHelper.error("手机号格式错误");
+//            }
             BuguUpdater<SysUser> update = sysUserDao.update();
-            if (sysUserDao.query().is("email", user.getEmail()).notEquals("_id",String.valueOf(user.getId())).exists() ||
-                    sysUserDao.query().is("mobile", user.getMobile()).notEquals("_id",String.valueOf(user.getId())).exists()) {
-                return ResHelper.error("邮箱/手机号已存在");
-            }
-            if (!StringUtils.isBlank(user.getMobile())) {
-                update.set("mobile", user.getMobile());
-            }
-            if (!StringUtils.isBlank(user.getEmail())) {
-                update.set("email", user.getEmail());
+//            if (sysUserDao.query().is("email", user.getEmail()).notEquals("_id", String.valueOf(user.getId())).exists() ||
+//                    sysUserDao.query().is("mobile", user.getMobile()).notEquals("_id", String.valueOf(user.getId())).exists()) {
+//                return ResHelper.error("邮箱/手机号已存在");
+//            }
+//            if (!StringUtils.isBlank(user.getMobile())) {
+//                update.set("mobile", user.getMobile());
+//            }
+//            if (!StringUtils.isBlank(user.getEmail())) {
+//                update.set("email", user.getEmail());
+//            }
+            if (!StringUtils.isEmpty(user.getUserName())) {
+                if (sysUserDao.query().is("userName", user.getUserName()).notEquals("_id", String.valueOf(user.getId())).exists()) {
+                    return ResHelper.error("邮箱/手机号已存在");
+                } else {
+                    update.set("userName", user.getUserName());
+                }
             }
             if (user.getRoleIds() != null && user.getRoleIds().size() > 0) {
                 List<RoleEntity> roleEntities = roleEntityDao.query().in("_id", user.getRoleIds()).results();
@@ -151,7 +177,7 @@ public class SysUserService {
             }
             update.execute(sysUserDao.query().is("_id", String.valueOf(user.getId())));
             return ResHelper.success("修改用户成功");
-        }else {
+        } else {
             return ResHelper.error("该用户不存在");
         }
     }
@@ -165,6 +191,8 @@ public class SysUserService {
         if (sysUser.getStatus() != 1) {
             return ResHelper.error("账号被锁定");
         }
+        //删除验证码
+        captchaDao.remove(captchaDao.query().is("uuid", loginFormBo.getUuid()));
         return ResHelper.success("登录成功", createToken(sysUser.getId()));
     }
 
@@ -221,12 +249,12 @@ public class SysUserService {
              * 修改密码加修改盐
              */
             String salt = RandomStringUtils.randomAlphanumeric(20);
-            sysUserDao.update().set("password",  new Sha256Hash(passwordForm.getNewPassword(), salt).toHex())
-                    .set("salt",salt)
-                    .set("token",TokenGenerator.generateValue())
-                    .set("tokenExpireTime",expireTime)
-                    .set("refreshToken",TokenGenerator.generateValue())
-                    .set("refreshTokenExpireTime",refreshTokenExpireTime)
+            sysUserDao.update().set("password", new Sha256Hash(passwordForm.getNewPassword(), salt).toHex())
+                    .set("salt", salt)
+                    .set("token", TokenGenerator.generateValue())
+                    .set("tokenExpireTime", expireTime)
+                    .set("refreshToken", TokenGenerator.generateValue())
+                    .set("refreshTokenExpireTime", refreshTokenExpireTime)
                     .execute(sysUser);
             return ResHelper.success("修改密码成功,请重新登录");
         } else {
@@ -235,6 +263,9 @@ public class SysUserService {
     }
 
     public ResHelper<LoginVo> refreshToken(String refreshToken) {
+        if (StringUtils.isEmpty(refreshToken)) {
+            return ResHelper.pamIll();
+        }
         SysUser result = sysUserDao.query().is("refreshToken", refreshToken).result();
         if (result != null) {
             if (result.getRefreshToken().equals(refreshToken) && !result.getRefreshTokenExpireTime().before(new Date())) {
@@ -256,15 +287,15 @@ public class SysUserService {
             //过期时间
             Date expireTime = new Date(now.getTime() + propertiesConfig.getTokenExpireTime());
             Date refreshTokenExpireTime = new Date(now.getTime() + 2 * propertiesConfig.getTokenExpireTime());
-            users.forEach(userId->{
+            users.forEach(userId -> {
                 String salt = RandomStringUtils.randomAlphanumeric(20);
                 String resetPwd = new Sha256Hash(RESET_PWD, salt).toHex();
-                sysUserDao.update().set("salt",salt)
-                        .set("password",resetPwd)
-                        .set("token",TokenGenerator.generateValue())
-                        .set("tokenExpireTime",expireTime)
-                        .set("refreshToken",TokenGenerator.generateValue())
-                        .set("refreshTokenExpireTime",refreshTokenExpireTime)
+                sysUserDao.update().set("salt", salt)
+                        .set("password", resetPwd)
+                        .set("token", TokenGenerator.generateValue())
+                        .set("tokenExpireTime", expireTime)
+                        .set("refreshToken", TokenGenerator.generateValue())
+                        .set("refreshTokenExpireTime", refreshTokenExpireTime)
                         .execute(userId);
             });
             return ResHelper.success("重置密码成功");

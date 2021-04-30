@@ -24,7 +24,6 @@ import java.util.Date;
 
 @Aspect
 @Component
-@Order(Ordered.LOWEST_PRECEDENCE - 2)
 public class SysLogAspect {
     @Resource
     private OperationLogService operationLogService;

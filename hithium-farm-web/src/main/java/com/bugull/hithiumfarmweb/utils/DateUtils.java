@@ -15,7 +15,9 @@ import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 
 /**
@@ -23,11 +25,60 @@ import java.util.Date;
  *
  */
 public class DateUtils {
-	/** 时间格式(yyyy-MM-dd) */
+    /**
+     * 一天的秒数
+     */
+    public final static Integer DAY_OF_SECONDS=60*60*24;
+    public final static Integer HOUR_OF_SECONDS=60*60;
+    /** 时间格式(yyyy-MM-dd) */
 	public final static String DATE_PATTERN = "yyyy-MM-dd";
 	/** 时间格式(yyyy-MM-dd HH:mm:ss) */
 	public final static String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 
+    private static ThreadLocal<SimpleDateFormat> sdf = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("yyyy-MM-dd");
+        }
+    };
+
+    private static ThreadLocal<SimpleDateFormat> sdfWithYYYYMM = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("yyyy-MM-??");
+        }
+    };
+    private static ThreadLocal<SimpleDateFormat> sdfWithYYYY = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("yyyy-??-??");
+        }
+    };
+    private static ThreadLocal<SimpleDateFormat> sdfWithHHmm = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("HH:mm");
+        }
+    };
+    public static Date dateToStrWithHHmm(Date dateDate) throws ParseException {
+        SimpleDateFormat formatter = sdfWithHHmm.get();
+        return formatter.parse(formatter.format(dateDate));
+    }
+    public static Date dateToStrWithHHmmWith(String dateDateStr) throws ParseException {
+        SimpleDateFormat formatter = sdfWithHHmm.get();
+        return formatter.parse(dateDateStr);
+    }
+    public static String dateToStr(Date dateDate) {
+        SimpleDateFormat formatter = sdf.get();
+        String dateString = formatter.format(dateDate);
+        return dateString;
+    }
+
+    public static String dateToStryyyymm(Date dateDate) {
+        SimpleDateFormat formatter = sdfWithYYYYMM.get();
+        String dateString = formatter.format(dateDate);
+        return dateString;
+    }
     /**
      * 日期格式化 日期格式为：yyyy-MM-dd
      * @param date  日期
@@ -163,4 +214,15 @@ public class DateUtils {
         DateTime dateTime = new DateTime(date);
         return dateTime.plusYears(years).toDate();
     }
+
+    public static String dateToStryyyy(Date dateDate) {
+        SimpleDateFormat formatter = sdfWithYYYY.get();
+        String dateString = formatter.format(dateDate);
+        return dateString;
+    }
+
+    public static String timeDifferent(Date start,Date end){
+        return String.valueOf((start.getTime() - end.getTime())/60000);
+    }
+
 }

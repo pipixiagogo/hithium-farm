@@ -34,9 +34,10 @@ public class LoginController{
 
 
     @ApiOperation("获取验证码")
-    @GetMapping("captcha.jpg")
-    @ApiImplicitParam(name = "uuid", value = "UUID随机码 保证每次请求唯一", required = true)
-    public void captcha(HttpServletResponse response, @RequestParam(name = "uuid",required = true) String uuid ) throws IOException {
+    @GetMapping("/captcha.jpg")
+    @ApiImplicitParam(name = "uuid", value = "UUID随机码 保证每次请求唯一", required = false)
+    public void captcha(HttpServletResponse response, @RequestParam(name = "uuid",required = false) String uuid ) throws IOException {
+
         response.setHeader("Cache-Control", "no-store, no-cache");
         response.setContentType("image/jpeg");
         //获取图片验证码
@@ -48,7 +49,7 @@ public class LoginController{
     }
 
     @ApiOperation("登录接口")
-    @PostMapping("login")
+    @PostMapping("/login")
     @ApiImplicitParam(name = "loginFormBo", value = "登录接口", required = true, paramType = "body", dataTypeClass = LoginFormBo.class, dataType = "LoginFormBo")
     public ResHelper<LoginVo> login(@RequestBody LoginFormBo loginFormBo) {
         ValidatorUtils.validateEntity(loginFormBo, UpdateGroup.class);
@@ -70,7 +71,7 @@ public class LoginController{
      */
     @ApiOperation(value = "刷新token接口", response = ResHelper.class)
     @RequestMapping(value = "/refreshToken", method = RequestMethod.POST)
-    @ApiImplicitParam(name = "refreshToken", value = "刷新的token", required = true)
+    @ApiImplicitParam(name = "refreshToken", value = "刷新的token", required = false)
     public ResHelper<LoginVo> refreshToken(@RequestParam(value = "refreshToken", required = true) String refreshToken) {
         return sysUserService.refreshToken(refreshToken);
     }

@@ -3,21 +3,27 @@ package com.bugull.hithiumfarmweb.http.service;
 import com.alibaba.fastjson.JSONObject;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.common.Const;
+import com.bugull.hithiumfarmweb.common.exception.ParamsValidateException;
+import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.bo.EquipmentBo;
+import com.bugull.hithiumfarmweb.http.bo.ModifyDeviceBo;
+import com.bugull.hithiumfarmweb.http.bo.TimeOfPriceBo;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
-import com.bugull.hithiumfarmweb.http.vo.CityVo;
-import com.bugull.hithiumfarmweb.http.vo.DeviceInfoVo;
-import com.bugull.hithiumfarmweb.http.vo.DeviceVo;
-import com.bugull.hithiumfarmweb.http.vo.ProvinceVo;
+import com.bugull.hithiumfarmweb.http.vo.*;
 import com.bugull.hithiumfarmweb.http.vo.dao.DeviceAreaEntityDao;
 import com.bugull.hithiumfarmweb.http.vo.entity.DeviceAreaEntity;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import com.bugull.mongo.BuguAggregation;
+import com.bugull.mongo.BuguQuery;
+import com.bugull.mongo.utils.MapperUtil;
 import com.mongodb.DBObject;
+import io.swagger.models.auth.In;
 import org.bson.types.ObjectId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.integration.mqtt.support.MqttHeaders;
 import org.springframework.messaging.Message;
@@ -29,8 +35,13 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
+import java.text.ParseException;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.bugull.hithiumfarmweb.common.Const.*;
+import static com.bugull.hithiumfarmweb.utils.DateUtils.DAY_OF_SECONDS;
+import static com.bugull.hithiumfarmweb.utils.DateUtils.HOUR_OF_SECONDS;
 
 @Service
 public class DeviceService {
@@ -49,9 +60,10 @@ public class DeviceService {
     private EquipmentDao equipmentDao;
     @Resource
     private BamsDataDicBADao bamsDataDicBADao;
+    @Resource
+    private PropertiesConfig propertiesConfig;
 
-    public static final String SQL_PREFIX = "$ESS/";
-    public static final String S2D_SUFFIX = "/MSG/D2S";
+    private static final Logger log = LoggerFactory.getLogger(DeviceService.class);
 
     public ResHelper<List<ProvinceVo>> aggrationArea() {
         BuguAggregation<Device> aggregate = deviceDao.aggregate();
@@ -98,8 +110,8 @@ public class DeviceService {
             deviceVo.setDeviceName(device.getDeviceName());
             deviceVo.setName(device.getName());
             deviceVo.setDescription(device.getDescription());
-            List<Equipment> equipmentList = equipmentDao.query().is("enabled",true).in("_id", device.getEquipmentIds())
-                    .returnFields("name","equipmentId","_id").results();
+            List<Equipment> equipmentList = equipmentDao.query().is("enabled", true).in("_id", device.getEquipmentIds())
+                    .returnFields("name", "equipmentId", "_id").results();
             EquipmentBo equipmentBo = new EquipmentBo();
             equipmentBo.setName(device.getName());
             equipmentBo.setId(device.getId());
@@ -135,11 +147,10 @@ public class DeviceService {
                         EquipmentBo mentBo = new EquipmentBo();
                         mentBo.setName(cabin.getName());
                         mentBo.setId(cabin.getId());
-                        List<EquipmentBo> bos=new ArrayList<>();
-                        mentBo.setEquipmentBo(bos);
-                        List<Equipment> ment = equipmentDao.query().is("enabled",true).in("_id", cabin.getEquipmentIds())
-                                .returnFields("name","equipmentId","_id").results();
-                        ment.stream().forEach(men->{
+                        List<EquipmentBo> bos = new ArrayList<>();
+                        List<Equipment> ment = equipmentDao.query().is("enabled", true).in("_id", cabin.getEquipmentIds())
+                                .returnFields("name", "equipmentId", "_id").results();
+                        ment.stream().forEach(men -> {
                             EquipmentBo menBo = new EquipmentBo();
                             menBo.setName(men.getName());
                             menBo.setId(men.getId());
@@ -147,10 +158,13 @@ public class DeviceService {
                             menBo.setEquipmentId(men.getEquipmentId());
                             bos.add(menBo);
                         });
+                        if (!CollectionUtils.isEmpty(bos) && bos.size() > 0) {
+                            mentBo.setEquipmentBo(bos);
+                        }
                         boList.add(mentBo);
                     });
-                    List<Equipment> equip = equipmentDao.query().is("enabled",true).in("_id", cube.getEquipmentIds())
-                            .returnFields("name","equipmentId","_id").results();
+                    List<Equipment> equip = equipmentDao.query().is("enabled", true).in("_id", cube.getEquipmentIds())
+                            .returnFields("name", "equipmentId", "_id").results();
                     equip.stream().forEach(equ -> {
                         EquipmentBo ipmentBo = new EquipmentBo();
                         ipmentBo.setName(equ.getName());
@@ -160,12 +174,22 @@ public class DeviceService {
                         equipmentBoList.add(ipmentBo);
                     });
                     equipm.setEquipmentBo(boList);
-                    equipmentBoList.add(equipm);
-
+                    if (!CollectionUtils.isEmpty(equipm.getEquipmentBo()) && equipm.getEquipmentBo().size() > 0) {
+                        equipmentBoList.add(equipm);
+                    }
+                    //并网口数据排序
+//                    if (!CollectionUtils.isEmpty(equipment.getEquipmentBo()) && equipment.getEquipmentBo().size() > 0) {
+//                        equipment.setEquipmentBo(equipment.getEquipmentBo().stream().sorted(new Comparator<EquipmentBo>() {
+//                            @Override
+//                            public int compare(EquipmentBo o1, EquipmentBo o2) {
+//                                return o2.getName().compareTo(o1.getName());
+//                            }
+//                        }).collect(Collectors.toList()));
+//                    }
                 });
                 equipmentBos.add(equipment);
-                List<Equipment> equips = equipmentDao.query().is("enabled",true).in("_id", pccs.getEquipmentIds())
-                        .returnFields("name","equipmentId","_id").results();
+                List<Equipment> equips = equipmentDao.query().is("enabled", true).in("_id", pccs.getEquipmentIds())
+                        .returnFields("name", "equipmentId", "_id").results();
                 equips.stream().forEach(ip -> {
                     EquipmentBo mentBo = new EquipmentBo();
                     mentBo.setName(ip.getName());
@@ -183,45 +207,99 @@ public class DeviceService {
 
 
     public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> deviceAreaList(Map<String, Object> params) {
-        BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
-        if (!queryOfParams(deviceBuguPageQuery, params)) {
-            return ResHelper.pamIll();
-        }
-        deviceBuguPageQuery.sortDesc("accessTime");
-        BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
-        List<Device> datas = devicePage.getDatas();
-        List<DeviceInfoVo> deviceInfoVos = new ArrayList<>();
-        for (Device data : datas) {
-            DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
-            BeanUtils.copyProperties(data, deviceInfoVo);
-            deviceInfoVo.setAreaCity(data.getProvince() + "-" + data.getCity());
-            Iterable<DBObject> iterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is("deviceName", data.getDeviceName()))
-                    .group("{'_id':'$deviceName','dataId':{$last:'$_id'}}")
-                    .sort("{generationDataTime:-1}").results();
-            Date date = new Date();
-            if (iterable != null) {
-                for (DBObject dbObject : iterable) {
-                    ObjectId objectId = (ObjectId) dbObject.get("dataId");
-                    BamsDataDicBA bamsDataDicBA = bamsDataDicBADao.query().is("_id", objectId.toString()).result();
-                    Date addDateMinutes = DateUtils.addDateMinutes(bamsDataDicBA.getGenerationDataTime(), 30);
-                    if (!addDateMinutes.before(date)) {
-                        deviceInfoVo.setDeviceStatus("正常运行");
-                    } else {
-                        deviceInfoVo.setDeviceStatus("停机");
+        if (propertiesConfig.verify(params)) {
+            BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
+            if (!queryOfParams(deviceBuguPageQuery, params)) {
+                return ResHelper.pamIll();
+            }
+            String province = (String) params.get("province");
+            String city = (String) params.get("city");
+            if (!StringUtils.isEmpty(province)) {
+                deviceBuguPageQuery.is("province", province);
+            }
+            if (!StringUtils.isEmpty(city)) {
+                deviceBuguPageQuery.is("city", city);
+            }
+            deviceBuguPageQuery.sortDesc("accessTime");
+            BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
+            List<Device> datas = devicePage.getDatas();
+            List<DeviceInfoVo> deviceInfoVos = new ArrayList<>();
+            for (Device data : datas) {
+                DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
+                BeanUtils.copyProperties(data, deviceInfoVo);
+                deviceInfoVo.setAreaCity(data.getProvince() + "-" + data.getCity());
+                deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(data.getApplicationScenarios()));
+                deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(data.getApplicationScenariosItem()));
+                Iterable<DBObject> iterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is("deviceName", data.getDeviceName()))
+                        .sort("{generationDataTime:-1}").limit(1).results();
+                Date date = new Date();
+                if (iterable != null) {
+                    for (DBObject dbObject : iterable) {
+                        BamsDataDicBA bamsDataDicBA = MapperUtil.fromDBObject(BamsDataDicBA.class, dbObject);
+                        Date addDateMinutes = DateUtils.addDateMinutes(bamsDataDicBA.getGenerationDataTime(), 30);
+                        if (!addDateMinutes.before(date)) {
+                            deviceInfoVo.setDeviceStatus("正常运行");
+                        } else {
+                            deviceInfoVo.setDeviceStatus("停机");
+                        }
                     }
                 }
+                deviceInfoVos.add(deviceInfoVo);
             }
-            deviceInfoVos.add(deviceInfoVo);
+            BuguPageQuery.Page<DeviceInfoVo> deviceInfoVoPage = new BuguPageQuery.Page<>(devicePage.getPage(), devicePage.getPageSize(),
+                    devicePage.getTotalRecord(), deviceInfoVos);
+            return ResHelper.success("", deviceInfoVoPage);
         }
-        BuguPageQuery.Page<DeviceInfoVo> deviceInfoVoPage = new BuguPageQuery.Page<>(devicePage.getPage(), devicePage.getPageSize(),
-                devicePage.getTotalRecord(), deviceInfoVos);
-        return ResHelper.success("", deviceInfoVoPage);
+        return ResHelper.pamIll();
+
+    }
+
+    private String getApplicationScenariosItemMsg(Integer applicationScenariosItem) {
+        switch (applicationScenariosItem) {
+            case 1:
+                return "防逆流控制";
+            case 2:
+                return "削峰填谷";
+            case 8:
+                return "需量控制";
+            case 16:
+                return "AGC联合调频";
+            case 32:
+                return "需求响应";
+            case 64:
+                return "动态扩容";
+            case 128:
+                return "微网监控管理";
+            case 256:
+                return "备用电源";
+            default:
+                return "未知应用场景下策略";
+        }
+    }
+
+    private String getApplicationScenariosMsg(Integer applicationScenarios) {
+        switch (applicationScenarios) {
+            case 0:
+                return "调峰";
+            case 1:
+                return "调频";
+            case 2:
+                return "风光储充";
+            case 3:
+                return "微网";
+            case 4:
+                return "备用电源";
+            case 5:
+                return "台区";
+            default:
+                return "未知应用场景";
+        }
     }
 
     private boolean queryOfParams(BuguPageQuery<?> query, Map<String, Object> params) {
         String name = (String) params.get("name");
-        if (name != null) {
-            query.regexCaseInsensitive("name", name).or(query.regexCaseInsensitive("description", name));
+        if (!StringUtils.isEmpty(name)) {
+            query.regexCaseInsensitive("name", name);
         }
         if (!PagetLimitUtil.pageLimit(query, params)) return false;
         if (!PagetLimitUtil.orderField(query, params)) return false;
@@ -246,5 +324,153 @@ public class DeviceService {
             return ResHelper.success("", deviceVoPage);
         }
         return ResHelper.success("");
+    }
+
+    public ResHelper<Void> modifyDeviceInfo(ModifyDeviceBo modifyDeviceBo) {
+        if (modifyDeviceBo != null) {
+            List<TimeOfPriceBo> priceOfTime = modifyDeviceBo.getPriceOfTime();
+            if (!StringUtils.isEmpty(modifyDeviceBo.getDeviceName()) && !priceOfTime.isEmpty()) {
+                /**
+                 * 格式校验map
+                 */
+                BuguQuery<Device> query = deviceDao.query().is("deviceName", modifyDeviceBo.getDeviceName());
+                if (!query.exists()) {
+                    return ResHelper.error("设备不存在");
+                }
+                List<String> list = new ArrayList<>();
+                for (TimeOfPriceBo timeOfPriceBo : priceOfTime) {
+                    if (timeOfPriceBo != null && !StringUtils.isEmpty(timeOfPriceBo.getPrice()) && !StringUtils.isEmpty(timeOfPriceBo.getTime())) {
+                        String time = timeOfPriceBo.getTime();
+                        String[] strs = time.split(",");
+                        for (String str : strs) {
+                            list.add(str);
+                            String[] strings = str.split("-");
+                            for (String st : strings) {
+                                if (!st.matches(CHECK_TIME_FORMAT)) {
+                                    return ResHelper.pamIll();
+                                }
+                            }
+                        }
+                    }
+                }
+                try {
+                    int num = DAY_OF_SECONDS;
+                    int sum = 0;
+                    for (String setTime : list) {
+                        String[] setTimes = setTime.split("-");
+                        if (setTimes.length != 2) {
+                            return ResHelper.pamIll();
+                        }
+                        String endTime = setTimes[1];
+                        String startTime = setTimes[0];
+                        Integer endTimeintHour = Integer.valueOf(endTime.split(":")[0]);
+                        Integer startTimeintHour = Integer.valueOf(startTime.split(":")[0]);
+                        Integer endTimeintMin = Integer.valueOf(endTime.split(":")[1]);
+                        Integer startTimeintMin = Integer.valueOf(startTime.split(":")[1]);
+                        if (endTimeintHour > startTimeintHour) {
+                            sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
+                        } else {
+                            endTimeintHour = endTimeintHour + 24;
+                            sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
+                        }
+                    }
+                    if (num != sum) {
+                        return ResHelper.pamIll();
+                    }
+                } catch (Exception e) {
+                    return ResHelper.pamIll();
+                }
+                deviceDao.update().set("priceOfTime", priceOfTime).execute(query);
+                return ResHelper.success("修改成功");
+            }
+        }
+        return ResHelper.pamIll();
+    }
+
+    public List<TimeOfPriceBo> selectPriceOfTime(Device device) {
+        if (device != null) {
+            /**
+             * 获取设备时间段电价
+             */
+            List<TimeOfPriceBo> priceOfTime = device.getPriceOfTime();
+            if (!CollectionUtils.isEmpty(priceOfTime) && priceOfTime.size() > 0) {
+                return priceOfTime;
+            }
+            return null;
+        }
+        return null;
+    }
+
+    public List<PriceOfPercenVo> selectPriceOfPercentage(Device device) {
+        if (device != null) {
+            List<TimeOfPriceBo> priceOfTime = device.getPriceOfTime();
+            if (!CollectionUtils.isEmpty(priceOfTime) && priceOfTime.size() > 0) {
+                Map<Integer, List<String>> map = null;
+                for (TimeOfPriceBo priceBo : priceOfTime) {
+                    String[] split = priceBo.getTime().split(",");
+                    List<String> list = new ArrayList<>();
+                    for (String spl : split) {
+                        list.add(spl);
+                    }
+                    map.put(priceBo.getType(), list);
+                }
+                List<PriceOfPercenVo> priceOfPercenVoList = new ArrayList<>();
+                List<String> outOfDay = new ArrayList<>();
+                for (Map.Entry<Integer, List<String>> entry : map.entrySet()) {
+                    List<String> entryValue = entry.getValue();
+                    for (String value : entryValue) {
+                        createPriceOfPercenVo(value, entry.getKey(), priceOfPercenVoList, outOfDay);
+                    }
+                }
+                if (!CollectionUtils.isEmpty(outOfDay) && outOfDay.size() > 0) {
+                    for (String day : outOfDay) {
+                        String[] typeStr = day.split("_");
+                        createPriceOfPercenVo(typeStr[1], Integer.valueOf(typeStr[0]), priceOfPercenVoList, outOfDay);
+                    }
+                }
+                return priceOfPercenVoList;
+            }
+        }
+        return null;
+    }
+
+    private void createPriceOfPercenVo(String value, Integer type, List<PriceOfPercenVo> priceOfPercenVoList, List<String> outOfDay) {
+        try {
+            PriceOfPercenVo priceOfPercenVo = new PriceOfPercenVo();
+            String[] split = value.split("-");
+            Calendar begin = Calendar.getInstance();
+            begin.setTime(DateUtils.dateToStrWithHHmmWith(split[0]));
+            Calendar end = Calendar.getInstance();
+            end.setTime(DateUtils.dateToStrWithHHmmWith(split[1]));
+            if (begin.before(end)) {
+                String s = DateUtils.timeDifferent(end.getTime(), begin.getTime());
+                priceOfPercenVo.setType(type);
+                priceOfPercenVo.setTime(value);
+                priceOfPercenVo.setMinute(s);
+                priceOfPercenVoList.add(priceOfPercenVo);
+            } else {
+                String timeOfFirst = split[0] + END_TIME;
+                String timeOfLast = START_TIME + split[1];
+                outOfDay.add(type + "_" + timeOfFirst);
+                outOfDay.add(type + "_" + timeOfLast);
+            }
+        } catch (ParseException e) {
+            log.error("解析日期出错", e);
+        }
+
+    }
+
+
+    public Map<String, Object> getPriceOfPercenAndTime(String deviceName) {
+        Map<String, Object> result = new HashMap<>();
+        Device device = deviceDao.query().is("deviceName", deviceName).returnFields("priceOfTime").result();
+        result.put("PERCENT", selectPriceOfPercentage(device));
+        result.put("PRICE", selectPriceOfTime(device));
+        return result;
+    }
+
+    public List<TimeOfPriceBo> selectPriceOfTimeBydevice(String deviceName) {
+        Device device = deviceDao.query().is("deviceName", deviceName).returnFields("priceOfTime").result();
+        return selectPriceOfTime(device);
     }
 }

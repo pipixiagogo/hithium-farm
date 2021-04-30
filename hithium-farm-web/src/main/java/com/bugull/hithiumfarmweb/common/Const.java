@@ -11,6 +11,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * 常量类
  */
 public class Const {
+
+    public static final String START_TIME="00:00-";
+    public static final String END_TIME="-24:00";
+
+    public static final String DAY="DAY";
+    public static final String YEAR="YEAR";
+
+    public static final String CHECK_TIME_FORMAT="(0\\d{1}|1\\d{1}|2[0-3]):([0-5]\\d{1})";
+    public static final String COUNTRY="china";
     /**
      * 充放电电量
      */

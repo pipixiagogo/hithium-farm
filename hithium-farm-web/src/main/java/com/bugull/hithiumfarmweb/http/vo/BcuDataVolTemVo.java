@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.vo;
 
 import com.bugull.mongo.annotations.Ignore;
+import io.swagger.models.auth.In;
 import lombok.Data;
 
 import java.util.Date;
@@ -10,9 +11,10 @@ import java.util.Map;
 public class BcuDataVolTemVo {
 
     //温度列表
-    private Map<String,Short> tempMap;
+    private Map<String, Integer> tempMap;
     //单体电压
-    private Map<String,Short> volMap;
+    private Map<String,Integer> volMap;
+
     private String deviceName;
     private Integer equipmentId;//设备ID
     private String name;//设备名称

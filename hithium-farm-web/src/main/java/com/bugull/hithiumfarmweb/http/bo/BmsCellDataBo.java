@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.bo;
 
 import io.swagger.annotations.ApiModelProperty;
+import io.swagger.models.auth.In;
 import lombok.Data;
 
 import java.util.Date;
@@ -17,10 +18,14 @@ public class BmsCellDataBo {
     private String name;
 
     @ApiModelProperty(value = "温度列表信息")
-    private Map<String,Short> tempMap;
+    private Map<String, Integer> tempMap;
 
     @ApiModelProperty(value = "电压列表信息")
-    private Map<String,Short> volMap;
+    private Map<String,Integer> volMap;
 
+    @ApiModelProperty(value = "设备码 唯一")
+    private String deviceName;
 
+    @ApiModelProperty(value = "设备ID")
+    private Integer equipmentId;
 }

@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.service;
 
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
+import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.dao.BreakDownLogDao;
 import com.bugull.hithiumfarmweb.http.dao.DeviceDao;
 import com.bugull.hithiumfarmweb.http.entity.BreakDownLog;
@@ -8,11 +9,17 @@ import com.bugull.hithiumfarmweb.http.entity.Device;
 import com.bugull.hithiumfarmweb.http.vo.BreakDownLogVo;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
+import com.bugull.mongo.BuguQuery;
+import io.swagger.models.auth.In;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,9 +30,12 @@ public class BreakDownLogService {
 
     @Resource
     private BreakDownLogDao breakDownLogDao;
-
     @Resource
     private DeviceDao deviceDao;
+    @Resource
+    private PropertiesConfig propertiesConfig;
+
+    private static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 
     public ResHelper<BuguPageQuery.Page<BreakDownLogVo>> query(Map<String, Object> params) {
@@ -34,9 +44,63 @@ public class BreakDownLogService {
         if (!StringUtils.isEmpty(deviceName)) {
             query.is("deviceName", deviceName);
         }
+        String alarmType = (String) params.get("alarmType");
+        if (!StringUtils.isEmpty(alarmType)) {
+            query.is("alarmType", Integer.valueOf(alarmType));
+        }
+        String status = (String) params.get("status");
+        if (status != null) {
+            query.is("status",Boolean.valueOf( status));
+        }
+        String startTime = (String) params.get("startTime");
+        String endTime = (String) params.get("endTime");
+        try {
+            if (!StringUtils.isEmpty(startTime)) {
+                Date end;
+                if (StringUtils.isEmpty(endTime)) {
+                    end = new Date();
+                } else {
+                    end = simpleDateFormat.parse(endTime);
+                }
+                Date start = simpleDateFormat.parse(startTime);
+                if (startTime != null && endTime != null) {
+                    if (start.getTime() > end.getTime()) {
+                        return ResHelper.pamIll();
+                    } else {
+                        query.greaterThanEquals("generationDataTime", start);
+                        query.lessThanEquals("generationDataTime", end);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            return ResHelper.pamIll();
+        }
+        if (propertiesConfig.verify(params)) {
+            String province = (String) params.get("province");
+            String city = (String) params.get("city");
+            BuguQuery<Device> buguQuery = deviceDao.query();
+            if(!StringUtils.isEmpty(province)){
+                buguQuery.is("province",province);
+            }
+            if(!StringUtils.isEmpty(city)){
+                buguQuery.is("city",city);
+            }
+                List<String> deviceNames = new ArrayList<>();
+            List<Device> deviceList = buguQuery.results();
+            for (Device device : deviceList) {
+                deviceNames.add(device.getDeviceName());
+            }
+            if(!CollectionUtils.isEmpty(deviceNames) && deviceNames.size()>0){
+                query.in("deviceName", deviceNames);
+            }else {
+                return ResHelper.success("");
+            }
+        }else {
+            return ResHelper.pamIll();
+        }
         if (!PagetLimitUtil.pageLimit(query, params)) return ResHelper.pamIll();
         if (!PagetLimitUtil.orderField(query, params)) return ResHelper.pamIll();
-        query.sortDesc("_id");
+        query.sortDesc("generationDataTime");
         BuguPageQuery.Page<BreakDownLog> downLogPage = query.resultsWithPage();
         List<BreakDownLog> datas = downLogPage.getDatas();
         List<BreakDownLogVo> breakDownLogBos = datas.stream().map(data -> {
@@ -45,7 +109,7 @@ public class BreakDownLogService {
             breakDownLogVo.setAlarmTypeMsg(getAlarmTypeMsg(data.getAlarmType()));
             breakDownLogVo.setStatusMsg(data.getStatus() ? "发生" : "消除");
             Device byName = getDeviceByName(data.getDeviceName());
-            breakDownLogVo.setAreaMsg(byName.getProvince()+"-"+byName.getCity());
+            breakDownLogVo.setAreaMsg(byName.getProvince() + "-" + byName.getCity());
             breakDownLogVo.setDescription(byName.getDescription());
             breakDownLogVo.setDeviceOfName(byName.getName());
             return breakDownLogVo;

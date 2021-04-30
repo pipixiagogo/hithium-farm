@@ -109,7 +109,7 @@ public class SysUserController extends AbstractController {
 
 
     @SysLog(value = "删除用户")
-    @RequiresPermissions("sys:user:delete")
+//    @RequiresPermissions("sys:user:delete")
     @ApiOperation(value = "删除用户", response = ResHelper.class)
     @RequestMapping(value = "/deleteUser", method = RequestMethod.POST)
     @ApiImplicitParam(name = "userIds", value = "用户ID数组", allowMultiple = true, dataType = "string", required = true)
@@ -152,7 +152,7 @@ public class SysUserController extends AbstractController {
      * TODO 权限
      */
     @ApiOperation(value = "批量重置密码",response = ResHelper.class)
-    @ApiImplicitParam(name = "userIds", value = "用户ID数组", allowMultiple = true, dataType = "string", required = true)
+    @ApiImplicitParam(name = "/userIds", value = "用户ID数组", allowMultiple = true, dataType = "string", required = true)
     @RequestMapping(value = "/resetPwd",method = RequestMethod.POST)
     public ResHelper<Void> resetPwd(@RequestBody String[] userIds){
         List<String> users = new ArrayList<>();

@@ -15,7 +15,7 @@ public class UserVo {
     private Date createTime;
 
     private Date tokenExpireTime;
-
-    private String mobile;
-    private String email;
+//
+//    private String mobile;
+//    private String email;
 }

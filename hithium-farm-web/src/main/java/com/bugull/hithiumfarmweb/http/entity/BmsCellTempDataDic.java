@@ -3,6 +3,7 @@ package com.bugull.hithiumfarmweb.http.entity;
 import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.Entity;
 import com.bugull.mongo.annotations.Ignore;
+import io.swagger.models.auth.In;
 import lombok.Data;
 
 import java.util.Date;
@@ -31,6 +32,6 @@ public class BmsCellTempDataDic extends SimpleEntity {
     private Integer equipChannelStatus;
 
     //温度列表
-    private Map<String,Short> tempMap;
+    private Map<String, Integer> tempMap;
 
 }

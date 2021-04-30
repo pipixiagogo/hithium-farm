@@ -27,7 +27,7 @@ public class RoleEntity implements BuguEntity {
     @ApiModelProperty(name = "roleName", required = true, example = "RI", value = "角色名称")
     private String roleName;
     //备注
-    @ApiModelProperty(name = "remark", required = true, example = " ", value = "备注")
+    @ApiModelProperty(name = "remark", required = false, example = " ", value = "备注")
     private String remark;
     //创建者的ID
     @ApiModelProperty(hidden = true)

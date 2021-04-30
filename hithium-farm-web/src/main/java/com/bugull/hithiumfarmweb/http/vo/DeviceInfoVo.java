@@ -26,4 +26,21 @@ public class DeviceInfoVo {
 
     private String deviceName;
 
+    @ApiModelProperty(value = "储能站容量")
+    private String stationCapacity;
+    @ApiModelProperty(value = "储能站功率")
+    private String stationPower;
+
+    /**
+     * 应用场景
+     */
+    @ApiModelProperty(value = "应用场景")
+    private String applicationScenariosMsg;
+    /**
+     * 应用场景的策略
+     */
+    @ApiModelProperty(value = "应用场景下的策略")
+    private String applicationScenariosItemMsg;
+
+
 }

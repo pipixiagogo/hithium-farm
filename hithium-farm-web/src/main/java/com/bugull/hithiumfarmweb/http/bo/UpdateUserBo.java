@@ -14,10 +14,13 @@ public class UpdateUserBo {
     @ApiModelProperty(name = "id", required = true, example = "1", value = "用户ID")
     private Integer id;
 
-    @ApiModelProperty(name = "email", required = true, example = " ", value = "用户邮箱")
-    private String email;
-    @ApiModelProperty(name = "mobile", required = true, example = " ", value = "用户手机号")
-    private String mobile;
+    @ApiModelProperty(name = "userName",value = "用户名称")
+    private String userName;
+
+//    @ApiModelProperty(name = "email", required = true, example = " ", value = "用户邮箱")
+//    private String email;
+//    @ApiModelProperty(name = "mobile", required = true, example = " ", value = "用户手机号")
+//    private String mobile;
 
     @ApiModelProperty(name ="权限ID列表,可不传 代表无任何权限")
     private List<String> roleIds;

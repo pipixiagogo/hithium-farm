@@ -33,7 +33,7 @@ public class RealTimeDataController extends AbstractController {
     @Resource
     private RealTimeDataService realTimeDataService;
 
-    @ApiOperation(value = "ammeter电表数据查询")
+    @ApiOperation(value = "ammeter电表数据查询",httpMethod = "GET")
     @RequestMapping(value = "/ammeterDataQuery", method = RequestMethod.GET)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -46,7 +46,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.ammeterDataQuery(params);
     }
 
-    @ApiOperation(value = "Bams数据查询")
+    @ApiOperation(value = "Bams数据查询",httpMethod = "GET")
     @RequestMapping(value = "/bamsDataquery", method = RequestMethod.GET)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -59,7 +59,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.bamsDataquery(params);
     }
 
-    @ApiOperation(value = "Bms单元温度数据查询")
+    @ApiOperation(value = "Bms单元温度数据查询",httpMethod = "GET")
     @RequestMapping(value = "/bmsTempDataquery", method = RequestMethod.GET)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -72,7 +72,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.bmsTempDataquery(params);
     }
 
-    @ApiOperation(value = "Bms单元电压数据查询")
+    @ApiOperation(value = "Bms单元电压数据查询",httpMethod = "GET")
     @RequestMapping(value = "/bmsVoltDataquery", method = RequestMethod.GET)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -85,7 +85,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.bmsVoltDataquery(params);
     }
 
-    @ApiOperation(value = "Bcu电池簇状态数据查询")
+    @ApiOperation(value = "Bcu电池簇状态数据查询",httpMethod = "GET")
     @RequestMapping(value = "/bcuDataquery", method = RequestMethod.GET)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -98,7 +98,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.bcuDataquery(params);
     }
 
-    @ApiOperation(value = "pcs舱主机状态数据查询")
+    @ApiOperation(value = "pcs舱主机状态数据查询",httpMethod = "GET")
     @RequestMapping(value = "/pcsCabinetquery", method = RequestMethod.GET)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -111,7 +111,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.pcsCabinetquery(params);
     }
 
-    @ApiOperation(value = "pcs通道状态数据查询")
+    @ApiOperation(value = "pcs通道状态数据查询",httpMethod = "GET")
     @RequestMapping(value = "/pcsChannelquery", method = RequestMethod.GET)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -124,7 +124,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.pcsChannelquery(params);
     }
 
-    @ApiOperation(value = "空调数据查询")
+    @ApiOperation(value = "空调数据查询",httpMethod = "GET")
     @RequestMapping(value = "/airConditionquery", method = RequestMethod.GET)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -137,7 +137,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.airConditionquery(params);
     }
 
-    @ApiOperation(value = "温度计数据查询")
+    @ApiOperation(value = "温度计数据查询",httpMethod = "GET")
     @RequestMapping(value = "/temperatureMeterquery", method = RequestMethod.GET)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -150,7 +150,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.temperatureMeterquery(params);
     }
 
-    @ApiOperation(value = "消防控制数据查询")
+    @ApiOperation(value = "消防控制数据查询",httpMethod = "GET")
     @RequestMapping(value = "/fireControlquery", method = RequestMethod.GET)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -163,7 +163,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.fileControlquery(params);
     }
 
-    @ApiOperation(value = "ups后备电源数据查询")
+    @ApiOperation(value = "ups后备电源数据查询",httpMethod = "GET")
     @RequestMapping(value = "/upsPowerquery", method = RequestMethod.GET)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -179,7 +179,7 @@ public class RealTimeDataController extends AbstractController {
     /**
      * BMS最近一次 平均温度 最高温度 最低温度
      */
-    @ApiOperation(value = "BMS最近一次 温度 湿度")
+    @ApiOperation(value = "BMS最近一次 温度 湿度",httpMethod = "GET")
     @RequestMapping(value = "/bmsTempMsg", method = RequestMethod.GET)
     @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class)
     public ResHelper<List<BmsTempMsgBo>> bmsTempMsg(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
@@ -192,7 +192,7 @@ public class RealTimeDataController extends AbstractController {
     /**
      * 获取BAMS最新一条数据更新充放电电量
      */
-    @ApiOperation(value = "BAMS最新一条数据更新充放电电量")
+    @ApiOperation(value = "BAMS最新一条数据更新充放电电量",httpMethod = "GET")
     @RequestMapping(value = "/bamsLatestData", method = RequestMethod.GET)
     @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class)
     public ResHelper<BamsLatestBo> bamsLatestData(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
@@ -205,45 +205,35 @@ public class RealTimeDataController extends AbstractController {
     /**
      * BCU簇数据 状态查询
      */
-    @ApiOperation(value = "集装箱电池簇状态查询")
+    @ApiOperation(value = "集装箱所有电池簇实时状态查询",httpMethod = "GET")
     @RequestMapping(value = "/bcuDataqueryByName", method = RequestMethod.GET)
-    @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识"),
-            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID")}
-    )
-    public ResHelper<BcuDataBo> bcuDataqueryByName(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName,
-                                                   @ApiIgnore @RequestParam(value = "equipmentId", required = false) Integer equipmentId) {
-        if(StringUtils.isEmpty(deviceName) || equipmentId == null){
+    @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识")})
+    public ResHelper<List<BcuDataBo>> bcuDataqueryByName(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
+        if(StringUtils.isEmpty(deviceName)){
             return ResHelper.pamIll();
         }
-
-        return realTimeDataService.bcuDataqueryByName(deviceName, equipmentId);
+        return realTimeDataService.bcuDataqueryByName(deviceName);
     }
 
     /**
      * 根据电池簇获取对应 电池电压 跟温度信息
      */
-    @ApiOperation(value = "集装箱电池簇对应电池详细信息查询")
+    @ApiOperation(value = "集装箱所有电池簇对应全部电池详细信息查询")
     @RequestMapping(value = "/bmscellDataQuery", method = RequestMethod.GET)
-    @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识"),
-            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID")}
-    )
-    public ResHelper<List<BmsCellDataBo>> bmscellDataQuery(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName,
-                                                           @ApiIgnore @RequestParam(value = "equipmentId", required = false) Integer equipmentId) {
-        if(StringUtils.isEmpty(deviceName) ||equipmentId==null){
+    @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识"),})
+    public ResHelper<List<BmsCellDataBo>> bmscellDataQuery(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
+        if(StringUtils.isEmpty(deviceName)){
             return ResHelper.pamIll();
         }
-        return realTimeDataService.bmscellDataQuery(deviceName,equipmentId);
+        return realTimeDataService.bmscellDataQuery(deviceName);
     }
 
     @ApiOperation(value = "集装箱信息设备查询")
     @RequestMapping(value = "/stationInformationQuery",method = RequestMethod.GET)
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备码  唯一标识"),
-            @ApiImplicitParam(name = "equipmentId", required = true, paramType = "query", value = "设备ID")
-    })
+    @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备码  唯一标识"),
+            @ApiImplicitParam(name = "equipmentId", required = true, paramType = "query", value = "设备ID")})
     public ResHelper<Object> stationInformationQuery(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName,
                                                      @ApiIgnore @RequestParam(value = "equipmentId", required = false) Integer equipmentId){
-
         return realTimeDataService.stationInformationQuery(deviceName,equipmentId);
     }
 }

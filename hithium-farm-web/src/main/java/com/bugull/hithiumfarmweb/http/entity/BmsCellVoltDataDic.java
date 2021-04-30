@@ -3,6 +3,7 @@ package com.bugull.hithiumfarmweb.http.entity;
 import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.Entity;
 import com.bugull.mongo.annotations.Ignore;
+import io.swagger.models.auth.In;
 import lombok.Data;
 
 import java.util.Date;
@@ -32,6 +33,6 @@ public class BmsCellVoltDataDic extends SimpleEntity {
     private String deviceName;
 
     //单体电压
-    private Map<String,Short> volMap;
+    private Map<String, Integer> volMap;
 
 }

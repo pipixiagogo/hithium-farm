@@ -104,7 +104,6 @@ public class OAuth2Filter extends AuthenticatingFilter {
         if (StringUtils.isBlank(token)) {
             token = httpRequest.getParameter("token");
         }
-
         return token;
     }
 

@@ -42,11 +42,11 @@ public class SysUser implements BuguEntity {
     @ApiModelProperty(hidden = true)
     private String salt;
 
-    private String mobile;
-    @NotBlank(message="邮箱不能为空", groups = { UpdateGroup.class, AddGroup.class})
-    @Email(message="邮箱格式不正确", groups = { UpdateGroup.class,AddGroup.class})
-    @ApiModelProperty(name = "email",value = "邮箱")
-    private String email;
+//    private String mobile;
+//    @NotBlank(message="邮箱不能为空", groups = { UpdateGroup.class, AddGroup.class})
+//    @Email(message="邮箱格式不正确", groups = { UpdateGroup.class,AddGroup.class})
+//    @ApiModelProperty(name = "email",value = "邮箱")
+//    private String email;
 
     /**
      * 状态  0：禁用   1：正常
@@ -61,7 +61,6 @@ public class SysUser implements BuguEntity {
     private Date tokenExpireTime;
     @ApiModelProperty(name ="roleIds",value = "权限ID列表,可不传 代表无任何权限")
     private List<String> roleIds;
-
     /**
      * 刷新token
      */

@@ -1,2 +1,10 @@
-package com.bugull.hithiumfarmweb.http.vo;public class SaveEnergyVo {
+package com.bugull.hithiumfarmweb.http.vo;
+
+import lombok.Data;
+
+@Data
+public class SaveEnergyVo {
+    private String name;
+
+    private String number;
 }
