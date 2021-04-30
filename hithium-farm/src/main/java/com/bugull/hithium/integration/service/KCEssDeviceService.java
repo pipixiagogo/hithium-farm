@@ -8,15 +8,20 @@ import com.bugull.hithium.core.dao.*;
 import com.bugull.hithium.core.dto.*;
 import com.bugull.hithium.core.entity.*;
 import com.bugull.hithium.core.enumerate.DataType;
+import com.bugull.hithium.core.util.DateUtil;
 import com.bugull.hithium.core.util.PropertiesConfig;
 import com.bugull.hithium.integration.message.JMessage;
 import com.bugull.hithium.integration.util.redis.RedisPoolUtil;
 import com.bugull.mongo.BuguQuery;
+import com.bugull.mongo.utils.MapperUtil;
+import com.mongodb.DBObject;
+import com.mongodb.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -36,9 +41,9 @@ import static com.bugull.hithium.core.common.Const.*;
 public class KCEssDeviceService {
     private static final Logger log = LoggerFactory.getLogger(KCEssDeviceService.class);
 
-
     public static final Map<String, Object> REAL_TIME_DATA_TYPE = new HashMap<>();
 
+    public static String INCOME_RECORD_PREFIX = "DEIVCE_INCOME_RECORED_";
     static {
         REAL_TIME_DATA_TYPE.put("PcsCabinetDic", PcsCabinetDic.class);
         REAL_TIME_DATA_TYPE.put("PcsChannelDic", PcsChannelDic.class);
@@ -132,6 +137,7 @@ public class KCEssDeviceService {
                 log.info("设备上报实时数据未查到对应设备:{}", deviceName);
             }
         } catch (Exception e) {
+            e.printStackTrace();
             log.error("设备上报实时数据格式错误,丢弃:{}", jMessage.getPayloadMsg());
         } finally {
             if (jedis != null) {
@@ -226,12 +232,188 @@ public class KCEssDeviceService {
 
     private void handleAmmeterData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         AmmeterDataDic ammeterDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
+        /**
+         * TODO 实时计算单台设备收益--->充放电量*时间段单价
+         */
         if (ammeterDataDic != null) {
             ammeterDataDic.setDeviceName(equipment.getDeviceName());
             ammeterDataDic.setName(equipment.getName());
             ammeterDataDic.setGenerationDataTime(strToDate(ammeterDataDic.getTime()));
+            saveAndCountIncome(equipment, ammeterDataDic);
             ammeterDataDicDao.insert(ammeterDataDic);
         }
+    }
+
+    private void saveAndCountIncome(Equipment equipment, AmmeterDataDic ammeterDataDic) {
+        if (ammeterDataDic.getEquipChannelStatus() == 1) {
+            return;
+        }
+        Device device = deviceDao.query().is("deviceName", equipment.getDeviceName()).result();
+//        if (device.getApplicationScenarios() == 4) {
+//            return;
+//        }
+        if (device != null) {
+            List<TimeOfPriceBo> priceOfTime = device.getPriceOfTime();
+            if (!CollectionUtils.isEmpty(priceOfTime) && priceOfTime.size() > 0) {
+                Map<Integer, List<String>> map = null;
+                for (TimeOfPriceBo timeOfPriceBo : priceOfTime) {
+                    String time = timeOfPriceBo.getTime();
+                    String[] split = time.split(",");
+                    List<String> list = new ArrayList<>();
+                    for (String spl : split) {
+                        list.add(spl);
+                    }
+                    if (map == null) {
+                        map = new HashMap<>();
+                    }
+                    map.put(timeOfPriceBo.getType(), list);
+                }
+                if (map == null) {
+                    return;
+                }
+                Map<Integer, String> typeOfMap = null;
+                try {
+                    Set<Map.Entry<Integer, List<String>>> entries = map.entrySet();
+                    for (Map.Entry<Integer, List<String>> entry : entries) {
+                        List<String> entryValue = entry.getValue();
+                        for (String value : entryValue) {
+                            String[] split = value.split("-");
+                            Calendar now = Calendar.getInstance();
+                            now.setTime(DateUtil.dateToStrWithHHmm(new Date()));
+                            Calendar begin = Calendar.getInstance();
+                            begin.setTime(DateUtil.dateToStrWithHHmmWith(split[0]));
+                            Calendar end = Calendar.getInstance();
+                            end.setTime(DateUtil.dateToStrWithHHmmWith(split[1]));
+                            /**
+                             * 不相等时候在查看是否在区间内
+                             */
+                            if (!now.equals(begin) && !now.equals(end)) {
+                                if (now.after(begin) && now.before(end)) {
+                                    if (typeOfMap == null) {
+                                        typeOfMap = new HashMap<>();
+                                    }
+                                    typeOfMap.put(entry.getKey(), split[0] + "-" + split[1]);
+                                }
+                            } else {
+                                /**
+                                 * 相同的话  会有多个区间出来 取哪个？
+                                 */
+                                if (typeOfMap == null) {
+                                    typeOfMap = new HashMap<>();
+                                }
+                                typeOfMap.put(entry.getKey(), split[0] + "-" + split[1]);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("解析电表数据错误:{}", e);
+                }
+                if (typeOfMap == null) {
+                    return;
+                }
+                List<BigDecimal> bigDecimalList = null;
+                for (Map.Entry<Integer, String> entry : typeOfMap.entrySet()) {
+                    Integer key = entry.getKey();
+                    List<TimeOfPriceBo> ofPriceBos = priceOfTime.stream().filter(timeOfPriceBo -> {
+                        return timeOfPriceBo.getType() == key;
+                    }).collect(Collectors.toList());
+                    BigDecimal bigDecimal = new BigDecimal(ofPriceBos.get(0).getPrice());
+                    if (bigDecimalList == null) {
+                        bigDecimalList = new ArrayList<>();
+                    }
+                    bigDecimalList.add(bigDecimal);
+                }
+                /**
+                 * 放电降序取第一个  充电升序取第一个
+                 * 取出价格列表
+                 */
+                bigDecimalList = bigDecimalList.stream().sorted(new Comparator<BigDecimal>() {
+                    @Override
+                    public int compare(BigDecimal o1, BigDecimal o2) {
+                        return o2.compareTo(o1);
+                    }
+                }).collect(Collectors.toList());
+                /**
+                 * 上一次上报数据电表数据
+                 */
+                Iterable<DBObject> iterable = ammeterDataDicDao.aggregate().match(ammeterDataDicDao.query().is("deviceName", equipment.getDeviceName())
+                        .is("equipmentId", equipment.getEquipmentId()).is("equipChannelStatus", 0)).sort("{generationDataTime:-1}").limit(1).results();
+                AmmeterDataDic fromDBObject = null;
+                if (iterable != null) {
+                    for (DBObject object : iterable) {
+                        fromDBObject = MapperUtil.fromDBObject(AmmeterDataDic.class, object);
+                    }
+                }
+                if (fromDBObject != null) {
+                    /**
+                     * TODO 根据实际情况来取得 充放电 电价
+                     */
+                    BigDecimal discharDecimal = bigDecimalList.get(0);//放电单价
+                    BigDecimal charDecimal = bigDecimalList.get(bigDecimalList.size() - 1);//充电单价
+
+                    BigDecimal lastTimeTotalChargeQuantity = new BigDecimal(fromDBObject.getTotalChargeQuantity());
+                    BigDecimal lastTimeTotalDisChargeQuantity = new BigDecimal(fromDBObject.getTotalDischargeQuantity());
+                    /**
+                     * 当前上报 充电电表数据
+                     */
+                    BigDecimal thisTimeTotalChargeQuantity = new BigDecimal(ammeterDataDic.getTotalChargeQuantity());
+                    BigDecimal thisTimeTotalDisChargeQuantity = new BigDecimal(ammeterDataDic.getTotalDischargeQuantity());
+
+                    //放电
+                    BigDecimal dissubResult = thisTimeTotalDisChargeQuantity.subtract(lastTimeTotalDisChargeQuantity);
+                    BigDecimal charsubResult = thisTimeTotalChargeQuantity.subtract(lastTimeTotalChargeQuantity);
+                    /**
+                     * 放电多少钱 充电多少钱
+                     */
+                    BigDecimal discharResultPrice = discharDecimal.multiply(dissubResult);
+                    BigDecimal charResultPrice = charDecimal.multiply(charsubResult);
+                    //收益
+                    BigDecimal income = discharResultPrice.subtract(charResultPrice);
+                    //计算总收益
+                    updateIncomeWithTotal(income, device);
+                    //计算单天收益
+                    countIncomeOfDay(device, income, ammeterDataDic.getGenerationDataTime());
+                }
+                //第一次上报 为空
+            }
+        }
+    }
+
+    private void countIncomeOfDay(Device device, BigDecimal income, Date recordDate) {
+        this.keyIncDecByBigDecimal(recordDate, income, (d) -> {
+            return getIncomeKey(d, device);
+        });
+    }
+
+    private String getIncomeKey(Date recordDate, Device device) {
+        return INCOME_RECORD_PREFIX + DateUtil.dateToStr(recordDate) + "_" + device.getProvince() + "_" + device.getCity();
+    }
+
+    private void keyIncDecByBigDecimal(Date recordDate, BigDecimal income, Function<Date, String> keyGen) {
+        long time = DateUtil.getTodayEndMilSeconds(recordDate);
+        if (time < 0 || time > DateUtil.ONE_DAY_MIL_SECONDS) { //表示已经是昨天的记录了 不进行增加
+            return;
+        }
+        Jedis jedis = redisPoolUtil.getJedis();
+        String key = null;
+        try {
+            key = keyGen.apply(recordDate);
+            //过期时间为7天
+            jedis.incrByFloat(key, income.doubleValue());
+            jedis.expire(key, (int) ((time / 1000) + DateUtil.ONE_DAY_MIN_SECONDS));
+        } catch (Exception e) {
+            log.error("向redis中修改传输数量失败key：{}", key, e);
+        } finally {
+            if (jedis != null) {
+                jedis.close();
+            }
+        }
+    }
+
+    private void updateIncomeWithTotal(BigDecimal income, Device device) {
+        BigDecimal deviceIncome = new BigDecimal(device.getIncome());
+        BigDecimal incomeResult = deviceIncome.add(income);
+        deviceDao.update().set("income", incomeResult.toString()).execute(deviceDao.query().is("deviceName", device.getDeviceName()));
     }
 
     private void handleTemperatureData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
@@ -263,24 +445,35 @@ public class KCEssDeviceService {
             bamsDataDicBA.setGenerationDataTime(strToDate(bamsDataDicBA.getTime()));
             bamsDataDicBADao.insert(bamsDataDicBA);
         }
-        Jedis jedis = null;
-        try {
-            jedis = redisPoolUtil.getJedis();
-            /**
-             * 单台总放电量
-             */
-            String dischargeCapacitySum = bamsDataDicBA.getDischargeCapacitySum();
-            jedis.set(DISCHARGECAPACITYSUM + equipment.getDeviceName(), dischargeCapacitySum);
-            /**
-             * 总充电量
-             */
-            String chargeCapacitySum = bamsDataDicBA.getChargeCapacitySum();
-            jedis.set(CHARGECAPACITYSUM + equipment.getDeviceName(), chargeCapacitySum);
-        } finally {
-            if (jedis != null) {
-                jedis.close();
+        Device device = deviceDao.query().is("deviceName", equipment.getDeviceName()).result();
+        if (device != null) {
+            Jedis jedis = null;
+            try {
+                jedis = redisPoolUtil.getJedis();
+                /**
+                 * 单台总放电量
+                 */
+                String dischargeCapacitySum = bamsDataDicBA.getDischargeCapacitySum();
+                jedis.set(getDischargeKey(device), dischargeCapacitySum);
+                /**
+                 * 总充电量
+                 */
+                String chargeCapacitySum = bamsDataDicBA.getChargeCapacitySum();
+                jedis.set(getChargeKey(device), chargeCapacitySum);
+            } finally {
+                if (jedis != null) {
+                    jedis.close();
+                }
             }
         }
+    }
+
+    private String getChargeKey(Device device) {
+        return CHARGECAPACITYSUM + device.getProvince() +"-"+device.getCity()+"-"+device.getDeviceName();
+    }
+
+    private String getDischargeKey(Device device) {
+        return DISCHARGECAPACITYSUM + device.getProvince() + "-" + device.getCity() + "-" + device.getDeviceName();
     }
 
     private void handleBmsCellTempData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
@@ -327,9 +520,7 @@ public class KCEssDeviceService {
     private Date strToDate(String time) {
         try {
             if (StringUtils.hasText(time)) {
-                SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-                Date date = formatter.parse(time);
-                return date;
+                return DateUtil.dateToStrWithT(time);
             } else {
                 return null;
             }
@@ -339,20 +530,20 @@ public class KCEssDeviceService {
         }
     }
 
-    private Map<String, Short> getListOfTempAndVol(JSONObject jsonObject, String sign) {
+    private Map<String, Integer> getListOfTempAndVol(JSONObject jsonObject, String sign) {
         jsonObject.remove("Time");
         jsonObject.remove("EquipChannelStatus");
         jsonObject.remove("EquipmentId");
         String[] temps = jsonObject.toString().replace("{", "").replace("}", "").replace("\"", "").split(",");
-        Map<String, Short> resulMap = new HashMap<>();
+        Map<String, Integer> resulMap = new HashMap<>();
         for (String temp : temps) {
             String[] tem = temp.split(":");
-            resulMap.put(tem[0], Short.parseShort(tem[1]));
+            resulMap.put(tem[0], Integer.parseInt(tem[1]));
         }
         if (resulMap == null && resulMap.isEmpty()) {
             return null;
         }
-        Map<String, Short> shortMap = new TreeMap<>(new Comparator<String>() {
+        Map<String, Integer> shortMap = new TreeMap<>(new Comparator<String>() {
             @Override
             public int compare(String o1, String o2) {
                 String replace1 = o1.replace(sign, "");
@@ -392,9 +583,20 @@ public class KCEssDeviceService {
                             breakDownLog.setName(equipment.getName());
                             breakDownLog.setRemoveData(strToDate(breakDownLog.getRemoveTime()));
                             breakDownLog.setDeviceName(equipment.getDeviceName());
+                            Date date = DateUtil.addDateDays(new Date(), -1);
+                            breakDownLogDao.update()
+                                    .set("status", breakDownLog.getStatus())
+                                    .set("removeReason", breakDownLog.getRemoveReason())
+                                    .set("removeData", breakDownLog.getRemoveData())
+                                    .execute(breakDownLogDao.query().is("deviceName", breakDownLog.getDeviceName())
+                                            .is("message", breakDownLog.getMessage()).is("status", true)
+                                            .greaterThanEquals("generationDataTime", date));
                             breakDownLogList.add(breakDownLog);
                         }
-                        breakDownLogDao.insert(breakDownLogList);
+                        if (!CollectionUtils.isEmpty(breakDownLogList) && breakDownLogList.size() > 0) {
+                            breakDownLogList = breakDownLogList.stream().sorted(Comparator.comparing(BreakDownLog::getGenerationDataTime)).collect(Collectors.toList());
+                            breakDownLogDao.insert(breakDownLogList);
+                        }
                     }
                 }
             } else {
@@ -707,5 +909,22 @@ public class KCEssDeviceService {
                 });
             }
         }
+    }
+
+    /**
+     * 修改告警日志状态
+     */
+    @Scheduled(cron = "${untrans.report.interval}")
+    public void editBreakDownlogStatus() {
+        int alterBreakdownlogStatusStart = propertiesConfig.getAlterBreakdownlogStatusStart();
+        int alterBreakdownlogStatusEnd = propertiesConfig.getAlterBreakdownlogStatusEnd();
+        Date startTime = DateUtil.addDateDays(new Date(), -alterBreakdownlogStatusStart);
+        Date endTime = DateUtil.addDateDays(new Date(), -alterBreakdownlogStatusEnd);
+        breakDownLogDao.update().set("status", false)
+                .set("removeReason", "自动恢复")
+                .set("removeData", new Date()).execute(breakDownLogDao.query().is("status", true)
+                .greaterThanEquals("generationDataTime", startTime)
+                .lessThanEquals("generationDataTime", endTime));
+        log.info("定时执行告警日志信息状态自动恢复:{}", new Date());
     }
 }

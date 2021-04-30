@@ -7,6 +7,7 @@ com\bugull\hithium\core\dao\AirConditionDataDicDao.class
 com\bugull\hithium\core\util\PlusArrayUtils.class
 com\bugull\hithium\core\dao\PcsChannelDicDao.class
 com\bugull\hithium\core\dto\CabinsInfo.class
+com\bugull\hithium\integration\service\KCEssDeviceService$3.class
 com\bugull\hithium\core\dao\DeviceDao.class
 com\bugull\hithium\integration\service\UnknowService.class
 META-INF\spring-configuration-metadata.json
@@ -23,6 +24,7 @@ com\bugull\hithium\core\entity\BamsDataDicBA.class
 com\bugull\hithium\core\dao\BamsDataDicBADao.class
 com\bugull\hithium\core\util\HttpClientUtil$1.class
 com\bugull\hithium\core\util\PropertiesConfig.class
+com\bugull\hithium\core\util\DateUtil$3.class
 com\bugull\hithium\core\util\DateUtil.class
 com\bugull\hithium\core\util\HttpClientUtil.class
 com\bugull\hithium\core\config\KafkaConfig.class
@@ -31,6 +33,7 @@ com\bugull\hithium\core\dao\CabinDao.class
 com\bugull\hithium\MqttApplication.class
 com\bugull\hithium\integration\service\KCEssDeviceService$2.class
 com\bugull\hithium\core\entity\Cabin.class
+com\bugull\hithium\core\entity\TimeOfPriceBo.class
 com\bugull\hithium\core\util\ByteReader.class
 com\bugull\hithium\core\dao\FireControlDataDicDao.class
 com\bugull\hithium\core\entity\FireControlDataDic.class
@@ -46,6 +49,7 @@ com\bugull\hithium\core\dao\PccsDao.class
 com\bugull\hithium\integration\trans\MessageTransformer.class
 com\bugull\hithium\core\dao\UpsPowerDataDicDao.class
 com\bugull\hithium\core\util\PropertyUtil.class
+com\bugull\hithium\core\util\DateUtil$2.class
 com\bugull\hithium\core\common\Const.class
 com\bugull\hithium\core\entity\PcsChannelDic.class
 com\bugull\hithium\core\entity\BmsCellVoltDataDic.class

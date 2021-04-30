@@ -1,14 +1,34 @@
 package com.bugull.hithium.core.util;
 
+import org.joda.time.DateTime;
+
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 
 public class DateUtil {
+
+    /**
+     * 对日期的【天】进行加/减
+     *
+     * @param date 日期
+     * @param days 天数，负数为减
+     * @return 加/减几天后的日期
+     */
+    public static Date addDateDays(Date date, int days) {
+        DateTime dateTime = new DateTime(date);
+        return dateTime.plusDays(days).toDate();
+    }
     /**
      * 一天的毫秒值
      * */
     public static final long ONE_DAY_MIL_SECONDS = 24 * 60 * 60 * 1000;
+
+    /**
+     * 七天的秒值
+     * */
+    public static final long ONE_DAY_MIN_SECONDS = 24 * 60 * 60 * 7;
     /**
     * 5分钟的秒数
     * */
@@ -23,10 +43,39 @@ public class DateUtil {
         }
     };
 
+    private static ThreadLocal<SimpleDateFormat> sdfWithT = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+        }
+    };
+
+    private static ThreadLocal<SimpleDateFormat> sdfWithHHmm = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("HH:mm");
+        }
+    };
+
     public static String dateToStr(Date dateDate) {
         SimpleDateFormat formatter = sdf.get();
         String dateString = formatter.format(dateDate);
         return dateString;
+    }
+
+    public static Date dateToStrWithT(String dateDate) throws ParseException {
+        SimpleDateFormat formatter = sdfWithT.get();
+        Date date = formatter.parse(dateDate);
+        return date;
+    }
+
+    public static Date dateToStrWithHHmm(Date dateDate) throws ParseException {
+        SimpleDateFormat formatter = sdfWithHHmm.get();
+       return formatter.parse(formatter.format(dateDate));
+    }
+    public static Date dateToStrWithHHmmWith(String dateDateStr) throws ParseException {
+        SimpleDateFormat formatter = sdfWithHHmm.get();
+        return formatter.parse(dateDateStr);
     }
 
     /**

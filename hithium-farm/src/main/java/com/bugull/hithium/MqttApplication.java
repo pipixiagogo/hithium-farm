@@ -30,7 +30,6 @@ public class MqttApplication {
 
 
     public static void main(String[] args) {
-
         //init mongodb
         String configFilePath = null;
         loadArgs(args);

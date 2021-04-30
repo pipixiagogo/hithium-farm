@@ -32,6 +32,6 @@ public class BmsCellVoltDataDic extends SimpleEntity {
     private String deviceName;
 
     //单体电压
-    private Map<String,Short> volMap;
+    private Map<String,Integer> volMap;
 
 }

@@ -39,6 +39,7 @@ D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\MqttApp
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\dao\DeviceDao.java
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\util\PropertyUtil.java
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\entity\PcsCabinetDic.java
+D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\entity\TimeOfPriceBo.java
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\dto\PccsInfo.java
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\util\PropertiesConfig.java
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\dao\BmsCellVoltDataDicDao.java

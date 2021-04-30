@@ -15,6 +15,6 @@ public class CapacityNumBo {
     /**
      * 放电电量累加值
      */
-    @ApiModelProperty(value = "dischargeCapacitySum")
+    @ApiModelProperty(value = "放电电量累加值")
     private String dischargeCapacitySum;
 }

@@ -75,6 +75,18 @@ public class PropertiesConfig {
     @Value("${spring.kafka.producer.retries.backoff.ms}")
     private long retriesBackoff;
 
+    @Value("${alter.breakdownlog.status.start}")
+    private int alterBreakdownlogStatusStart;
+    @Value("${alter.breakdownlog.status.end}")
+    private int alterBreakdownlogStatusEnd;
+
+    public int getAlterBreakdownlogStatusStart() {
+        return alterBreakdownlogStatusStart;
+    }
+
+    public int getAlterBreakdownlogStatusEnd() {
+        return alterBreakdownlogStatusEnd;
+    }
 
     public int getInflight() {
         return inflight;

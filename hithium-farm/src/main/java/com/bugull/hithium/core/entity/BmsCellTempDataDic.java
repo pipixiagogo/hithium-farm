@@ -32,6 +32,6 @@ public class BmsCellTempDataDic extends SimpleEntity {
     private Integer equipChannelStatus;
 
     //温度列表
-    private Map<String,Short> tempMap;
+    private Map<String,Integer> tempMap;
 
 }
