@@ -50,7 +50,7 @@ public class PcsChannelDic extends SimpleEntity {
     private Short maxChargeCurrent; //最大充电电流
     private Short maxDischargeCurrent;//最大放电电流
 
-    private Short avgGotoFlotChargeCurrent;    //均充转浮充电流
+    private Short avgGotoFloatChargeCurrent;    //均充转浮充电流
     private Short voltageProtectHighLimit;  //电压保护上限
     private Short voltageProtectLowLimit;   //电压保护下限
     private Short eodVoltage;//EOD电压

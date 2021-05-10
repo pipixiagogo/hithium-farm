@@ -61,6 +61,10 @@ public class Device extends SimpleEntity {
 
     //收益
     private String income = "0";
+    //总充电量
+    private String dischargeCapacitySum;
+    //总充电量
+    private String chargeCapacitySum;
 
 
 }

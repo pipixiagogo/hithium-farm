@@ -44,6 +44,7 @@ public class KCEssDeviceService {
     public static final Map<String, Object> REAL_TIME_DATA_TYPE = new HashMap<>();
 
     public static String INCOME_RECORD_PREFIX = "DEIVCE_INCOME_RECORED_";
+
     static {
         REAL_TIME_DATA_TYPE.put("PcsCabinetDic", PcsCabinetDic.class);
         REAL_TIME_DATA_TYPE.put("PcsChannelDic", PcsChannelDic.class);
@@ -96,6 +97,8 @@ public class KCEssDeviceService {
     private RedisPoolUtil redisPoolUtil;
     @Resource
     private PropertiesConfig propertiesConfig;
+    @Resource
+    private IncomeEntityDao incomeEntityDao;
 
     /**
      * 处理设备
@@ -130,7 +133,7 @@ public class KCEssDeviceService {
             JSONObject jsonObject = JSONObject.parseObject(jMessage.getPayloadMsg());
             JSONObject datajson = (JSONObject) jsonObject.get(Const.DATA);
             List<Equipment> equipmentList = equipmentDao.query().is("deviceName", deviceName).results();
-            if (equipmentList != null && equipmentList.size() > 0) {
+            if (!CollectionUtils.isEmpty(equipmentList) && equipmentList.size() > 0) {
                 jedis.set("REALDATA-" + deviceName, datajson.toString());
                 resolvingRealDataTime(datajson, equipmentList, deviceName);
             } else {
@@ -245,10 +248,8 @@ public class KCEssDeviceService {
     }
 
     private void saveAndCountIncome(Equipment equipment, AmmeterDataDic ammeterDataDic) {
-        if (ammeterDataDic.getEquipChannelStatus() == 1) {
-            return;
-        }
         Device device = deviceDao.query().is("deviceName", equipment.getDeviceName()).result();
+        //TODO 削峰填谷时候计算收益
 //        if (device.getApplicationScenarios() == 4) {
 //            return;
 //        }
@@ -337,7 +338,7 @@ public class KCEssDeviceService {
                  * 上一次上报数据电表数据
                  */
                 Iterable<DBObject> iterable = ammeterDataDicDao.aggregate().match(ammeterDataDicDao.query().is("deviceName", equipment.getDeviceName())
-                        .is("equipmentId", equipment.getEquipmentId()).is("equipChannelStatus", 0)).sort("{generationDataTime:-1}").limit(1).results();
+                        .is("equipmentId", equipment.getEquipmentId())).sort("{generationDataTime:-1}").limit(1).results();
                 AmmeterDataDic fromDBObject = null;
                 if (iterable != null) {
                     for (DBObject object : iterable) {
@@ -373,10 +374,36 @@ public class KCEssDeviceService {
                     updateIncomeWithTotal(income, device);
                     //计算单天收益
                     countIncomeOfDay(device, income, ammeterDataDic.getGenerationDataTime());
+                    /**
+                     * key  按日统计  按时间
+                     *  设备-时间-
+                     *  充电放电、 收益 按天统计 按设备 时间 存入当天设备收益
+                     */
+                    updateIncomeOfDay(income, device);
                 }
                 //第一次上报 为空
             }
         }
+    }
+
+    private void updateIncomeOfDay(BigDecimal income, Device device) {
+        Date date = new Date();
+        String dateToStr = DateUtil.dateToStr(date);
+        BuguQuery<IncomeEntity> incomeEntityBuguQuery = incomeEntityDao.query().is("incomeOfDay", dateToStr).is("deviceName", device.getDeviceName());
+        if (incomeEntityBuguQuery.exists()) {
+            IncomeEntity incomeResult = incomeEntityBuguQuery.result();
+            BigDecimal resultDecimal = incomeResult.getIncome().add(income);
+            incomeEntityDao.update().set("income", resultDecimal).execute(incomeEntityBuguQuery);
+        } else {
+            IncomeEntity incomeEntity = new IncomeEntity();
+            incomeEntity.setDeviceName(device.getDeviceName());
+            incomeEntity.setIncomeOfDay(dateToStr);
+            incomeEntity.setIncome(income);
+            incomeEntity.setProvince(device.getProvince());
+            incomeEntity.setCity(device.getCity());
+            incomeEntityDao.insert(incomeEntity);
+        }
+
     }
 
     private void countIncomeOfDay(Device device, BigDecimal income, Date recordDate) {
@@ -402,7 +429,7 @@ public class KCEssDeviceService {
             jedis.incrByFloat(key, income.doubleValue());
             jedis.expire(key, (int) ((time / 1000) + DateUtil.ONE_DAY_MIN_SECONDS));
         } catch (Exception e) {
-            log.error("向redis中修改传输数量失败key：{}", key, e);
+            log.error("向redis中收益失败key：{}", key, e);
         } finally {
             if (jedis != null) {
                 jedis.close();
@@ -439,37 +466,49 @@ public class KCEssDeviceService {
 
     private void handleBamsData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         BamsDataDicBA bamsDataDicBA = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
-        if (bamsDataDicBA != null) {
+        Device device = deviceDao.query().is("deviceName", equipment.getDeviceName()).result();
+
+        if (bamsDataDicBA != null && device != null) {
             bamsDataDicBA.setDeviceName(equipment.getDeviceName());
             bamsDataDicBA.setName(equipment.getName());
             bamsDataDicBA.setGenerationDataTime(strToDate(bamsDataDicBA.getTime()));
+
+            updateChargeCapacityNumber(device,bamsDataDicBA);
             bamsDataDicBADao.insert(bamsDataDicBA);
         }
-        Device device = deviceDao.query().is("deviceName", equipment.getDeviceName()).result();
-        if (device != null) {
-            Jedis jedis = null;
-            try {
-                jedis = redisPoolUtil.getJedis();
-                /**
-                 * 单台总放电量
-                 */
-                String dischargeCapacitySum = bamsDataDicBA.getDischargeCapacitySum();
-                jedis.set(getDischargeKey(device), dischargeCapacitySum);
-                /**
-                 * 总充电量
-                 */
-                String chargeCapacitySum = bamsDataDicBA.getChargeCapacitySum();
-                jedis.set(getChargeKey(device), chargeCapacitySum);
-            } finally {
-                if (jedis != null) {
-                    jedis.close();
-                }
-            }
-        }
+
+
+//        if (device != null) {
+//            Jedis jedis = null;
+//            try {
+//                jedis = redisPoolUtil.getJedis();
+//                /**
+//                 * 单台总放电量
+//                 */
+//                String dischargeCapacitySum = bamsDataDicBA.getDischargeCapacitySum();
+//                jedis.set(getDischargeKey(device), dischargeCapacitySum);
+//                /**
+//                 * 总充电量
+//                 */
+//                String chargeCapacitySum = bamsDataDicBA.getChargeCapacitySum();
+//                jedis.set(getChargeKey(device), chargeCapacitySum);
+//            } finally {
+//                if (jedis != null) {
+//                    jedis.close();
+//                }
+//            }
+//        }
+    }
+
+    private void updateChargeCapacityNumber(Device device, BamsDataDicBA bamsDataDicBA) {
+        String dischargeCapacitySum = bamsDataDicBA.getDischargeCapacitySum();
+        String chargeCapacitySum = bamsDataDicBA.getChargeCapacitySum();
+        deviceDao.update().set("dischargeCapacitySum",dischargeCapacitySum)
+                .set("chargeCapacitySum",chargeCapacitySum).execute(device);
     }
 
     private String getChargeKey(Device device) {
-        return CHARGECAPACITYSUM + device.getProvince() +"-"+device.getCity()+"-"+device.getDeviceName();
+        return CHARGECAPACITYSUM + device.getProvince() + "-" + device.getCity() + "-" + device.getDeviceName();
     }
 
     private String getDischargeKey(Device device) {
@@ -620,7 +659,6 @@ public class KCEssDeviceService {
             JSONObject jsonObject = JSONObject.parseObject(jMessage.getPayloadMsg());
             JSONObject dataJson = (JSONObject) jsonObject.get(Const.DATA);
             jedis.set("DEVICEINFO-" + deviceName, dataJson.toString());
-
             JSONArray stationsArray = (JSONArray) dataJson.get(DEVICE_STATION);
             JSONArray pccsArray = (JSONArray) dataJson.get(DEVICE_PCCS);
             JSONArray cubesArray = (JSONArray) dataJson.get(DEVICE_CUBES);
