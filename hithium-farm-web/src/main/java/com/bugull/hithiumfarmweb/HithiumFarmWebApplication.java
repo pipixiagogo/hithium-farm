@@ -22,21 +22,22 @@ import java.util.Map;
 
 @SpringBootApplication(exclude = MongoAutoConfiguration.class)
 @EnableScheduling
-public class HithiumFarmWebApplication{
+public class HithiumFarmWebApplication {
     private static final Logger log = LoggerFactory.getLogger(HithiumFarmWebApplication.class);
-    private static final Map<String,String> ARGS = new HashMap<>();
+    private static final Map<String, String> ARGS = new HashMap<>();
     public static final String HOST_NAME_SPLIT = ",";
     public static final String HOST_PORT_SPLIT = ":";
+
     public static void main(String[] args) {
         //init mongodb
         String configFilePath = null;
         loadArgs(args);
         String location = ARGS.get("spring.config.location");
         String name = ARGS.get("spring.config.name");
-        if (!StringUtils.isEmpty( location )){
-            if( StringUtils.isEmpty( name ) ){
+        if (!StringUtils.isEmpty(location)) {
+            if (StringUtils.isEmpty(name)) {
                 configFilePath = location + File.separator + PropertyUtil.CONFIG;
-            }else {
+            } else {
                 configFilePath = location + File.separator + name;
             }
         }
@@ -44,7 +45,7 @@ public class HithiumFarmWebApplication{
         String mongoHosts = PropertyUtil.getProperty(PropertiesConfig.MONGO_HOST);
         String[] hosts = mongoHosts.split(HOST_NAME_SPLIT);
         List<ServerAddress> addresses = new ArrayList<>();
-        for (String host : hosts){
+        for (String host : hosts) {
             String[] hostPort = host.split(HOST_PORT_SPLIT);
             Integer port = Integer.parseInt(hostPort[1]);
             addresses.add(new ServerAddress(hostPort[0], port));
@@ -62,15 +63,15 @@ public class HithiumFarmWebApplication{
         log.info("------------------连接mongodb完成------------------");
         SpringApplication.run(HithiumFarmWebApplication.class, args);
     }
+
     private static void loadArgs(String[] args) {
-        for( String arg : args ){
+        for (String arg : args) {
             String[] kvs = arg.split("=");
-            if( kvs.length == 2 ){
+            if (kvs.length == 2) {
                 ARGS.put(kvs[0], kvs[1]);
             }
         }
     }
-
 
 
 }

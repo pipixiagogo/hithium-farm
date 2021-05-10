@@ -10,11 +10,11 @@ public class CapacityNumVo {
      * 充电电量累加值
      */
     @ApiModelProperty(value = "充电电量累加值")
-    private String chargeCapacitySum;
+    private String chargeCapacitySum = "0";
 
     /**
      * 放电电量累加值
      */
     @ApiModelProperty(value = "放电电量累加值")
-    private String dischargeCapacitySum;
+    private String dischargeCapacitySum = "0";
 }

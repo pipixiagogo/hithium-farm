@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 public class AlarmNumVo {
-    private Integer number;
+    private Integer number=0;
 
     private String country;
 

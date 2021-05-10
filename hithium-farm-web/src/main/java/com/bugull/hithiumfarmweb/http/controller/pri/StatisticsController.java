@@ -59,7 +59,7 @@ public class StatisticsController extends AbstractController {
     }
 
     /**
-     * 每节约1度电，就相应节约了0.4千克标准煤，
+     * TODO 每节约1度电，就相应节约了0.4千克标准煤，
      * <p>
      * 减少污染排放0.272千克碳粉尘、
      * <p>
@@ -97,7 +97,12 @@ public class StatisticsController extends AbstractController {
         return statisticsService.incomeStatistics(areaInfoBo);
     }
 
-
+    @RequestMapping(value = "/incomeStatisticOfAll", method = RequestMethod.POST)
+    @ApiOperation(value = "获取最近7天、1个月、12个月收益")
+    @ApiImplicitParam(name = "areaInfoBo", value = "地区实体类", readOnly = true, paramType = "body", dataTypeClass = AreaInfoBo.class, dataType = "AreaInfoBo")
+    public ResHelper<Map<String,List<IncomeStatisticOfDayVo>>> incomeStatisticOfAll(@RequestBody AreaInfoBo areaInfoBo) {
+        return statisticsService.incomeStatisticOfAll(areaInfoBo);
+    }
 
 
 

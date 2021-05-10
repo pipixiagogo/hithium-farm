@@ -41,6 +41,12 @@ public class DateUtils {
             return new SimpleDateFormat("yyyy-MM-dd");
         }
     };
+    private static ThreadLocal<SimpleDateFormat> sdfWithYYYYMMHH = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat(DATE_PATTERN);
+        }
+    };
 
     private static ThreadLocal<SimpleDateFormat> sdfWithYYYYMM = new ThreadLocal<SimpleDateFormat>(){
         @Override
@@ -60,12 +66,17 @@ public class DateUtils {
             return new SimpleDateFormat("HH:mm");
         }
     };
+
     public static Date dateToStrWithHHmm(Date dateDate) throws ParseException {
         SimpleDateFormat formatter = sdfWithHHmm.get();
         return formatter.parse(formatter.format(dateDate));
     }
     public static Date dateToStrWithHHmmWith(String dateDateStr) throws ParseException {
         SimpleDateFormat formatter = sdfWithHHmm.get();
+        return formatter.parse(dateDateStr);
+    }
+    public static Date dateToStrWithHHmm(String dateDateStr) throws ParseException {
+        SimpleDateFormat formatter = sdfWithYYYYMMHH.get();
         return formatter.parse(dateDateStr);
     }
     public static String dateToStr(Date dateDate) {
@@ -223,6 +234,30 @@ public class DateUtils {
 
     public static String timeDifferent(Date start,Date end){
         return String.valueOf((start.getTime() - end.getTime())/60000);
+    }
+    /**
+     * 获取日期的开始时间   2019-07-09 11：11：11  -> 2019-07-09 00：00：00
+     * */
+    public static Date getStartTime(Date current) {
+        Calendar todayStart = Calendar.getInstance();
+        todayStart.setTime(current);
+        todayStart.set(Calendar.HOUR_OF_DAY, 0);
+        todayStart.set(Calendar.MINUTE, 0);
+        todayStart.set(Calendar.SECOND, 0);
+        todayStart.set(Calendar.MILLISECOND, 0);
+        return todayStart.getTime();
+    }
+    /**
+     *  获取日期的结束时间   2019-07-09 11：11：11  -> 2019-07-09 23：59：59
+     * */
+    public static Date getEndTime(Date current) {
+        Calendar todayEnd = Calendar.getInstance();
+        todayEnd.setTime(current);
+        todayEnd.set(Calendar.HOUR_OF_DAY, 23);
+        todayEnd.set(Calendar.MINUTE, 59);
+        todayEnd.set(Calendar.SECOND, 59);
+        todayEnd.set(Calendar.MILLISECOND, 999);
+        return todayEnd.getTime();
     }
 
 }

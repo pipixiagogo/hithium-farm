@@ -38,10 +38,9 @@ public class DeviceController extends AbstractController {
     @Resource
     private ConnetDeviceService connetDeviceService;
 
+
     /**
      * 添加EMQ连接白名单设备
-     *
-     * @return
      */
     @RequestMapping(value = "/registerConnetDevice", method = RequestMethod.POST)
     @ApiOperation(value = "添加EMQ连接白名单设备", response = ResHelper.class)
@@ -82,7 +81,7 @@ public class DeviceController extends AbstractController {
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "name", required = false, paramType = "query", value = "设备名称、设备描述", dataType = "String", dataTypeClass = String.class)
+            @ApiImplicitParam(name = "name", required = false, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class)
     })
     public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDeivcesByPage(@ApiIgnore @RequestParam Map<String, Object> params) {
         return deviceService.queryDeivcesByPage(params);
@@ -94,9 +93,9 @@ public class DeviceController extends AbstractController {
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(name = "name", required = false, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class),
-            @ApiImplicitParam(name = "country", value = " 中国：china  外国： foreign"),
-            @ApiImplicitParam(name = "province", value = "省份"),
-            @ApiImplicitParam(name = "city", value = "市区")
+            @ApiImplicitParam(name = "country", value = " 中国：china  外国： foreign", paramType = "query"),
+            @ApiImplicitParam(name = "province", value = "省份", paramType = "query", required = false, dataType = "string", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "city", value = "市区", paramType = "query", required = false, dataTypeClass = String.class, dataType = "string")
     })
     public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> deviceAreaList(@ApiIgnore @RequestParam Map<String, Object> params) {
         return deviceService.deviceAreaList(params);
@@ -108,8 +107,9 @@ public class DeviceController extends AbstractController {
     public ResHelper<Void> modifyDeviceInfo(@RequestBody ModifyDeviceBo modifyDeviceBo) {
         return deviceService.modifyDeviceInfo(modifyDeviceBo);
     }
+
     @GetMapping(value = "/selectPriceOfTime")
-    @ApiOperation(value = "查询设备时间段电量单价",httpMethod = "GET")
+    @ApiOperation(value = "查询设备时间段电量单价", httpMethod = "GET")
     @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备码", dataType = "String", dataTypeClass = String.class)
     public ResHelper<List<TimeOfPriceBo>> selectPriceOfTime(@ApiIgnore @RequestParam(value = "deviceName") String deviceName) {
         if (StringUtils.isEmpty(deviceName)) {
@@ -119,13 +119,13 @@ public class DeviceController extends AbstractController {
     }
 
     @GetMapping(value = "/selectPriceOfPercentage")
-    @ApiOperation(value = "查询设备时间段分布百分比和单价",httpMethod = "GET")
-    @ApiImplicitParam(name = "deviceName",required = true,paramType = "query",value = "设备码",dataType = "String",dataTypeClass = String.class)
-    public ResHelper<Map<String,Object>> selectPriceOfPercentage(@ApiIgnore @RequestParam(value = "deviceName") String deviceName){
-        if(StringUtils.isEmpty(deviceName)){
+    @ApiOperation(value = "查询设备时间段分布百分比和单价", httpMethod = "GET")
+    @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备码", dataType = "String", dataTypeClass = String.class)
+    public ResHelper<Map<String, Object>> selectPriceOfPercentage(@ApiIgnore @RequestParam(value = "deviceName") String deviceName) {
+        if (StringUtils.isEmpty(deviceName)) {
             return ResHelper.pamIll();
         }
-        return ResHelper.success("",deviceService.getPriceOfPercenAndTime(deviceName));
+        return ResHelper.success("", deviceService.getPriceOfPercenAndTime(deviceName));
     }
 
 

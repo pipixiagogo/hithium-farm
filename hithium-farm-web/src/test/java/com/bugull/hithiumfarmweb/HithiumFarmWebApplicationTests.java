@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb;
 
 
+import com.alibaba.excel.EasyExcel;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -38,6 +39,8 @@ import redis.clients.jedis.Jedis;
 
 import java.io.*;
 import java.math.BigDecimal;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -551,5 +554,94 @@ public class HithiumFarmWebApplicationTests {
         dayStart.set(Calendar.HOUR_OF_DAY, 0);
         dayStart.set(Calendar.MINUTE, 0);
         return dayStart.getTime();
+    }
+
+    @Test
+    public void testCharNum(){
+        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+        conn2.setHost("192.168.241.162");
+        conn2.setPort(27017);
+        conn2.setUsername("ess");
+        conn2.setPassword("ess");
+        conn2.setDatabase("ess");
+        conn2.connect();
+        DeviceDao deviceDao = new DeviceDao();
+        Iterable <DBObject> iterable = deviceDao.aggregate().group("{_id:null,count:{$sum:{$toDouble:'$chargeCapacitySum'}}}").results();
+
+        for(DBObject object:iterable){
+            Double o = (Double) object.get("count");
+            System.out.println(o);
+        }
+    }
+
+    /**
+     * TODO 下午根据相同采集时间合并不同数据集合
+     * @throws Exception
+     */
+    @Test
+    public void testUrlCode()throws Exception{
+        String str="%E5%AF%BC%E5%87%BA";
+        String encode = URLDecoder.decode(str, "utf-8");
+        System.out.println(encode);
+        String fileName =  URLEncoder.encode("excel导出", "UTF-8");
+        System.out.println(fileName);
+
+        String time="2021-04-11";
+        Date date = DateUtils.dateToStrWithHHmm(time);
+        Date endTime = DateUtils.getEndTime(date);
+        System.out.println(endTime);
+        System.out.println(date);
+    }
+
+    /**
+     * 不创建对象的写
+     */
+    @Test
+    public void noModelWrite() {
+        // 写法1
+        String fileName = "D://noModelWrite" + System.currentTimeMillis() + ".xlsx";
+        // 这里 需要指定写用哪个class去写，然后写到第一个sheet，名字为模板 然后文件流会自动关闭
+        EasyExcel.write(fileName).head(head()).sheet("模板").doWrite(dataList());
+    }
+
+    private List<List<String>> head() {
+        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+        conn2.setHost("192.168.241.162");
+        conn2.setPort(27017);
+        conn2.setUsername("ess");
+        conn2.setPassword("ess");
+        conn2.setDatabase("ess");
+        conn2.connect();
+        BmsCellTempDataDicDao bmsCellTempDataDicDao = new BmsCellTempDataDicDao();
+        BmsCellTempDataDic results = bmsCellTempDataDicDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a").result();
+        Map<String, Integer> tempMap = results.getTempMap();
+        List<List<String>> list = new ArrayList<List<String>>();
+        List<String> head0 = new ArrayList<String>();
+        head0.add("字符串");
+        List<String> head1 = new ArrayList<String>();
+        head1.add("数字" + System.currentTimeMillis());
+        List<String> head2 = new ArrayList<String>();
+        head2.add("日期" + System.currentTimeMillis());
+        list.add(head0);
+        list.add(head1);
+        list.add(head2);
+        for(Map.Entry<String,Integer> entry:tempMap.entrySet()){
+            List<String> head3 = new ArrayList<String>();
+            head3.add(entry.getKey());
+            list.add(head3);
+        }
+        return list;
+    }
+
+    private List<List<Object>> dataList() {
+        List<List<Object>> list = new ArrayList<List<Object>>();
+        for (int i = 0; i < 10; i++) {
+            List<Object> data = new ArrayList<Object>();
+            data.add("字符串" + i);
+            data.add(new Date());
+            data.add(0.56);
+            list.add(data);
+        }
+        return list;
     }
 }

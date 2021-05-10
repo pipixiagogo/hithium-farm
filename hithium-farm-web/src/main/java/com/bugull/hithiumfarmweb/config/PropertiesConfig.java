@@ -148,8 +148,14 @@ public class PropertiesConfig {
         if (!StringUtils.isEmpty(province) && !getProToCitys().containsKey(province)) {
             return false;
         }
+
         if (!StringUtils.isEmpty(city) && !getCitys().containsKey(city) && !getCitys().get(city).equals(province)) {
             return false;
+        }
+        if(!StringUtils.isEmpty(province) && !StringUtils.isEmpty(city)){
+            if(!getProToCitys().get(province).contains(city) || !getCitys().get(city).equals(province)){
+                return false;
+            }
         }
         return true;
     }

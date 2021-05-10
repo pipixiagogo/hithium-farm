@@ -1,2 +1,6 @@
-package com.bugull.hithiumfarmweb;public class NewEntity {
+package com.bugull.hithiumfarmweb;
+
+public class NewEntity {
+
+
 }

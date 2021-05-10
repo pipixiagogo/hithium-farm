@@ -1,4 +1,4 @@
-package com.bugull.hithium.core.entity;
+package com.bugull.hithiumfarmweb.http.entity;
 
 import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.Entity;

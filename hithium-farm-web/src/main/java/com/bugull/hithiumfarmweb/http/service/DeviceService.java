@@ -104,6 +104,9 @@ public class DeviceService {
     }
 
     public DeviceVo query(String deviceName) {
+        /**
+         *  TODO 设备列表分类 按excel导出那个分类
+         */
         Device device = deviceDao.query().is("deviceName", deviceName).result();
         DeviceVo deviceVo = new DeviceVo();
         if (device != null) {
@@ -177,15 +180,6 @@ public class DeviceService {
                     if (!CollectionUtils.isEmpty(equipm.getEquipmentBo()) && equipm.getEquipmentBo().size() > 0) {
                         equipmentBoList.add(equipm);
                     }
-                    //并网口数据排序
-//                    if (!CollectionUtils.isEmpty(equipment.getEquipmentBo()) && equipment.getEquipmentBo().size() > 0) {
-//                        equipment.setEquipmentBo(equipment.getEquipmentBo().stream().sorted(new Comparator<EquipmentBo>() {
-//                            @Override
-//                            public int compare(EquipmentBo o1, EquipmentBo o2) {
-//                                return o2.getName().compareTo(o1.getName());
-//                            }
-//                        }).collect(Collectors.toList()));
-//                    }
                 });
                 equipmentBos.add(equipment);
                 List<Equipment> equips = equipmentDao.query().is("enabled", true).in("_id", pccs.getEquipmentIds())
@@ -201,7 +195,6 @@ public class DeviceService {
             });
             deviceVo.setEquipmentBo(equipmentBo);
         }
-
         return deviceVo;
     }
 
@@ -251,7 +244,6 @@ public class DeviceService {
             return ResHelper.success("", deviceInfoVoPage);
         }
         return ResHelper.pamIll();
-
     }
 
     private String getApplicationScenariosItemMsg(Integer applicationScenariosItem) {

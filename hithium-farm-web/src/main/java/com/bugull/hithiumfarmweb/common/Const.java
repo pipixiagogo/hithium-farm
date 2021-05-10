@@ -12,6 +12,14 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Const {
 
+    public static final String BAMS_DATA_SHEET_NAME="电池堆";
+    public static final String PCS_DATA_SHEET_NAME="PCS主控";
+    public static final String INCOMEOFDAY="{_id:'$incomeOfDay',count:{$sum:{$toDouble:'$income'}}}";
+//    {_id:{ $dateToString: { format: '%Y-%m', date: '$accessTime' } }
+//    "{_id:{ $dateToString: { format: '%Y-%m', date: '$accessTime' } },count:{$sum:{$toDouble:'$stationPower'}}}"
+    public static final String INCOMEOFMONTH="{_id:{$substrCP:['$incomeOfDay',0,7]},count:{$sum:{$toDouble:'$income'}}}";
+    public static final String INCOMEOFYEAR="{_id:{$substrCP:['$incomeOfDay',0,4]},count:{$sum:{$toDouble:'$income'}}}";
+
     public static final String START_TIME="00:00-";
     public static final String END_TIME="-24:00";
 
