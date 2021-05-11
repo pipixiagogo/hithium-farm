@@ -1,28 +1,37 @@
 package com.bugull.hithiumfarmweb.http.service;
 
+import com.alibaba.excel.EasyExcelFactory;
+import com.alibaba.excel.ExcelWriter;
+import com.alibaba.excel.support.ExcelTypeEnum;
+import com.alibaba.excel.write.metadata.WriteSheet;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
+import com.bugull.hithiumfarmweb.common.Const;
+import com.bugull.hithiumfarmweb.common.exception.ExcelExportWithoutDataException;
+import com.bugull.hithiumfarmweb.common.exception.ParamsValidateException;
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.dao.BreakDownLogDao;
 import com.bugull.hithiumfarmweb.http.dao.DeviceDao;
 import com.bugull.hithiumfarmweb.http.entity.BreakDownLog;
 import com.bugull.hithiumfarmweb.http.entity.Device;
 import com.bugull.hithiumfarmweb.http.vo.BreakDownLogVo;
+import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import com.bugull.mongo.BuguQuery;
-import io.swagger.models.auth.In;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
+import java.io.OutputStream;
+import java.text.ParseException;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static com.bugull.hithiumfarmweb.common.Const.*;
 
 
 @Service
@@ -35,22 +44,20 @@ public class BreakDownLogService {
     @Resource
     private PropertiesConfig propertiesConfig;
 
-    private static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
 
     public ResHelper<BuguPageQuery.Page<BreakDownLogVo>> query(Map<String, Object> params) {
-        BuguPageQuery<BreakDownLog> query = (BuguPageQuery<BreakDownLog>) breakDownLogDao.pageQuery();
-        String deviceName = (String) params.get("deviceName");
+        BuguPageQuery<BreakDownLog> query = breakDownLogDao.pageQuery();
+        String deviceName = (String) params.get(DEVICE_NAME);
         if (!StringUtils.isEmpty(deviceName)) {
-            query.is("deviceName", deviceName);
+            query.is(DEVICE_NAME, deviceName);
         }
         String alarmType = (String) params.get("alarmType");
         if (!StringUtils.isEmpty(alarmType)) {
             query.is("alarmType", Integer.valueOf(alarmType));
         }
-        String status = (String) params.get("status");
+        String status = (String) params.get(STATUS);
         if (status != null) {
-            query.is("status",Boolean.valueOf( status));
+            query.is(STATUS, Boolean.valueOf(status));
         }
         String startTime = (String) params.get("startTime");
         String endTime = (String) params.get("endTime");
@@ -60,15 +67,15 @@ public class BreakDownLogService {
                 if (StringUtils.isEmpty(endTime)) {
                     end = new Date();
                 } else {
-                    end = simpleDateFormat.parse(endTime);
+                    end = DateUtils.strToDate(endTime);
                 }
-                Date start = simpleDateFormat.parse(startTime);
+                Date start = DateUtils.strToDate(startTime);
                 if (startTime != null && endTime != null) {
                     if (start.getTime() > end.getTime()) {
                         return ResHelper.pamIll();
                     } else {
-                        query.greaterThanEquals("generationDataTime", start);
-                        query.lessThanEquals("generationDataTime", end);
+                        query.greaterThanEquals(GENERATION_DATA_TIME, start);
+                        query.lessThanEquals(GENERATION_DATA_TIME, end);
                     }
                 }
             }
@@ -76,31 +83,27 @@ public class BreakDownLogService {
             return ResHelper.pamIll();
         }
         if (propertiesConfig.verify(params)) {
-            String province = (String) params.get("province");
+            String province = (String) params.get(PROVINCE);
             String city = (String) params.get("city");
             BuguQuery<Device> buguQuery = deviceDao.query();
-            if(!StringUtils.isEmpty(province)){
-                buguQuery.is("province",province);
+            if (!StringUtils.isEmpty(province)) {
+                buguQuery.is(PROVINCE, province);
             }
-            if(!StringUtils.isEmpty(city)){
-                buguQuery.is("city",city);
+            if (!StringUtils.isEmpty(city)) {
+                buguQuery.is("city", city);
             }
-                List<String> deviceNames = new ArrayList<>();
-            List<Device> deviceList = buguQuery.results();
-            for (Device device : deviceList) {
-                deviceNames.add(device.getDeviceName());
-            }
-            if(!CollectionUtils.isEmpty(deviceNames) && deviceNames.size()>0){
-                query.in("deviceName", deviceNames);
-            }else {
+            List<String> deviceNames = buguQuery.results().stream().map(Device::getDeviceName).collect(Collectors.toList());
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                query.in(DEVICE_NAME, deviceNames);
+            } else {
                 return ResHelper.success("");
             }
-        }else {
+        } else {
             return ResHelper.pamIll();
         }
         if (!PagetLimitUtil.pageLimit(query, params)) return ResHelper.pamIll();
         if (!PagetLimitUtil.orderField(query, params)) return ResHelper.pamIll();
-        query.sortDesc("generationDataTime");
+        query.sortDesc(GENERATION_DATA_TIME);
         BuguPageQuery.Page<BreakDownLog> downLogPage = query.resultsWithPage();
         List<BreakDownLog> datas = downLogPage.getDatas();
         List<BreakDownLogVo> breakDownLogBos = datas.stream().map(data -> {
@@ -120,8 +123,7 @@ public class BreakDownLogService {
     }
 
     private Device getDeviceByName(String deviceName) {
-        Device device = deviceDao.query().is("deviceName", deviceName).returnFields("province", "city", "name", "description").result();
-        return device;
+        return deviceDao.query().is(DEVICE_NAME, deviceName).returnFields(PROVINCE, "city", "name", "description").result();
     }
 
     private String getAlarmTypeMsg(Integer alarmType) {
@@ -136,6 +138,87 @@ public class BreakDownLogService {
                 return "故障";
             default:
                 return "未知告警类型";
+        }
+    }
+
+    public void verify(String time, String province, String city) {
+        if (!StringUtils.isEmpty(time) && !Const.DATE_PATTERN.matcher(time).matches()) {
+            //根据传入的数值获取
+            throw new ParamsValidateException("日期格式错误");
+        }
+        if (!StringUtils.isEmpty(province)) {
+            if (!propertiesConfig.getProToCitys().containsKey(province)
+                    || !propertiesConfig.getProToCitys().get(province).contains(city)) {
+                throw new ParamsValidateException("省份/市区错误");
+            }
+        }
+        if (!StringUtils.isEmpty(city)) {
+            if (!propertiesConfig.getCitys().containsKey(city) ||
+                    !propertiesConfig.getCitys().get(city).equals(province))
+                throw new ParamsValidateException("省份/市区错误");
+
+        }
+    }
+
+    public void exportBreakDownlog(String time, String province, String city, Boolean status, OutputStream outputStream) throws ParseException {
+        Date startTime = null;
+        Date endTime = null;
+        if (StringUtils.isEmpty(time)) {
+            Date date = new Date();
+            startTime = DateUtils.getStartTime(date);
+            endTime = DateUtils.getEndTime(date);
+        } else {
+            //根据传入的数值获取
+            if (!Const.DATE_PATTERN.matcher(time).matches()) {
+                throw new ExcelExportWithoutDataException("日期格式错误");
+            }
+            startTime = DateUtils.dateToStrWithHHmm(time);
+            endTime = DateUtils.getEndTime(startTime);
+        }
+        BuguQuery<Device> deviceBuguQuery = deviceDao.query();
+        if (!StringUtils.isEmpty(province)) {
+            deviceBuguQuery.is(PROVINCE, province);
+        }
+        if (!StringUtils.isEmpty(city)) {
+            deviceBuguQuery.is("city", city);
+        }
+        List<String> deviceNames = deviceBuguQuery.results().stream().map(Device::getDeviceName).collect(Collectors.toList());
+        BuguQuery<BreakDownLog> breakDownLogBuguQuery = breakDownLogDao.query();
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            breakDownLogBuguQuery.in(DEVICE_NAME, deviceNames);
+        }
+        if (!StringUtils.isEmpty(province) && !StringUtils.isEmpty(city) && CollectionUtils.isEmpty(deviceNames)) {
+            throw new ExcelExportWithoutDataException("该日期暂无数据");
+        }
+        if (status != null) {
+            breakDownLogBuguQuery.is(STATUS, status);
+        }
+        List<BreakDownLog> breakDownLogList = breakDownLogBuguQuery.greaterThanEquals(GENERATION_DATA_TIME, startTime)
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+        if (!CollectionUtils.isEmpty(breakDownLogList) && !breakDownLogList.isEmpty()) {
+            List<BreakDownLogVo> breakDownLogBos = breakDownLogList.stream().map(data -> {
+                BreakDownLogVo breakDownLogVo = new BreakDownLogVo();
+                BeanUtils.copyProperties(data, breakDownLogVo);
+                breakDownLogVo.setAlarmTypeMsg(getAlarmTypeMsg(data.getAlarmType()));
+                breakDownLogVo.setStatusMsg(data.getStatus() ? "发生" : "消除");
+                Device byName = getDeviceByName(data.getDeviceName());
+                breakDownLogVo.setAreaMsg(byName.getProvince() + "-" + byName.getCity());
+                breakDownLogVo.setDescription(byName.getDescription());
+                breakDownLogVo.setDeviceOfName(byName.getName());
+                return breakDownLogVo;
+            }).collect(Collectors.toList());
+            ExcelWriter writer = null;
+            try {
+                writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                WriteSheet writeSheet = EasyExcelFactory.writerSheet(0, BREAKDOWNLOG_DATA_SHEET_NAME).head(BreakDownLogVo.class).build();
+                writer.write(breakDownLogBos, writeSheet);
+            } finally {
+                if (writer != null) {
+                    writer.finish();
+                }
+            }
+        } else {
+            throw new ExcelExportWithoutDataException("该日期暂无数据");
         }
     }
 }

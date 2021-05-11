@@ -42,5 +42,16 @@ public class DeviceInfoVo {
     @ApiModelProperty(value = "应用场景下的策略")
     private String applicationScenariosItemMsg;
 
+    //收益
+    @ApiModelProperty(value = "收益")
+    private String income="0";
+
+    //总充电量
+    @ApiModelProperty(value = "总放电量")
+    private String dischargeCapacitySum;
+    //总充电量
+    @ApiModelProperty(value = "总充电量")
+    private String chargeCapacitySum;
+
 
 }

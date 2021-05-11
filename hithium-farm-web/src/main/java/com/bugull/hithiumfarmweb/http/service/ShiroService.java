@@ -9,6 +9,7 @@ import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Resource;
 import java.util.*;
@@ -41,10 +42,9 @@ public class ShiroService {
              */
             SysUser userById = sysUserDao.query().is("_id", sysUser.getId()).is("userName", sysUser.getUserName()).result();
             List<String> roleIds = userById.getRoleIds();
-            if (roleIds != null && roleIds.size() > 0) {
-                List<RoleEntity> roleEntityList = roleIds.stream().map(role -> {
-                    return roleEntityDao.query().is("_id", role).result();
-                }).collect(Collectors.toList());
+            if (!CollectionUtils.isEmpty(roleIds) && roleIds.isEmpty()) {
+                List<RoleEntity> roleEntityList = roleIds.stream().map(role -> roleEntityDao.query().is("_id", role)
+                        .result()).collect(Collectors.toList());
                 List<MenuEntity> menuEntities = new ArrayList<>();
                 roleEntityList.stream().forEach(role -> {
                     List<MenuEntity> menus = menuEntityDao.query().in("_id", role.getMenuIdList()).results();
@@ -54,7 +54,7 @@ public class ShiroService {
                  * 根据角色去重
                  */
                 menuEntityList = menuEntities.stream().distinct().collect(Collectors.toList());
-            }else {
+            } else {
                 /**
                  * 生成用户时候未指定角色
                  */
@@ -63,8 +63,7 @@ public class ShiroService {
 
         }
         Set<String> permsSet = new HashSet<>();
-
-        if (menuEntityList.size() > 0 && menuEntityList != null) {
+        if (!CollectionUtils.isEmpty(permsSet) && !menuEntityList.isEmpty()) {
             for (MenuEntity perms : menuEntityList) {
                 if (StringUtils.isBlank(perms.getPerms())) {
                     continue;

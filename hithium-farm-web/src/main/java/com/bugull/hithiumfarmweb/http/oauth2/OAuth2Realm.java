@@ -68,7 +68,6 @@ public class OAuth2Realm extends AuthorizingRealm {
         if(tokenEntity.getTokenExpireTime().getTime() < System.currentTimeMillis()) {
             throw new IncorrectCredentialsException("token过期,请重新登录");
         }
-        SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(tokenEntity, accessToken, getName());
-        return info;
+        return new SimpleAuthenticationInfo(tokenEntity, accessToken, getName());
     }
 }

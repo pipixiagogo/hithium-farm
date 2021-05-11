@@ -11,16 +11,12 @@ import com.bugull.hithiumfarmweb.http.service.ConnetDeviceService;
 import com.bugull.hithiumfarmweb.http.service.DeviceService;
 import com.bugull.hithiumfarmweb.http.vo.DeviceInfoVo;
 import com.bugull.hithiumfarmweb.http.vo.DeviceVo;
-import com.bugull.hithiumfarmweb.http.vo.PriceOfPercenVo;
 import com.bugull.hithiumfarmweb.http.vo.ProvinceVo;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import io.swagger.annotations.*;
 import org.apache.commons.lang.StringUtils;
-import org.apache.shiro.authz.annotation.Logical;
-import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.web.bind.annotation.*;
 import springfox.documentation.annotations.ApiIgnore;
-import sun.awt.SunHints;
 
 import javax.annotation.Resource;
 import java.util.List;
@@ -42,7 +38,7 @@ public class DeviceController extends AbstractController {
     /**
      * 添加EMQ连接白名单设备
      */
-    @RequestMapping(value = "/registerConnetDevice", method = RequestMethod.POST)
+    @PostMapping(value = "/registerConnetDevice")
     @ApiOperation(value = "添加EMQ连接白名单设备", response = ResHelper.class)
     @ApiImplicitParam(name = "connetBo", value = "设备白名单实体类", required = true, paramType = "body", dataTypeClass = ConnetDeviceBo.class, dataType = "ConnetDeviceBo")
     public ResHelper<Void> registerConnetDevice(@RequestBody ConnetDeviceBo connetBo) {
@@ -50,13 +46,13 @@ public class DeviceController extends AbstractController {
         return connetDeviceService.registerConnetDevice(connetBo);
     }
 
-    @RequestMapping(value = "/aggrationArea", method = RequestMethod.GET)
+    @GetMapping(value = "/aggrationArea")
     @ApiOperation(value = "统计设备定位信息 地区+数量", httpMethod = "GET", response = ResHelper.class)
     public ResHelper<List<ProvinceVo>> aggrationArea() {
         return deviceService.aggrationArea();
     }
 
-    @RequestMapping(value = "/detailArea", method = RequestMethod.GET)
+    @GetMapping(value = "/detailArea")
     @ApiOperation(value = "根据城市查询对应设备的详细经纬度", httpMethod = "GET", response = ResHelper.class)
     @ApiImplicitParam(name = "city", required = true, paramType = "query", value = "城市名称", dataType = "String", dataTypeClass = String.class)
     public ResHelper<List<Device>> detailArea(@ApiIgnore @RequestParam(value = "city", required = true) String city) {
@@ -66,7 +62,7 @@ public class DeviceController extends AbstractController {
         return deviceService.queryDetailAreaByCity(city);
     }
 
-    @RequestMapping(value = "/queryDevicesByDeviceName", method = RequestMethod.GET)
+    @GetMapping(value = "/queryDevicesByDeviceName")
     @ApiOperation(value = "设备列表 需传入设备码", httpMethod = "GET")
     @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备码", dataType = "String", dataTypeClass = String.class)
     public ResHelper<DeviceVo> queryDevice(@ApiIgnore @RequestParam(value = "deviceName") String deviceName) {
@@ -76,7 +72,7 @@ public class DeviceController extends AbstractController {
         return ResHelper.success("", deviceService.query(deviceName));
     }
 
-    @RequestMapping(value = "/queryDeivcesByPage", method = RequestMethod.GET)
+    @GetMapping(value = "/queryDeivcesByPage")
     @ApiOperation(value = "设备列表 进行分页", httpMethod = "GET")
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -87,7 +83,7 @@ public class DeviceController extends AbstractController {
         return deviceService.queryDeivcesByPage(params);
     }
 
-    @RequestMapping(value = "/deviceAreaList", method = RequestMethod.GET)
+    @GetMapping(value = "/deviceAreaList")
     @ApiOperation(value = "设备分页定位、运行状态查询", httpMethod = "GET")
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -126,6 +122,16 @@ public class DeviceController extends AbstractController {
             return ResHelper.pamIll();
         }
         return ResHelper.success("", deviceService.getPriceOfPercenAndTime(deviceName));
+    }
+
+    @GetMapping(value = "/queryDeviceByName")
+    @ApiOperation(value = "查询单台设备的收益以及充放电量",httpMethod = "GET")
+    @ApiImplicitParam(name = "deviceName",paramType = "query",value = "设备码",dataType = "String",dataTypeClass = String.class)
+    public ResHelper<DeviceInfoVo> selectDevice(@ApiIgnore @RequestParam(value = "deviceName") String deviceName){
+        if(StringUtils.isEmpty(deviceName)){
+            return ResHelper.pamIll();
+        }
+        return ResHelper.success("",deviceService.queryDeviceName(deviceName));
     }
 
 

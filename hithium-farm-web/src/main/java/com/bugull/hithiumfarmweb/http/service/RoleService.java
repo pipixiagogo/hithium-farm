@@ -13,6 +13,7 @@ import com.bugull.mongo.BuguUpdater;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Resource;
 import java.util.*;
@@ -36,7 +37,7 @@ public class RoleService {
     }
 
     public ResHelper<BuguPageQuery.Page<RoleEntity>> query(Map<String, Object> params) {
-        BuguPageQuery<RoleEntity> query = (BuguPageQuery<RoleEntity>) roleEntityDao.pageQuery();
+        BuguPageQuery<RoleEntity> query =  roleEntityDao.pageQuery();
         String roleName = (String) params.get("roleName");
         if (!StringUtils.isBlank(roleName)) {
             query.regexCaseInsensitive("roleName", roleName);
@@ -82,7 +83,7 @@ public class RoleService {
              * 删除user列表下的角色
              */
             List<SysUser> userList = sysUserDao.query().in("roleIds", roIds).results();
-            if (userList != null && userList.size() > 0) {
+            if (!CollectionUtils.isEmpty(userList) && !userList.isEmpty()) {
                 Set<String> set = new HashSet<>(roIds);
                 userList.stream().forEach(user -> {
                     Set<String> userRoleSet = new HashSet<>(user.getRoleIds());

@@ -2,16 +2,12 @@ package com.bugull.hithiumfarmweb.http.controller.pri;
 
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.http.entity.OperationLog;
-import com.bugull.hithiumfarmweb.http.entity.RoleEntity;
 import com.bugull.hithiumfarmweb.http.service.OperationLogService;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import springfox.documentation.annotations.ApiIgnore;
 
 import javax.annotation.Resource;
@@ -27,7 +23,7 @@ public class OperationLogController extends AbstractController{
     @Resource
     private OperationLogService operationLogService;
 
-    @RequestMapping(value = "/query",method = RequestMethod.GET)
+    @GetMapping(value = "/query")
     @ApiOperation(value = "分页查询操作日志",response = ResHelper.class)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1",name = "page", value = "当前页码",paramType = "query",required = true,dataType = "int",dataTypeClass = Integer.class),

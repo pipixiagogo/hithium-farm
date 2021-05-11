@@ -3,7 +3,6 @@ package com.bugull.hithiumfarmweb.http.controller.pub;
 import com.bugull.hithiumfarmweb.common.validator.ValidatorUtils;
 import com.bugull.hithiumfarmweb.common.validator.group.UpdateGroup;
 import com.bugull.hithiumfarmweb.http.bo.LoginFormBo;
-import com.bugull.hithiumfarmweb.http.entity.Captcha;
 import com.bugull.hithiumfarmweb.http.service.CaptchaService;
 import com.bugull.hithiumfarmweb.http.service.SysUserService;
 import com.bugull.hithiumfarmweb.http.vo.LoginVo;
@@ -11,6 +10,7 @@ import com.bugull.hithiumfarmweb.utils.ResHelper;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.io.IOUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -53,15 +53,9 @@ public class LoginController{
     @ApiImplicitParam(name = "loginFormBo", value = "登录接口", required = true, paramType = "body", dataTypeClass = LoginFormBo.class, dataType = "LoginFormBo")
     public ResHelper<LoginVo> login(@RequestBody LoginFormBo loginFormBo) {
         ValidatorUtils.validateEntity(loginFormBo, UpdateGroup.class);
-        Captcha captcha = captchaService.validaCaptcha(loginFormBo.getUuid());
-        if(captcha== null){
-            return ResHelper.error("登录失败,验证码错误");
-        }
-        if (captcha != null && !captcha.getCode().equalsIgnoreCase(loginFormBo.getCaptcha())) {
-            return ResHelper.error("登录失败,验证码错误");
-        }
-        if (System.currentTimeMillis() > captcha.getExpireTime().getTime()) {
-            return ResHelper.error("登录失败,验证码过期");
+        String  msg = captchaService.validaCaptcha(loginFormBo);
+        if(!StringUtils.isEmpty(msg)){
+            return ResHelper.error(msg);
         }
         return sysUserService.loginByPassword(loginFormBo);
     }
@@ -70,7 +64,7 @@ public class LoginController{
      * 刷新token接口
      */
     @ApiOperation(value = "刷新token接口", response = ResHelper.class)
-    @RequestMapping(value = "/refreshToken", method = RequestMethod.POST)
+    @PostMapping(value = "/refreshToken")
     @ApiImplicitParam(name = "refreshToken", value = "刷新的token", required = false)
     public ResHelper<LoginVo> refreshToken(@RequestParam(value = "refreshToken", required = true) String refreshToken) {
         return sysUserService.refreshToken(refreshToken);

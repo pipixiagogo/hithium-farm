@@ -1,13 +1,16 @@
 package com.bugull.hithiumfarmweb.http.service;
 
-import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.EasyExcelFactory;
 import com.alibaba.excel.ExcelWriter;
+import com.alibaba.excel.support.ExcelTypeEnum;
 import com.alibaba.excel.write.metadata.WriteSheet;
 import com.alibaba.excel.write.metadata.style.WriteCellStyle;
 import com.alibaba.excel.write.metadata.style.WriteFont;
 import com.alibaba.excel.write.style.HorizontalCellStyleStrategy;
 import com.bugull.hithiumfarmweb.common.BuguPageDao;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
+import com.bugull.hithiumfarmweb.common.Const;
+import com.bugull.hithiumfarmweb.common.exception.ExcelExportWithoutDataException;
 import com.bugull.hithiumfarmweb.http.bo.*;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
@@ -27,14 +30,12 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
+import java.io.OutputStream;
 import java.text.ParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.bugull.hithiumfarmweb.common.Const.BAMS_DATA_SHEET_NAME;
-import static com.bugull.hithiumfarmweb.common.Const.PCS_DATA_SHEET_NAME;
-import static com.mongodb.client.model.Aggregates.count;
-import static com.mongodb.client.model.Aggregates.lookup;
+import static com.bugull.hithiumfarmweb.common.Const.*;
 
 @Service
 public class RealTimeDataService {
@@ -66,8 +67,8 @@ public class RealTimeDataService {
     @Resource
     private EquipmentDao equipmentDao;
 
-    public static final List<Integer> AMMETER_EQUIPMENT_IDS = new ArrayList<>();
-    public static final List<Integer> FIRE_AIR_UPS_EQUIPMENT_IDS = new ArrayList<>();
+    protected static final List<Integer> AMMETER_EQUIPMENT_IDS = new ArrayList<>();
+    protected static final List<Integer> FIRE_AIR_UPS_EQUIPMENT_IDS = new ArrayList<>();
 
     static {
         AMMETER_EQUIPMENT_IDS.add(3);
@@ -80,7 +81,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<AmmeterDataDic>> ammeterDataQuery(Map<String, Object> params) {
-        BuguPageQuery<AmmeterDataDic> query = (BuguPageQuery<AmmeterDataDic>) ammeterDataDicDao.pageQuery();
+        BuguPageQuery<AmmeterDataDic> query =  ammeterDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -90,7 +91,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<BamsDataDicBA>> bamsDataquery(Map<String, Object> params) {
-        BuguPageQuery<BamsDataDicBA> query = (BuguPageQuery<BamsDataDicBA>) bamsDataDicBADao.pageQuery();
+        BuguPageQuery<BamsDataDicBA> query =  bamsDataDicBADao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -100,9 +101,9 @@ public class RealTimeDataService {
     }
 
     private boolean queryOfParams(BuguPageQuery<?> query, Map<String, Object> params) {
-        String deviceName = (String) params.get("deviceName");
+        String deviceName = (String) params.get(DEVICE_NAME);
         if (!StringUtils.isEmpty(deviceName)) {
-            query.is("deviceName", deviceName);
+            query.is(DEVICE_NAME, deviceName);
         }
         if (!PagetLimitUtil.pageLimit(query, params)) return false;
         if (!PagetLimitUtil.orderField(query, params)) return false;
@@ -110,7 +111,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<BmsCellTempDataDic>> bmsTempDataquery(Map<String, Object> params) {
-        BuguPageQuery<BmsCellTempDataDic> query = (BuguPageQuery<BmsCellTempDataDic>) bmsCellTempDataDicDao.pageQuery();
+        BuguPageQuery<BmsCellTempDataDic> query = bmsCellTempDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -120,7 +121,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<BmsCellVoltDataDic>> bmsVoltDataquery(Map<String, Object> params) {
-        BuguPageQuery<BmsCellVoltDataDic> query = (BuguPageQuery<BmsCellVoltDataDic>) bmsCellVoltDataDicDao.pageQuery();
+        BuguPageQuery<BmsCellVoltDataDic> query = bmsCellVoltDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -130,7 +131,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<BcuDataDicBCU>> bcuDataquery(Map<String, Object> params) {
-        BuguPageQuery<BcuDataDicBCU> query = (BuguPageQuery<BcuDataDicBCU>) bcuDataDicBCUDao.pageQuery();
+        BuguPageQuery<BcuDataDicBCU> query = bcuDataDicBCUDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -140,7 +141,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<PcsCabinetDic>> pcsCabinetquery(Map<String, Object> params) {
-        BuguPageQuery<PcsCabinetDic> query = (BuguPageQuery<PcsCabinetDic>) pcsCabinetDicDao.pageQuery();
+        BuguPageQuery<PcsCabinetDic> query = pcsCabinetDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -150,7 +151,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<PcsChannelDic>> pcsChannelquery(Map<String, Object> params) {
-        BuguPageQuery<PcsChannelDic> query = (BuguPageQuery<PcsChannelDic>) pcsChannelDicDao.pageQuery();
+        BuguPageQuery<PcsChannelDic> query =  pcsChannelDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -160,7 +161,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<AirConditionDataDic>> airConditionquery(Map<String, Object> params) {
-        BuguPageQuery<AirConditionDataDic> query = (BuguPageQuery<AirConditionDataDic>) airConditionDataDicDao.pageQuery();
+        BuguPageQuery<AirConditionDataDic> query =  airConditionDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -170,7 +171,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<TemperatureMeterDataDic>> temperatureMeterquery(Map<String, Object> params) {
-        BuguPageQuery<TemperatureMeterDataDic> query = (BuguPageQuery<TemperatureMeterDataDic>) temperatureMeterDataDicDao.pageQuery();
+        BuguPageQuery<TemperatureMeterDataDic> query =  temperatureMeterDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -181,7 +182,7 @@ public class RealTimeDataService {
 
 
     public ResHelper<BuguPageQuery.Page<FireControlDataDic>> fileControlquery(Map<String, Object> params) {
-        BuguPageQuery<FireControlDataDic> query = (BuguPageQuery<FireControlDataDic>) fireControlDataDicDao.pageQuery();
+        BuguPageQuery<FireControlDataDic> query =  fireControlDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -191,7 +192,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<UpsPowerDataDic>> upsPowerquery(Map<String, Object> params) {
-        BuguPageQuery<UpsPowerDataDic> query = (BuguPageQuery<UpsPowerDataDic>) upsPowerDataDicDao.pageQuery();
+        BuguPageQuery<UpsPowerDataDic> query =  upsPowerDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -201,7 +202,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<List<BmsTempMsgBo>> bmsTempMsg(String deviceName) {
-        Iterable<DBObject> iterable = temperatureMeterDataDicDao.aggregate().match(temperatureMeterDataDicDao.query().is("deviceName", deviceName))
+        Iterable<DBObject> iterable = temperatureMeterDataDicDao.aggregate().match(temperatureMeterDataDicDao.query().is(DEVICE_NAME, deviceName))
                 .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
                 .sort("{generationDataTime:-1}").limit(3).results();
         List<String> queryIds = new ArrayList<>();
@@ -209,7 +210,7 @@ public class RealTimeDataService {
             ObjectId dataId = (ObjectId) object.get("dataId");
             queryIds.add(dataId.toString());
         }
-        if (!CollectionUtils.isEmpty(queryIds) && queryIds.size() > 0) {
+        if (!CollectionUtils.isEmpty(queryIds) && !queryIds.isEmpty()) {
             List<TemperatureMeterDataDic> temperatureMeterDataDics = temperatureMeterDataDicDao.query().in("_id", queryIds).results();
             List<BmsTempMsgBo> tempMsgBos = temperatureMeterDataDics.stream().map(temperatureMeterDataDic -> {
                 BmsTempMsgBo msgBo = new BmsTempMsgBo();
@@ -223,7 +224,7 @@ public class RealTimeDataService {
 
 
     public ResHelper<BamsLatestBo> bamsLatestData(String deviceName) {
-        Iterable<DBObject> iterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is("deviceName", deviceName))
+        Iterable<DBObject> iterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is(DEVICE_NAME, deviceName))
                 .sort("{generationDataTime:-1}").limit(1).results();
         if (iterable != null) {
             for (DBObject object : iterable) {
@@ -263,7 +264,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<List<BcuDataBo>> bcuDataqueryByName(String deviceName) {
-        Iterable<DBObject> iterable = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is("deviceName", deviceName))
+        Iterable<DBObject> iterable = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is(DEVICE_NAME, deviceName))
                 .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
                 .sort("{generationDataTime:-1}").limit(16).results();
         List<String> queryIds = new ArrayList<>();
@@ -274,7 +275,7 @@ public class RealTimeDataService {
                 queryIds.add(queryId);
             }
         }
-        if (!CollectionUtils.isEmpty(queryIds) && queryIds.size() > 0) {
+        if (!CollectionUtils.isEmpty(queryIds) && !queryIds.isEmpty()) {
             List<BcuDataDicBCU> bcuDataDicBCUs = bcuDataDicBCUDao.query().in("_id", queryIds).results();
             List<BcuDataBo> bcuDataBoList = bcuDataDicBCUs.stream().map(bcuDataDicBCU -> {
                 BcuDataBo bcuDataBo = new BcuDataBo();
@@ -307,10 +308,10 @@ public class RealTimeDataService {
     }
 
     public ResHelper<List<BmsCellDataBo>> bmscellDataQuery(String deviceName) {
-        Iterable<DBObject> tempIterable = bmsCellTempDataDicDao.aggregate().match(bmsCellTempDataDicDao.query().is("deviceName", deviceName))
+        Iterable<DBObject> tempIterable = bmsCellTempDataDicDao.aggregate().match(bmsCellTempDataDicDao.query().is(DEVICE_NAME, deviceName))
                 .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
                 .sort("{generationDataTime:-1}").limit(16).results();
-        Iterable<DBObject> volIterable = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is("deviceName", deviceName))
+        Iterable<DBObject> volIterable = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is(DEVICE_NAME, deviceName))
                 .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
                 .sort("{generationDataTime:-1}").limit(16).results();
         List<String> tempIterableIds = new ArrayList<>();
@@ -330,8 +331,8 @@ public class RealTimeDataService {
         List<BmsCellTempDataDic> bmsCellTempDataDicbyIds = bmsCellTempDataDicDao.query().in("_id", tempIterableIds).results();
         List<BmsCellVoltDataDic> bmsCellVoltDataDicbyIds = bmsCellVoltDataDicDao.query().in("_id", volIterableIds).results();
         List<BmsCellDataBo> bmsCellDataBos = new ArrayList<>();
-        if (!CollectionUtils.isEmpty(bmsCellTempDataDicbyIds) && bmsCellTempDataDicbyIds.size() > 0 &&
-                !CollectionUtils.isEmpty(bmsCellVoltDataDicbyIds) && bmsCellVoltDataDicbyIds.size() > 0) {
+        if (!CollectionUtils.isEmpty(bmsCellTempDataDicbyIds) && !bmsCellTempDataDicbyIds.isEmpty() &&
+                !CollectionUtils.isEmpty(bmsCellVoltDataDicbyIds) && !bmsCellVoltDataDicbyIds.isEmpty()) {
             for (BmsCellTempDataDic bmsCellTempDataDic : bmsCellTempDataDicbyIds) {
                 for (BmsCellVoltDataDic bmsCellVoltDataDic : bmsCellVoltDataDicbyIds) {
                     if (bmsCellTempDataDic.getEquipmentId() == bmsCellVoltDataDic.getEquipmentId()) {
@@ -388,7 +389,7 @@ public class RealTimeDataService {
     }
 
     private BcuDataVolTemVo bcuDataVolTemp(String deviceName, Integer equipmentId) {
-        Iterable<DBObject> iterable = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is("deviceName", deviceName)
+        Iterable<DBObject> iterable = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is(DEVICE_NAME, deviceName)
                 .is("equipmentId", equipmentId)).sort("{generationDataTime:-1}").limit(1).results();
         BcuDataVolTemVo bcuDataVolTemVo = null;
         if (iterable != null) {
@@ -401,7 +402,7 @@ public class RealTimeDataService {
         if (bcuDataVolTemVo == null) {
             return null;
         }
-        Iterable<DBObject> cellTempIte = bmsCellTempDataDicDao.aggregate().match(bcuDataDicBCUDao.query().is("deviceName", deviceName)
+        Iterable<DBObject> cellTempIte = bmsCellTempDataDicDao.aggregate().match(bcuDataDicBCUDao.query().is(DEVICE_NAME, deviceName)
                 .is("equipmentId", equipmentId))
                 .sort("{generationDataTime:-1}").limit(1).results();
         if (cellTempIte != null) {
@@ -419,7 +420,7 @@ public class RealTimeDataService {
             }
         }
 
-        Iterable<DBObject> cellVolIte = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is("deviceName", deviceName).is("equipmentId", equipmentId))
+        Iterable<DBObject> cellVolIte = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId))
                 .sort("{generationDataTime:-1}").limit(1).results();
         if (cellVolIte != null) {
             for (DBObject object : cellVolIte) {
@@ -439,28 +440,29 @@ public class RealTimeDataService {
     }
 
     public Object stationInfoQuery(BuguPageDao buguPageDao, String deviceName, Integer equipmentId) {
-        Iterable<DBObject> iterable = buguPageDao.aggregate().match(buguPageDao.query().is("deviceName", deviceName)
+        Iterable<DBObject> iterable = buguPageDao.aggregate().match(buguPageDao.query().is(DEVICE_NAME, deviceName)
                 .is("equipmentId", equipmentId)).sort("{generationDataTime:-1}").limit(1).results();
         if (iterable != null) {
+            Object dbObject = null;
             for (DBObject object : iterable) {
-                return MapperUtil.fromDBObject(buguPageDao.getEntityClass(), object);
+                dbObject = MapperUtil.fromDBObject(buguPageDao.getEntityClass(), object);
             }
+            return dbObject;
         }
         return null;
     }
 
     public List<BamsDataDicBA> getDataBams(String deviceName, Date startTime, Date endTime) {
-        List<BamsDataDicBA> bamsDataDicBAS = bamsDataDicBADao.query().is("deviceName", deviceName)
-                .greaterThanEquals("generationDataTime", startTime)
-                .lessThanEquals("generationDataTime", endTime).results();
-        return bamsDataDicBAS;
+        return  bamsDataDicBADao.query().is(DEVICE_NAME, deviceName)
+                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
     }
 
     public List<AirConditionExcelBo> getAirConditionData(String deviceName, Date startTime, Date endTime) {
-        List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is("deviceName", deviceName)
-                .greaterThanEquals("generationDataTime", startTime)
-                .lessThanEquals("generationDataTime", endTime).results();
-        List<AirConditionExcelBo> airConditionExcelBos = airConditionDataDics.stream().map(airConditionDataDic -> {
+        List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is(DEVICE_NAME, deviceName)
+                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+       return airConditionDataDics.stream().map(airConditionDataDic -> {
             AirConditionExcelBo airConditionExcelBo = new AirConditionExcelBo();
             BeanUtils.copyProperties(airConditionDataDic, airConditionExcelBo);
             //TODO 直接这样类型转换
@@ -469,11 +471,10 @@ public class RealTimeDataService {
             airConditionExcelBo.setArefactionOffhumidity(airConditionDataDic.getArefactionOffhumidity());
             return airConditionExcelBo;
         }).collect(Collectors.toList());
-        return airConditionExcelBos;
     }
 
     public List<List<String>> getTempHeard(String deviceName, Integer equipmentId) {
-        Iterable<DBObject> cellTempIte = bmsCellTempDataDicDao.aggregate().match(bmsCellTempDataDicDao.query().is("deviceName", deviceName)
+        Iterable<DBObject> cellTempIte = bmsCellTempDataDicDao.aggregate().match(bmsCellTempDataDicDao.query().is(DEVICE_NAME, deviceName)
                 .is("equipmentId", equipmentId)).sort("{generationDataTime:-1}").limit(1).results();
         BmsCellTempDataDic bmsCellTempDataDic = null;
         if (cellTempIte != null) {
@@ -512,12 +513,12 @@ public class RealTimeDataService {
 
     public List<List<Object>> getTempData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
         List<BmsCellTempDataDic> bmsCellTempDataDics = bmsCellTempDataDicDao.query().
-                is("deviceName", deviceName)
+                is(DEVICE_NAME, deviceName)
                 .is("equipmentId", equipmentId)
-                .greaterThanEquals("generationDataTime", startTime)
-                .lessThanEquals("generationDataTime", endTime).results();
+                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
         List<List<Object>> list = new ArrayList<>();
-        if (!CollectionUtils.isEmpty(bmsCellTempDataDics) && bmsCellTempDataDics.size() > 0) {
+        if (!CollectionUtils.isEmpty(bmsCellTempDataDics) && !bmsCellTempDataDics.isEmpty()) {
             for (BmsCellTempDataDic bmsCellTempDataDic : bmsCellTempDataDics) {
                 List<Object> data = new ArrayList<>();
                 data.add(bmsCellTempDataDic.getName());
@@ -541,7 +542,10 @@ public class RealTimeDataService {
         return list;
     }
 
-    public void exportStationOfBattery(ExcelWriter writer, String deviceName, String time, Integer type) throws ParseException {
+    public void exportStationOfBattery(String deviceName, String time, Integer type, OutputStream outputStream) throws ParseException {
+        if (StringUtils.isEmpty(deviceName)) {
+            throw new ExcelExportWithoutDataException("该日期暂无数据");
+        }
         Date startTime = null;
         Date endTime = null;
         if (StringUtils.isEmpty(time)) {
@@ -550,174 +554,210 @@ public class RealTimeDataService {
             endTime = DateUtils.getEndTime(date);
         } else {
             //根据传入的数值获取
+            if (!Const.DATE_PATTERN.matcher(time).matches()) {
+                throw new ExcelExportWithoutDataException("日期格式错误");
+            }
             startTime = DateUtils.dateToStrWithHHmm(time);
             endTime = DateUtils.getEndTime(startTime);
         }
         if (type == 0) {
-            /**
-             * TODO 具体excel字段转换
-             */
-            exportPcsData(writer, deviceName, startTime, endTime);
+            exportPcsData(outputStream, deviceName, startTime, endTime);
         } else if (type == 1) {
-            /**
-             * TODO 具体excel字段转换
-             */
-            exportBamsData(writer, deviceName, startTime, endTime);
+            exportBamsData(outputStream, deviceName, startTime, endTime);
         } else if (type == 2) {
-            /**
-             * TODO 具体excel字段转换
-             */
-            exportAmmeterData(writer, deviceName, startTime, endTime);
+            exportAmmeterData(outputStream, deviceName, startTime, endTime);
+        } else if (type == 3) {
+            exportUpsAirFireData(outputStream, deviceName, startTime, endTime);
         } else {
-            /**
-             * TODO 空调消防 UPS
-             */
-            exportUpsAirFireData(writer, deviceName, startTime, endTime);
+            throw new ExcelExportWithoutDataException("暂无该类型数据");
         }
     }
 
-    private void exportUpsAirFireData(ExcelWriter writer, String deviceName, Date startTime, Date endTime) {
-        List<Equipment> equipmentList = equipmentDao.query().is("deviceName", deviceName).is("enabled", true).in("equipmentId", FIRE_AIR_UPS_EQUIPMENT_IDS)
+    private void exportUpsAirFireData(OutputStream outputStream, String deviceName, Date startTime, Date endTime) {
+        List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", FIRE_AIR_UPS_EQUIPMENT_IDS)
                 .results();
-        if (!CollectionUtils.isEmpty(equipmentList) && equipmentList.size() > 0) {
-            for (int i = 0; i < equipmentList.size(); i++) {
-                if (equipmentList.get(i).getEquipmentId() == 1) {
-                    exportFireControllerData(writer, deviceName, equipmentList, startTime, endTime, i);
-                } else if (equipmentList.get(i).getEquipmentId() == 12) {
-                    exportUpspowerData(writer, deviceName, equipmentList, startTime, endTime, i);
-                } else if (equipmentList.get(i).getEquipmentId() == 13) {
-                    exportAirconditionData(writer, deviceName, equipmentList, startTime, endTime, i);
+        if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
+            ExcelWriter writer = null;
+            try {
+                for (int i = 0; i < equipmentList.size(); i++) {
+                    if (equipmentList.get(i).getEquipmentId() == 1) {
+                        List<FireControlDataDic> fireControlDataDics = fireControlDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
+                                .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+                        if (!CollectionUtils.isEmpty(fireControlDataDics) && !fireControlDataDics.isEmpty()) {
+                            if (writer == null) {
+                                writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                            }
+                            WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(FireControlDataDic.class).build();
+                            writer.write(fireControlDataDics, writeSheet);
+                        }
+                    } else if (equipmentList.get(i).getEquipmentId() == 12) {
+                        List<UpsPowerDataDic> upsPowerDataDics = upsPowerDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
+                                .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+                        if (!CollectionUtils.isEmpty(upsPowerDataDics) && !upsPowerDataDics.isEmpty()) {
+                            if (writer == null) {
+                                writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                            }
+                            WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(UpsPowerDataDic.class).build();
+                            writer.write(upsPowerDataDics, writeSheet);
+                        }
+                    } else if (equipmentList.get(i).getEquipmentId() == 13) {
+                        List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
+                                .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+                        if (!CollectionUtils.isEmpty(airConditionDataDics) && !airConditionDataDics.isEmpty()) {
+                            if (writer == null) {
+                                writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                            }
+                            WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(AirConditionDataDic.class).build();
+                            writer.write(airConditionDataDics, writeSheet);
+                        }
+                    }
+                }
+                if (writer == null) {
+                    throw new ExcelExportWithoutDataException("该日期暂无数据");
+                }
+            } finally {
+                if (writer != null) {
+                    writer.finish();
                 }
             }
+
         }
     }
 
-    private void exportAirconditionData(ExcelWriter writer, String deviceName, List<Equipment> equipmentList, Date startTime, Date endTime, int sheetNo) {
-        List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is("deviceName", deviceName).is("equipmentId", equipmentList.get(sheetNo).getEquipmentId())
-                .greaterThanEquals("generationDataTime", startTime).lessThanEquals("generationDataTime", endTime).results();
-        if (!CollectionUtils.isEmpty(airConditionDataDics) && airConditionDataDics.size() > 0) {
-            WriteSheet writeSheet = EasyExcel.writerSheet(sheetNo, equipmentList.get(sheetNo).getName()).head(AirConditionDataDic.class).build();
-            writer.write(airConditionDataDics, writeSheet);
-        }
-    }
-
-    private void exportUpspowerData(ExcelWriter writer, String deviceName, List<Equipment> equipmentList, Date startTime, Date endTime, int sheetNo) {
-        List<UpsPowerDataDic> upsPowerDataDics = upsPowerDataDicDao.query().is("deviceName", deviceName).is("equipmentId", equipmentList.get(sheetNo).getEquipmentId())
-                .greaterThanEquals("generationDataTime", startTime).lessThanEquals("generationDataTime", endTime).results();
-        if (!CollectionUtils.isEmpty(upsPowerDataDics) && upsPowerDataDics.size() > 0) {
-            WriteSheet writeSheet = EasyExcel.writerSheet(sheetNo, equipmentList.get(sheetNo).getName()).head(UpsPowerDataDic.class).build();
-            writer.write(upsPowerDataDics, writeSheet);
-        }
-    }
-
-    private void exportFireControllerData(ExcelWriter writer, String deviceName, List<Equipment> equipmentList, Date startTime, Date endTime, int sheetNo) {
-        List<FireControlDataDic> fireControlDataDics = fireControlDataDicDao.query().is("deviceName", deviceName).is("equipmentId", equipmentList.get(sheetNo).getEquipmentId())
-                .greaterThanEquals("generationDataTime", startTime).lessThanEquals("generationDataTime", endTime).results();
-        if (!CollectionUtils.isEmpty(fireControlDataDics) && fireControlDataDics.size() > 0) {
-            WriteSheet writeSheet = EasyExcel.writerSheet(sheetNo, equipmentList.get(sheetNo).getName()).head(FireControlDataDic.class).build();
-            writer.write(fireControlDataDics, writeSheet);
-        }
-    }
-
-    private void exportAmmeterData(ExcelWriter writer, String deviceName, Date startTime, Date endTime) {
-        List<Equipment> equipmentList = equipmentDao.query().is("deviceName", deviceName).is("enabled", true).in("equipmentId", AMMETER_EQUIPMENT_IDS).results();
-        if (!CollectionUtils.isEmpty(equipmentList) && equipmentList.size() > 0) {
-            for (int i = 0; i < equipmentList.size(); i++) {
-                List ammeterData = getAmmeData(deviceName, equipmentList.get(i).getEquipmentId(), startTime, endTime);
-                if (!CollectionUtils.isEmpty(ammeterData) && ammeterData.size() > 0) {
-                    WriteSheet writeSheet = EasyExcel.writerSheet(i, equipmentList.get(i).getName()).head(AmmeterDataDic.class).build();
-                    writer.write(ammeterData, writeSheet);
+    private void exportAmmeterData(OutputStream outputStream, String deviceName, Date startTime, Date endTime) {
+        List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", AMMETER_EQUIPMENT_IDS).results();
+        if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
+            ExcelWriter writer = null;
+            try {
+                for (int i = 0; i < equipmentList.size(); i++) {
+                    List ammeterData = getAmmeData(deviceName, equipmentList.get(i).getEquipmentId(), startTime, endTime);
+                    if (!CollectionUtils.isEmpty(ammeterData) && !ammeterData.isEmpty()) {
+                        if (writer == null) {
+                            writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                        }
+                        WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(AmmeterDataDic.class).build();
+                        writer.write(ammeterData, writeSheet);
+                    } else {
+                        throw new ExcelExportWithoutDataException("该日期暂无数据");
+                    }
+                }
+            } finally {
+                if (writer != null) {
+                    writer.finish();
                 }
             }
         }
     }
 
     private List getAmmeData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
-        List<AmmeterDataDic> ammeterDataDics = ammeterDataDicDao.query().is("deviceName", deviceName).is("equipmentId", equipmentId)
-                .greaterThanEquals("generationDataTime", startTime)
-                .lessThanEquals("generationDataTime", endTime).results();
-        return ammeterDataDics;
+        return ammeterDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId)
+                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
     }
 
-    private void exportPcsData(ExcelWriter writer, String deviceName, Date startTime, Date endTime) {
+    private void exportPcsData(OutputStream outputStream, String deviceName, Date startTime, Date endTime) {
+        ExcelWriter writer = null;
         List pcsCabinData = getPcsCabinData(deviceName, startTime, endTime);
-        if (!CollectionUtils.isEmpty(pcsCabinData) && pcsCabinData.size() > 0) {
-            WriteSheet writeSheet = EasyExcel.writerSheet(0, PCS_DATA_SHEET_NAME).head(PcsCabinetDic.class).build();
-            writer.write(pcsCabinData, writeSheet);
-        }
-        List<Equipment> equipmentList = equipmentDao.query().is("deviceName", deviceName).is("enabled", true).greaterThan("equipmentId", 15).lessThan("equipmentId", 32).results();
-        if (!CollectionUtils.isEmpty(equipmentList) && equipmentList.size() > 0) {
-            for (int i = 1, z = 0; i < equipmentList.size() + 1; i++, z++) {
-                List channelData = getPcsChannelData(deviceName, equipmentList.get(z).getEquipmentId(), startTime, endTime);
-                if (!CollectionUtils.isEmpty(channelData) && channelData.size() > 0) {
-                    WriteSheet writeSheet = EasyExcel.writerSheet(i, equipmentList.get(z).getName()).head(PcsChannelDic.class).build();
-                    writer.write(channelData, writeSheet);
+        try {
+            if (!CollectionUtils.isEmpty(pcsCabinData) && !pcsCabinData.isEmpty()) {
+                writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                WriteSheet writeSheet = EasyExcelFactory.writerSheet(0, PCS_DATA_SHEET_NAME).head(PcsCabinetDic.class).build();
+                writer.write(pcsCabinData, writeSheet);
+                List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).greaterThan("equipmentId", 15).lessThan("equipmentId", 32).results();
+                if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
+                    for (int i = 1, z = 0; i < equipmentList.size() + 1; i++, z++) {
+                        List channelData = getPcsChannelData(deviceName, equipmentList.get(z).getEquipmentId(), startTime, endTime);
+                        if (!CollectionUtils.isEmpty(channelData) && !channelData.isEmpty()) {
+                            WriteSheet writeSheet2 = EasyExcelFactory.writerSheet(i, equipmentList.get(z).getName()).head(PcsChannelDic.class).build();
+                            writer.write(channelData, writeSheet2);
+                        }
+                    }
                 }
+            } else {
+                throw new ExcelExportWithoutDataException("该日期暂无数据");
+            }
+        } finally {
+            if (writer != null) {
+                writer.finish();
             }
         }
     }
 
     private List getPcsChannelData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
-        List<PcsChannelDic> pcsChannelDics = pcsChannelDicDao.query().is("deviceName", deviceName).is("equipmentId", equipmentId)
-                .greaterThanEquals("generationDataTime", startTime)
-                .lessThanEquals("generationDataTime", endTime).results();
-        return pcsChannelDics;
+        return pcsChannelDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId)
+                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
     }
 
     private List getPcsCabinData(String deviceName, Date startTime, Date endTime) {
-        List<PcsCabinetDic> pcsCabinetDics = pcsCabinetDicDao.query().is("deviceName", deviceName)
+        return pcsCabinetDicDao.query().is(DEVICE_NAME, deviceName)
                 .is("equipmentId", 15)
-                .greaterThanEquals("generationDataTime", startTime)
-                .lessThanEquals("generationDataTime", endTime).results();
-        return pcsCabinetDics;
+                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
     }
 
-    private void exportBamsData(ExcelWriter writer, String deviceName, Date startTime, Date endTime) {
+    private void exportBamsData(OutputStream outputStream, String deviceName, Date startTime, Date endTime) {
         List bamsData = getDataBams(deviceName, startTime, endTime);
-        if (!CollectionUtils.isEmpty(bamsData) && bamsData.size() > 0) {
-            WriteSheet writeSheet = EasyExcel.writerSheet(0, BAMS_DATA_SHEET_NAME).head(BamsDataDicBA.class).build();
-            writer.write(bamsData, writeSheet);
-        }
-        List<Equipment> equipmentList = equipmentDao.query().is("deviceName", deviceName).is("enabled", true).greaterThan("equipmentId", 35).lessThan("equipmentId", 54).results();
-        if (!CollectionUtils.isEmpty(equipmentList) && equipmentList.size() > 0) {
-            int z = 0;
-            int j;
-            for (j = 1; j <= equipmentList.size(); j++, z++) {
-                WriteSheet writeSheet = EasyExcel.writerSheet(j, equipmentList.get(z).getName()).head(BcuDataDicBCU.class).build();
-                List data = getBcuData(deviceName, equipmentList.get(z).getEquipmentId(), startTime, endTime);
-                writer.write(data, writeSheet);
+        if (!CollectionUtils.isEmpty(bamsData) && !bamsData.isEmpty()) {
+            ExcelWriter writer = null;
+            try {
+                writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                WriteSheet writeSheet = EasyExcelFactory.writerSheet(0, BAMS_DATA_SHEET_NAME).head(BamsDataDicBA.class).build();
+                writer.write(bamsData, writeSheet);
+                List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).greaterThan("equipmentId", 35).lessThan("equipmentId", 54).results();
+                if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
+                    int z = 0;
+                    int j;
+                    for (j = 1; j <= equipmentList.size(); j++, z++) {
+                        List data = getBcuData(deviceName, equipmentList.get(z).getEquipmentId(), startTime, endTime);
+                        WriteSheet writeSheet1 = EasyExcelFactory.writerSheet(j, equipmentList.get(z).getName()).head(BcuDataDicBCU.class).build();
+                        if (!CollectionUtils.isEmpty(data) && !data.isEmpty()) {
+                            writer.write(data, writeSheet1);
+                        }
+                    }
+                    int x;
+                    for (x = j + 1, z = 0; x <= equipmentList.size() + j; x++, z++) {
+                        WriteCellStyle headWriteCellStyle = new WriteCellStyle();
+                        WriteFont headWriteFont = new WriteFont();
+                        headWriteFont.setFontHeightInPoints((short) 12);
+                        headWriteCellStyle.setWriteFont(headWriteFont);
+                        HorizontalCellStyleStrategy horizontalCellStyleStrategy =
+                                new HorizontalCellStyleStrategy(headWriteCellStyle, new WriteCellStyle());
+                        List data = getTempData(deviceName, equipmentList.get(z).getEquipmentId(), startTime, endTime);
+                        if (!CollectionUtils.isEmpty(data) && !data.isEmpty()) {
+                            WriteSheet writeSheet2 = EasyExcelFactory.writerSheet(x, equipmentList.get(z).getName() + "电芯温度")
+                                    .registerWriteHandler(horizontalCellStyleStrategy).head(getTempHeard(deviceName, equipmentList.get(z).getEquipmentId())).build();
+                            writer.write(data, writeSheet2);
+                        }
+                    }
+                    int y;
+                    for (y = x + 1, z = 0; y <= equipmentList.size() + x; y++, z++) {
+                        WriteCellStyle headWriteCellStyle = new WriteCellStyle();
+                        WriteFont headWriteFont = new WriteFont();
+                        headWriteFont.setFontHeightInPoints((short) 12);
+                        headWriteCellStyle.setWriteFont(headWriteFont);
+                        HorizontalCellStyleStrategy horizontalCellStyleStrategy =
+                                new HorizontalCellStyleStrategy(headWriteCellStyle, new WriteCellStyle());
+                        List data = getVolData(deviceName, equipmentList.get(z).getEquipmentId(), startTime, endTime);
+                        if (!CollectionUtils.isEmpty(data) && !data.isEmpty()) {
+                            WriteSheet writeSheet3 = EasyExcelFactory.writerSheet(y, equipmentList.get(z).getName() + "电芯电压")
+                                    .registerWriteHandler(horizontalCellStyleStrategy).head(getVolHeard(deviceName, equipmentList.get(z).getEquipmentId())).build();
+                            writer.write(data, writeSheet3);
+                        }
+                    }
+                }
+            } finally {
+                if (writer != null) {
+                    writer.finish();
+                }
             }
-            int x;
-            for (x = j + 1, z = 0; x <= equipmentList.size() + j; x++, z++) {
-                WriteCellStyle headWriteCellStyle = new WriteCellStyle();
-                WriteFont headWriteFont = new WriteFont();
-                headWriteFont.setFontHeightInPoints((short) 12);
-                headWriteCellStyle.setWriteFont(headWriteFont);
-                HorizontalCellStyleStrategy horizontalCellStyleStrategy =
-                        new HorizontalCellStyleStrategy(headWriteCellStyle, new WriteCellStyle());
-                WriteSheet writeSheet = EasyExcel.writerSheet(x, equipmentList.get(z).getName() + "电芯温度")
-                        .registerWriteHandler(horizontalCellStyleStrategy).head(getTempHeard(deviceName, equipmentList.get(z).getEquipmentId())).build();
-                List data = getTempData(deviceName, equipmentList.get(z).getEquipmentId(), startTime, endTime);
-                writer.write(data, writeSheet);
-            }
-            int y;
-            for (y = x + 1, z = 0; y <= equipmentList.size() + x; y++, z++) {
-                WriteCellStyle headWriteCellStyle = new WriteCellStyle();
-                WriteFont headWriteFont = new WriteFont();
-                headWriteFont.setFontHeightInPoints((short) 12);
-                headWriteCellStyle.setWriteFont(headWriteFont);
-                HorizontalCellStyleStrategy horizontalCellStyleStrategy =
-                        new HorizontalCellStyleStrategy(headWriteCellStyle, new WriteCellStyle());
-                WriteSheet writeSheet = EasyExcel.writerSheet(y, equipmentList.get(z).getName() + "电芯电压")
-                        .registerWriteHandler(horizontalCellStyleStrategy).head(getVolHeard(deviceName, equipmentList.get(z).getEquipmentId())).build();
-                List data = getVolData(deviceName, equipmentList.get(z).getEquipmentId(), startTime, endTime);
-                writer.write(data, writeSheet);
-            }
+        } else {
+            throw new ExcelExportWithoutDataException("该日期暂无数据");
         }
     }
 
     private List<List<String>> getVolHeard(String deviceName, Integer equipmentId) {
-        Iterable<DBObject> cellVolIte = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is("deviceName", deviceName).is("equipmentId", equipmentId))
+        Iterable<DBObject> cellVolIte = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId))
                 .sort("{generationDataTime:-1}").limit(1).results();
         BmsCellVoltDataDic bmsCellVoltDataDic = null;
         if (cellVolIte != null) {
@@ -755,12 +795,12 @@ public class RealTimeDataService {
 
     private List getVolData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
         List<BmsCellVoltDataDic> bmsCellVoltDataDics = bmsCellVoltDataDicDao.query().
-                is("deviceName", deviceName)
+                is(DEVICE_NAME, deviceName)
                 .is("equipmentId", equipmentId)
-                .greaterThanEquals("generationDataTime", startTime)
-                .lessThanEquals("generationDataTime", endTime).results();
+                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
         List<List<Object>> list = new ArrayList<>();
-        if (!CollectionUtils.isEmpty(bmsCellVoltDataDics) && bmsCellVoltDataDics.size() > 0) {
+        if (!CollectionUtils.isEmpty(bmsCellVoltDataDics) && !bmsCellVoltDataDics.isEmpty()) {
             for (BmsCellVoltDataDic bmsCellVoltDataDic : bmsCellVoltDataDics) {
                 List<Object> data = new ArrayList<>();
                 data.add(bmsCellVoltDataDic.getName());
@@ -785,10 +825,9 @@ public class RealTimeDataService {
     }
 
     private List getBcuData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
-        List<BcuDataDicBCU> bcuDataDicBCUS = bcuDataDicBCUDao.query().is("deviceName", deviceName).is("equipmentId", equipmentId)
-                .greaterThanEquals("generationDataTime", startTime)
-                .lessThanEquals("generationDataTime", endTime).results();
-        return bcuDataDicBCUS;
+        return bcuDataDicBCUDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId)
+                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
     }
 
 }

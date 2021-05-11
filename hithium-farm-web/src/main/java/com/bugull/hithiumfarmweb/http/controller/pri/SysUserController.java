@@ -42,7 +42,7 @@ public class SysUserController extends AbstractController {
      * @return
      */
     @SysLog(value = "新增用户")
-    @RequestMapping(value = "/save", method = RequestMethod.POST)
+    @PostMapping(value = "/save")
     @ApiOperation(value = "新增用户", httpMethod = "POST", response = ResHelper.class)
     @ApiImplicitParam(name = "sysUser", value = "用户实体类", required = true, paramType = "body", dataTypeClass = SysUser.class, dataType = "SysUser")
     public ResHelper<Void> saveUser(@RequestBody SysUser sysUser) {
@@ -54,7 +54,7 @@ public class SysUserController extends AbstractController {
         return sysUserService.saveUser(sysUser);
     }
 
-    @RequestMapping(value = "/info", method = RequestMethod.GET)
+    @GetMapping(value = "/info")
     @ApiOperation(value = "查询本用户登录信息", response = ResHelper.class)
     public ResHelper<InfoUserVo> info() {
         SysUser sysUser = getUser();
@@ -67,7 +67,7 @@ public class SysUserController extends AbstractController {
      * @param userId
      * @return
      */
-    @RequestMapping(value = "/info/{userId}", method = RequestMethod.GET)
+    @GetMapping(value = "/info/{userId}")
     @ApiOperation(value = "根据用户ID查询用户信息", response = ResHelper.class)
     @ApiImplicitParam(name = "userId", value = "用户ID", paramType = "path", example = "1", dataType = "int", dataTypeClass = Integer.class)
     public ResHelper<InfoUserVo> infoUserId(@PathVariable String userId) {
@@ -85,7 +85,7 @@ public class SysUserController extends AbstractController {
      * @param params
      * @return
      */
-    @RequestMapping(value = "/listUser", method = RequestMethod.GET)
+    @GetMapping(value = "/listUser")
     @ApiOperation(value = "分页查询用户信息", response = ResHelper.class)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -97,7 +97,7 @@ public class SysUserController extends AbstractController {
 
     @SysLog(value = "修改用户信息")
     @ApiOperation(value = "修改用户信息", response = ResHelper.class)
-    @RequestMapping(value = "/updateUser", method = RequestMethod.POST)
+    @PostMapping(value = "/updateUser")
     @ApiImplicitParam(name = "user", value = "用户修改实体类", required = true, paramType = "body", dataTypeClass = UpdateUserBo.class, dataType = "UpdateUserBo")
     public ResHelper<Void> updateUserById(@RequestBody UpdateUserBo user) {
         ValidatorUtils.validateEntity(user, UpdateGroup.class);
@@ -111,7 +111,7 @@ public class SysUserController extends AbstractController {
     @SysLog(value = "删除用户")
 //    @RequiresPermissions("sys:user:delete")
     @ApiOperation(value = "删除用户", response = ResHelper.class)
-    @RequestMapping(value = "/deleteUser", method = RequestMethod.POST)
+    @PostMapping(value = "/deleteUser")
     @ApiImplicitParam(name = "userIds", value = "用户ID数组", allowMultiple = true, dataType = "string", required = true)
     public ResHelper<Void> deleteUser(@RequestBody String[] userIds) {
         List<String> users = new ArrayList<>();
@@ -133,14 +133,14 @@ public class SysUserController extends AbstractController {
      * 修改密码
      */
     @ApiOperation(value = "修改密码",response = ResHelper.class)
-    @RequestMapping(value = "/password",method = RequestMethod.POST)
+    @PostMapping(value = "/password")
     @ApiImplicitParam(name = "passwordForm", value = "密码表单实体类", dataType = "PasswordForm",dataTypeClass = PasswordForm.class,required = true)
     public ResHelper<Void> password(@RequestBody PasswordForm passwordForm){
         ValidatorUtils.validateEntity(passwordForm, UpdateGroup.class);
         return sysUserService.password(passwordForm,getUser());
     }
 
-    @RequestMapping(value = "/logout", method = RequestMethod.POST)
+    @PostMapping(value = "/logout")
     @ApiOperation(value = "退出登录",response = ResHelper.class)
     public ResHelper<Void> logout(){
         return sysUserService.logout(getUser());
@@ -153,7 +153,7 @@ public class SysUserController extends AbstractController {
      */
     @ApiOperation(value = "批量重置密码",response = ResHelper.class)
     @ApiImplicitParam(name = "/userIds", value = "用户ID数组", allowMultiple = true, dataType = "string", required = true)
-    @RequestMapping(value = "/resetPwd",method = RequestMethod.POST)
+    @PostMapping(value = "/resetPwd")
     public ResHelper<Void> resetPwd(@RequestBody String[] userIds){
         List<String> users = new ArrayList<>();
         for (String userId : userIds) {

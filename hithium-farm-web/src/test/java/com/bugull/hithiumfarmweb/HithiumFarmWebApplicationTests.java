@@ -5,22 +5,20 @@ import com.alibaba.excel.EasyExcel;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.bugull.hithiumfarmweb.common.Const;
 import com.bugull.hithiumfarmweb.enumerate.DataType;
 import com.bugull.hithiumfarmweb.http.bo.StatisticBo;
 import com.bugull.hithiumfarmweb.http.bo.TimeOfPriceBo;
-import com.bugull.hithiumfarmweb.http.dao.AmmeterDataDicDao;
-import com.bugull.hithiumfarmweb.http.dao.BmsCellTempDataDicDao;
-import com.bugull.hithiumfarmweb.http.dao.BreakDownLogDao;
-import com.bugull.hithiumfarmweb.http.dao.DeviceDao;
-import com.bugull.hithiumfarmweb.http.entity.AmmeterDataDic;
-import com.bugull.hithiumfarmweb.http.entity.BmsCellTempDataDic;
-import com.bugull.hithiumfarmweb.http.entity.BreakDownLog;
-import com.bugull.hithiumfarmweb.http.entity.Device;
+import com.bugull.hithiumfarmweb.http.dao.*;
+import com.bugull.hithiumfarmweb.http.entity.*;
+import com.bugull.hithiumfarmweb.http.vo.IncomeStatisticOfDayVo;
+import com.bugull.hithiumfarmweb.http.vo.IncomeStatisticVo;
 import com.bugull.hithiumfarmweb.http.vo.PriceOfPercenVo;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.bugull.hithiumfarmweb.utils.UUIDUtil;
 import com.bugull.mongo.BuguConnection;
 import com.bugull.mongo.BuguFramework;
+import com.bugull.mongo.BuguQuery;
 import com.bugull.mongo.utils.MapperUtil;
 import com.google.common.eventbus.EventBus;
 import com.mongodb.BasicDBObject;
@@ -45,7 +43,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.bugull.hithiumfarmweb.common.Const.START_TIME;
+import static com.bugull.hithiumfarmweb.common.Const.*;
 import static com.bugull.hithiumfarmweb.http.service.StatisticsService.INCOME_RECORD_PREFIX;
 
 public class HithiumFarmWebApplicationTests {
@@ -506,8 +504,8 @@ public class HithiumFarmWebApplicationTests {
             }
             map.put(priceBo.getType(), list);
         }
-        List<PriceOfPercenVo> priceOfPercenVoList= new ArrayList<>();
-        for(Map.Entry<Integer,List<String>> entry:map.entrySet()){
+        List<PriceOfPercenVo> priceOfPercenVoList = new ArrayList<>();
+        for (Map.Entry<Integer, List<String>> entry : map.entrySet()) {
             List<String> entryValue = entry.getValue();
             try {
                 for (String value : entryValue) {
@@ -520,7 +518,7 @@ public class HithiumFarmWebApplicationTests {
                     /**
                      * 不相等时候在查看是否在区间内
                      */
-                    String s=null;
+                    String s = null;
                     if (begin.before(end)) {
                         s = DateUtils.timeDifferent(end.getTime(), begin.getTime());
                     } else {
@@ -532,7 +530,7 @@ public class HithiumFarmWebApplicationTests {
                     priceOfPercenVo.setMinute(s);
                     priceOfPercenVoList.add(priceOfPercenVo);
                 }
-            }catch (Exception e){
+            } catch (Exception e) {
 
             }
 
@@ -544,7 +542,7 @@ public class HithiumFarmWebApplicationTests {
     }
 
     @Test
-    public void testDay()throws Exception{
+    public void testDay() throws Exception {
         Date startTime = DateUtils.dateToStrWithHHmmWith(START_TIME);
         System.out.println(startTime);
     }
@@ -557,7 +555,7 @@ public class HithiumFarmWebApplicationTests {
     }
 
     @Test
-    public void testCharNum(){
+    public void testCharNum() {
         BuguConnection conn2 = BuguFramework.getInstance().createConnection();
         conn2.setHost("192.168.241.162");
         conn2.setPort(27017);
@@ -566,9 +564,8 @@ public class HithiumFarmWebApplicationTests {
         conn2.setDatabase("ess");
         conn2.connect();
         DeviceDao deviceDao = new DeviceDao();
-        Iterable <DBObject> iterable = deviceDao.aggregate().group("{_id:null,count:{$sum:{$toDouble:'$chargeCapacitySum'}}}").results();
-
-        for(DBObject object:iterable){
+        Iterable<DBObject> iterable = deviceDao.aggregate().group("{_id:null,count:{$sum:{$toDouble:'$chargeCapacitySum'}}}").results();
+        for (DBObject object : iterable) {
             Double o = (Double) object.get("count");
             System.out.println(o);
         }
@@ -576,17 +573,18 @@ public class HithiumFarmWebApplicationTests {
 
     /**
      * TODO 下午根据相同采集时间合并不同数据集合
+     *
      * @throws Exception
      */
     @Test
-    public void testUrlCode()throws Exception{
-        String str="%E5%AF%BC%E5%87%BA";
+    public void testUrlCode() throws Exception {
+        String str = "%E5%AF%BC%E5%87%BA";
         String encode = URLDecoder.decode(str, "utf-8");
         System.out.println(encode);
-        String fileName =  URLEncoder.encode("excel导出", "UTF-8");
+        String fileName = URLEncoder.encode("excel导出", "UTF-8");
         System.out.println(fileName);
 
-        String time="2021-04-11";
+        String time = "2021-04-11";
         Date date = DateUtils.dateToStrWithHHmm(time);
         Date endTime = DateUtils.getEndTime(date);
         System.out.println(endTime);
@@ -625,7 +623,7 @@ public class HithiumFarmWebApplicationTests {
         list.add(head0);
         list.add(head1);
         list.add(head2);
-        for(Map.Entry<String,Integer> entry:tempMap.entrySet()){
+        for (Map.Entry<String, Integer> entry : tempMap.entrySet()) {
             List<String> head3 = new ArrayList<String>();
             head3.add(entry.getKey());
             list.add(head3);
@@ -643,5 +641,95 @@ public class HithiumFarmWebApplicationTests {
             list.add(data);
         }
         return list;
+    }
+
+    @Test
+    public void testTime2() {
+//        String time="2021-12-23";
+//        boolean matches = Const.DATE_PATTERN.matcher(time).matches();
+//        System.out.println(matches);
+//
+        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+        conn2.setHost("192.168.241.162");
+        conn2.setPort(27017);
+        conn2.setUsername("ess");
+        conn2.setPassword("ess");
+        conn2.setDatabase("ess");
+        conn2.connect();
+        IncomeEntityDao incomeEntityDao = new IncomeEntityDao();
+        BuguQuery<IncomeEntity> incomeEntityBuguQuery = incomeEntityDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a");
+        Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityBuguQuery).group(INCOMEOFDAY).sort("{_id:-1}").limit(7).results();
+        List<IncomeStatisticOfDayVo> incomeStatisticOfDayVoList=new ArrayList<>();
+        if(iterable != null){
+            for(DBObject object:iterable){
+                String time=(String) object.get("_id");
+                Double count = Double.valueOf(object.get("count").toString());
+                IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
+                incomeStatisticOfDayVo.setDay(time);
+                incomeStatisticOfDayVo.setIncome(BigDecimal.valueOf(count).toString());
+                incomeStatisticOfDayVoList.add(incomeStatisticOfDayVo);
+            }
+        }
+
+        /**
+         * 创建 空的List<IncomeStatisticOfDayVo></>  将有值的替换 无值的为空  年份就先创建3年吧  月份6个月  天数7天
+         */
+        List<IncomeStatisticOfDayVo> incomeStatisticOfDayVos = new ArrayList<>();
+
+
+        for(int i=0;i<7;i++){
+            IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
+            incomeStatisticOfDayVo.setDay(DateUtils.format(DateUtils.addDateDays(new Date(),-i)));
+            incomeStatisticOfDayVos.add(incomeStatisticOfDayVo);
+        }
+
+       for(IncomeStatisticOfDayVo incomeStatisticOfDayVo:incomeStatisticOfDayVos){
+           for(IncomeStatisticOfDayVo statisticOfDayVo:incomeStatisticOfDayVoList){
+               if(incomeStatisticOfDayVo.getDay().equals(statisticOfDayVo.getDay())){
+                   incomeStatisticOfDayVo.setIncome(statisticOfDayVo.getIncome());
+               }
+           }
+       }
+
+        System.out.println(incomeStatisticOfDayVos.isEmpty());
+       List<String> device=new ArrayList<>();
+        System.out.println(device.isEmpty());
+    }
+
+    @Test
+    public void testArraysList(){
+        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+        conn2.setHost("192.168.241.162");
+        conn2.setPort(27017);
+        conn2.setUsername("ess");
+        conn2.setPassword("ess");
+        conn2.setDatabase("ess");
+        conn2.connect();
+        DeviceDao deviceDao=new DeviceDao();
+        Device device = deviceDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a").result();
+        Map<Integer, List<String>> map = new HashMap<>();
+        for (TimeOfPriceBo priceBo : device.getPriceOfTime()) {
+            String[] split = priceBo.getTime().split(",");
+            List<String> list = new ArrayList<>();
+            for (String spl : split) {
+                list.add(spl);
+            }
+            map.put(priceBo.getType(), list);
+        }
+
+        System.out.println(map.size());
+
+
+        Map<Integer, List<String>> map2 = new HashMap<>();
+        for (TimeOfPriceBo priceBo : device.getPriceOfTime()) {
+            String[] split = priceBo.getTime().split(",");
+//            List<String> list = new ArrayList<>();
+//            for (String spl : split) {
+//                list.add(spl);
+//            }
+            map2.put(priceBo.getType(), Arrays.asList(split));
+        }
+
+        System.out.println(map2.size());
     }
 }

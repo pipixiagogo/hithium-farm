@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletResponse;
-import java.sql.PreparedStatement;
 
 /**
  * 连接EMQ权限认证接口
@@ -69,7 +68,6 @@ public class VerifyClientController {
          * 能接入即为超级用户
          */
         response.setStatus(200);
-//        response.setStatus(401);
     }
 
     /**
@@ -91,7 +89,6 @@ public class VerifyClientController {
     public void acl(String access, String username, String clientid, String ipaddr, String topic, HttpServletResponse response) {
 
         response.setStatus(200);
-        return;
         /**
          * 发布订阅、只能订阅对应的主题
          */

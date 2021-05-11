@@ -35,10 +35,27 @@ public class DateUtils {
 	/** 时间格式(yyyy-MM-dd HH:mm:ss) */
 	public final static String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 
+	public final static String DATE_TIME_PATTERN_MM="yyyy-MM-??";
+
+	public final static String DATE_TIME_PATTERN_YY="yyyy-??-??";
+
+	public final static String DATE_TIME_PATTERN_HH="HH:mm";
+
+    /** 时间格式(yyyy-MM) */
+    public final static String DATE_PATTERN_YYYY_MM = "yyyy-MM";
+    /** 时间格式(yyyy) */
+    public final static String DATE_PATTERN_YYYY = "yyyy";
     private static ThreadLocal<SimpleDateFormat> sdf = new ThreadLocal<SimpleDateFormat>(){
         @Override
         protected SimpleDateFormat initialValue() {
-            return new SimpleDateFormat("yyyy-MM-dd");
+            return new SimpleDateFormat(DATE_PATTERN);
+        }
+    };
+
+    private static ThreadLocal<SimpleDateFormat> sdfDate = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat(DATE_TIME_PATTERN);
         }
     };
     private static ThreadLocal<SimpleDateFormat> sdfWithYYYYMMHH = new ThreadLocal<SimpleDateFormat>(){
@@ -48,22 +65,29 @@ public class DateUtils {
         }
     };
 
+    private static ThreadLocal<SimpleDateFormat> sdfOfYYYYWW = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat(DATE_PATTERN_YYYY_MM);
+        }
+    };
+
     private static ThreadLocal<SimpleDateFormat> sdfWithYYYYMM = new ThreadLocal<SimpleDateFormat>(){
         @Override
         protected SimpleDateFormat initialValue() {
-            return new SimpleDateFormat("yyyy-MM-??");
+            return new SimpleDateFormat(DATE_TIME_PATTERN_MM);
         }
     };
     private static ThreadLocal<SimpleDateFormat> sdfWithYYYY = new ThreadLocal<SimpleDateFormat>(){
         @Override
         protected SimpleDateFormat initialValue() {
-            return new SimpleDateFormat("yyyy-??-??");
+            return new SimpleDateFormat(DATE_TIME_PATTERN_YY);
         }
     };
     private static ThreadLocal<SimpleDateFormat> sdfWithHHmm = new ThreadLocal<SimpleDateFormat>(){
         @Override
         protected SimpleDateFormat initialValue() {
-            return new SimpleDateFormat("HH:mm");
+            return new SimpleDateFormat(DATE_TIME_PATTERN_HH);
         }
     };
 
@@ -77,6 +101,10 @@ public class DateUtils {
     }
     public static Date dateToStrWithHHmm(String dateDateStr) throws ParseException {
         SimpleDateFormat formatter = sdfWithYYYYMMHH.get();
+        return formatter.parse(dateDateStr);
+    }
+    public static Date strToDate(String dateDateStr) throws ParseException {
+        SimpleDateFormat formatter = sdfDate.get();
         return formatter.parse(dateDateStr);
     }
     public static String dateToStr(Date dateDate) {
@@ -98,7 +126,22 @@ public class DateUtils {
 	public static String format(Date date) {
         return format(date, DATE_PATTERN);
     }
-
+    /**
+     * 日期格式化 日期格式为：yyyy-MM
+     * @param date  日期
+     * @return  返回yyyy-MM格式日期
+     */
+    public static String formatYYYYMM(Date date) {
+        return format(date, DATE_PATTERN_YYYY_MM);
+    }
+    /**
+     * 日期格式化 日期格式为：yyyy
+     * @param date  日期
+     * @return  返回yyyy-MM格式日期
+     */
+    public static String formatYYYY(Date date) {
+        return format(date, DATE_PATTERN_YYYY);
+    }
     /**
      * 日期格式化 日期格式为：yyyy-MM-dd
      * @param date  日期

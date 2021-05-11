@@ -24,7 +24,7 @@ public class EquipmentService {
 
     public ResHelper<BuguPageQuery.Page<Equipment>> queryEquipment(Map<String, Object> params) {
 
-        BuguPageQuery<Equipment> query = (BuguPageQuery<Equipment>) equipmentDao.pageQuery();
+        BuguPageQuery<Equipment> query =  equipmentDao.pageQuery();
         String deviceName=(String) params.get("deviceName");
         if(!StringUtils.isEmpty(deviceName)){
             query.is("deviceName",deviceName);

@@ -38,7 +38,7 @@ public class RoleController extends AbstractController {
      * @return
      */
     @ApiOperation(value = "查询角色列表",response = ResHelper.class)
-    @RequestMapping(value = "/selectRole",method = RequestMethod.GET)
+    @GetMapping(value = "/selectRole")
     public ResHelper<List<RoleEntity>> selectRole() {
         return  roleService.select(getUser());
     }
@@ -47,7 +47,7 @@ public class RoleController extends AbstractController {
      * 分页查询角色
      * @return
      */
-    @RequestMapping(value = "/queryPageRole",method = RequestMethod.GET)
+    @GetMapping(value = "/queryPageRole")
     @ApiOperation(value = "分页查询角色信息",response = ResHelper.class)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1",name = "page", value = "当前页码",paramType = "query",required = true,dataType = "int",dataTypeClass = Integer.class),
@@ -61,7 +61,7 @@ public class RoleController extends AbstractController {
      * 添加角色
      */
     @SysLog(value = "新增角色")
-    @RequestMapping(value = "/saveRole",method = RequestMethod.POST)
+    @PostMapping(value = "/saveRole")
     @ApiOperation(value = "新增角色",response = ResHelper.class,httpMethod = "POST")
     @ApiImplicitParam(name = "roleEntityBo", value = "角色添加实体类",required = true,paramType = "body",dataTypeClass = RoleEntityBo.class, dataType = "RoleEntityBo")
     public ResHelper<Void> saveRole(@RequestBody RoleEntityBo roleEntityBo){
@@ -76,7 +76,7 @@ public class RoleController extends AbstractController {
 
     @SysLog(value = "修改角色信息")
     @ApiOperation(value = "修改角色信息",response = ResHelper.class)
-    @RequestMapping(value = "/updateRole",method = RequestMethod.POST)
+    @PostMapping(value = "/updateRole")
     @ApiImplicitParam(name = "roleEntity",value = "角色修改实体类",required = true,paramType = "body",dataTypeClass = RoleEntity.class,dataType = "RoleEntity")
     public ResHelper<Void> updateRoleById(@RequestBody RoleEntity roleEntity){
         ValidatorUtils.validateEntity(roleEntity, UpdateGroup.class);
@@ -93,7 +93,7 @@ public class RoleController extends AbstractController {
      */
     @SysLog(value = "批量/单条删除角色")
     @ApiOperation(value = "批量/单条删除角色",response = ResHelper.class)
-    @RequestMapping(value = "/deleteRole",method = RequestMethod.POST)
+    @PostMapping(value = "/deleteRole")
     @ApiImplicitParam(name = "roleIds",value = "角色ID数组",allowMultiple = true,dataType = "string",required = true)
     public ResHelper<Void> deleteRole(@RequestBody String[] roleIds ){
         List<String> roIds=new ArrayList<>();

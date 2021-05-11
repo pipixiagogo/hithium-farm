@@ -50,7 +50,6 @@ public class HithiumFarmWebApplication {
             Integer port = Integer.parseInt(hostPort[1]);
             addresses.add(new ServerAddress(hostPort[0], port));
         }
-        //int mongoPort = PropertyUtil.getInteger(PropertiesConfig.MONGO_PORT);
         String mongoDB = PropertyUtil.getProperty(PropertiesConfig.MONGO_DB);
         String mongoUser = PropertyUtil.getProperty(PropertiesConfig.MONGO_USERNAME);
         String mongoPwd = PropertyUtil.getProperty(PropertiesConfig.MONGO_PASSWORD);

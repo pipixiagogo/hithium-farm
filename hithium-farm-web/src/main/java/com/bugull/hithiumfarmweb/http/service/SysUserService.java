@@ -24,7 +24,6 @@ import org.apache.shiro.crypto.hash.Sha256Hash;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
-import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -62,12 +61,12 @@ public class SysUserService {
 //            return ResHelper.error("邮箱或手机号已被注册");
 //        }
         try {
-            if (sysUser.getRoleIds() != null && sysUser.getRoleIds().size() > 0) {
+            if (!CollectionUtils.isEmpty(sysUser.getRoleIds()) && !sysUser.getRoleIds().isEmpty()) {
                 /**
                  * 验证roleIds的参数
                  */
                 List<RoleEntity> roleEntities = roleEntityDao.query().in("_id", sysUser.getRoleIds()).results();
-                if (!CollectionUtils.isEmpty(roleEntities) && roleEntities.size() > 0) {
+                if (!CollectionUtils.isEmpty(roleEntities) && !roleEntities.isEmpty()) {
 
                 } else {
                     return ResHelper.error("角色不存在");
@@ -96,7 +95,7 @@ public class SysUserService {
     }
 
     public ResHelper<BuguPageQuery.Page<InfoUserVo>> list(Map<String, Object> params) {
-        BuguPageQuery<SysUser> query = (BuguPageQuery<SysUser>) sysUserDao.pageQuery();
+        BuguPageQuery<SysUser> query =  sysUserDao.pageQuery();
         String userName = (String) params.get("userName");
         if (!StringUtils.isBlank(userName)) {
             query.regexCaseInsensitive("userName", userName);
@@ -109,7 +108,7 @@ public class SysUserService {
         BuguPageQuery.Page<SysUser> userResults = query.resultsWithPage();
         List<SysUser> userList = userResults.getDatas();
         List<InfoUserVo> infoUserVos;
-        if (userList != null && userList.size() > 0) {
+        if (!CollectionUtils.isEmpty(userList) && !userList.isEmpty()) {
             infoUserVos = userList.stream().map(user -> {
                 InfoUserVo infoUserVo = new InfoUserVo();
                 List<RoleEntityOfUserBo> roleEntityOfUserBoList = new ArrayList<>();
@@ -119,7 +118,7 @@ public class SysUserService {
                     roleEntityOfUserBoList.add(roleEntity);
                     infoUserVo.setRoleEntityLsit(roleEntityOfUserBoList);
                 } else {
-                    if (!CollectionUtils.isEmpty(user.getRoleIds()) && user.getRoleIds().size() > 0) {
+                    if (!CollectionUtils.isEmpty(user.getRoleIds()) && !user.getRoleIds().isEmpty()) {
                         List<RoleEntity> roleEntities = roleEntityDao.query().in("_id", user.getRoleIds()).results();
                         BeanUtils.copyProperties(user, infoUserVo);
                         for (RoleEntity roleEntity : roleEntities) {
@@ -167,9 +166,9 @@ public class SysUserService {
                     update.set("userName", user.getUserName());
                 }
             }
-            if (user.getRoleIds() != null && user.getRoleIds().size() > 0) {
+            if (!CollectionUtils.isEmpty(user.getRoleIds() ) && !user.getRoleIds().isEmpty()) {
                 List<RoleEntity> roleEntities = roleEntityDao.query().in("_id", user.getRoleIds()).results();
-                if (roleEntities != null && roleEntities.size() > 0) {
+                if (!CollectionUtils.isEmpty(roleEntities) && !roleEntities.isEmpty()) {
                     update.set("roleIds", user.getRoleIds());
                 } else {
                     return ResHelper.pamIll();
@@ -223,7 +222,7 @@ public class SysUserService {
     }
 
     public ResHelper<Void> deleteUser(List<String> userIds) {
-        if (userIds != null && userIds.size() > 0) {
+        if (!CollectionUtils.isEmpty(userIds)  && !userIds.isEmpty()) {
             sysUserDao.remove(userIds);
         }
         return ResHelper.success("删除成功");
@@ -281,7 +280,7 @@ public class SysUserService {
     }
 
     public ResHelper<Void> resetPwd(List<String> users) {
-        if (users != null && users.size() > 0) {
+        if (!CollectionUtils.isEmpty(users) && !users.isEmpty()) {
             //当前时间
             Date now = new Date();
             //过期时间

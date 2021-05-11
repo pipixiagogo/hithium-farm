@@ -40,10 +40,8 @@ public class MenuService {
              * 非管理员
              */
             List<String> roleIds = sysUser.getRoleIds();
-            if (roleIds != null && roleIds.size() > 0) {
-                List<RoleEntity> roleEntityList = roleIds.stream().map(role -> {
-                    return roleEntityDao.query().is("_id", role).result();
-                }).collect(Collectors.toList());
+            if (!CollectionUtils.isEmpty(roleIds) && !roleIds.isEmpty()) {
+                List<RoleEntity> roleEntityList = roleIds.stream().map(role -> roleEntityDao.query().is("_id", role).result()).collect(Collectors.toList());
                 List<MenuEntity> menuEntities = new ArrayList<>();
                 roleEntityList.stream().forEach(role -> {
                     List<MenuEntity> menus = menuEntityDao.query().in("_id", role.getMenuIdList()).results();
@@ -61,27 +59,21 @@ public class MenuService {
     }
 
     public List<MenuVo> copyProperties(List<MenuEntity> userMenuList) {
-        if (!CollectionUtils.isEmpty(userMenuList) && userMenuList.size() > 0) {
-            List<MenuVo> menuVoLs = userMenuList.stream().filter(menuEntity -> {
-                return menuEntity.getType() == 0;
-            }).map(typeMenu -> {
+        if (!CollectionUtils.isEmpty(userMenuList) && !userMenuList.isEmpty()) {
+            List<MenuVo> menuVoLs = userMenuList.stream().filter(menuEntity -> menuEntity.getType() == 0).map(typeMenu -> {
                 MenuVo vo = new MenuVo();
                 BeanUtils.copyProperties(typeMenu, vo);
                 return vo;
             }).sorted(Comparator.comparing(MenuVo::getOrderNum)).collect(Collectors.toList());
             menuVoLs.forEach(vo -> {
-                List<MenuVo> voList = userMenuList.stream().filter(menuEntity -> {
-                    return vo.getId().equals(menuEntity.getParentId().toString());
-                }).map(menuEntity -> {
+                List<MenuVo> voList = userMenuList.stream().filter(menuEntity -> vo.getId().equals(menuEntity.getParentId().toString())).map(menuEntity -> {
                     MenuVo menu = new MenuVo();
                     BeanUtils.copyProperties(menuEntity, menu);
                     return menu;
                 }).sorted(Comparator.comparing(MenuVo::getOrderNum)).collect(Collectors.toList());
                 vo.setMenuVoList(voList);
                 voList.forEach(menuVo -> {
-                    List<MenuVo> menuVoList = userMenuList.stream().filter(menu -> {
-                        return menuVo.getId().equals(menu.getParentId().toString());
-                    }).map(menuEntity -> {
+                    List<MenuVo> menuVoList = userMenuList.stream().filter(menu -> menuVo.getId().equals(menu.getParentId().toString())).map(menuEntity -> {
                         MenuVo menu = new MenuVo();
                         BeanUtils.copyProperties(menuEntity, menu);
                         return menu;
@@ -91,12 +83,12 @@ public class MenuService {
             });
             return menuVoLs;
         }
-        return null;
+        return new ArrayList<>();
     }
 
     public ResHelper<List<MenuVo>> selectByLevel() {
         List<MenuEntity> menuEntities = menuEntityDao.query().results();
-        List<MenuVo> menuVos=copyProperties(menuEntities);
-        return ResHelper.success("",menuVos);
+        List<MenuVo> menuVos = copyProperties(menuEntities);
+        return ResHelper.success("", menuVos);
     }
 }

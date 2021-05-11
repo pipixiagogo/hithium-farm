@@ -24,8 +24,7 @@ public class EquipmentController extends AbstractController{
     @Resource
     private EquipmentService equipmentService;
 
-//    @RequiresPermissions("query")
-    @RequestMapping(value = "/query", method = RequestMethod.GET)
+    @GetMapping(value = "/query")
     @ApiOperation(value = "设备列表", httpMethod = "GET", response = ResHelper.class)
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1",name = "page", value = "当前页码",paramType = "query",required = true,dataType = "int",dataTypeClass = Integer.class),

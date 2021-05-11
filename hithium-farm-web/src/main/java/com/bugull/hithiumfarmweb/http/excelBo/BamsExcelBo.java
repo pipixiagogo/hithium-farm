@@ -1,7 +1,6 @@
 package com.bugull.hithiumfarmweb.http.excelBo;
 
 import com.alibaba.excel.annotation.ExcelProperty;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.util.Date;

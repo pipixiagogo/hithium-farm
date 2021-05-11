@@ -3,7 +3,6 @@ package com.bugull.hithiumfarmweb.http.service;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.http.dao.OperationLogDao;
 import com.bugull.hithiumfarmweb.http.entity.OperationLog;
-import com.bugull.hithiumfarmweb.http.entity.RoleEntity;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import org.apache.commons.lang.StringUtils;
@@ -24,7 +23,7 @@ public class OperationLogService {
 
 
     public ResHelper<BuguPageQuery.Page<OperationLog>> query(Map<String, Object> params) {
-        BuguPageQuery<OperationLog> query = (BuguPageQuery<OperationLog>) operationLogDao.pageQuery();
+        BuguPageQuery<OperationLog> query =  operationLogDao.pageQuery();
         String username = (String) params.get("username");
         if (!StringUtils.isBlank(username)) {
             query.regexCaseInsensitive("username", username);

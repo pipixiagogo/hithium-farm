@@ -2,6 +2,7 @@ package com.bugull.hithiumfarmweb.http.service;
 
 
 import com.bugull.hithiumfarmweb.common.exception.ParamsValidateException;
+import com.bugull.hithiumfarmweb.http.bo.LoginFormBo;
 import com.bugull.hithiumfarmweb.http.dao.CaptchaDao;
 import com.bugull.hithiumfarmweb.http.entity.Captcha;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
@@ -51,9 +52,19 @@ public class CaptchaService {
         }
     }
 
-    public Captcha validaCaptcha( String uuid) {
-        Captcha captchaEntity = captchaDao.query().is("uuid", uuid).result();
+    public String validaCaptcha(LoginFormBo loginFormBo) {
+        Captcha captchaEntity = captchaDao.query().is("uuid", loginFormBo.getUuid()).result();
         captchaDao.remove(captchaDao.query().lessThan("expireTime",new Date()).pageNumber(20).pageSize(1));
-        return captchaEntity;
+
+        if(captchaEntity== null){
+            return "登录失败,验证码错误";
+        }
+        if (captchaEntity != null && !captchaEntity.getCode().equalsIgnoreCase(loginFormBo.getCaptcha())) {
+            return "登录失败,验证码错误";
+        }
+        if (System.currentTimeMillis() > captchaEntity.getExpireTime().getTime()) {
+            return "登录失败,验证码过期";
+        }
+        return null;
     }
 }

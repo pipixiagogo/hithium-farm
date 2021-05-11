@@ -10,7 +10,6 @@ package com.bugull.hithiumfarmweb.http.oauth2;
 
 import com.bugull.hithiumfarmweb.utils.HttpContextUtils;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
-import com.fasterxml.jackson.databind.util.JSONPObject;
 import com.google.gson.Gson;
 import org.apache.commons.lang.StringUtils;
 import org.apache.shiro.authc.AuthenticationException;
@@ -25,11 +24,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-import static org.aspectj.lang.reflect.DeclareAnnotation.Kind.Type;
 
 /**
  * oauth2过滤器
- *调用接口时，接受传过来的token后，保证token有效及用户权限呢
+ * 调用接口时，接受传过来的token后，保证token有效及用户权限呢
  */
 public class OAuth2Filter extends AuthenticatingFilter {
 
@@ -45,13 +43,10 @@ public class OAuth2Filter extends AuthenticatingFilter {
 
     @Override
     protected boolean isAccessAllowed(ServletRequest request, ServletResponse response, Object mappedValue) {
-        if (((HttpServletRequest) request).getMethod().equals(RequestMethod.OPTIONS.name())) {
-            return true;
-        }
+        return ((HttpServletRequest) request).getMethod().equals(RequestMethod.OPTIONS.name());
         /**
          * 除了请求方式为options的 一律访问拒绝  拒绝后会调用 onAccessDenied 方法
          */
-        return false;
     }
 
     @Override
