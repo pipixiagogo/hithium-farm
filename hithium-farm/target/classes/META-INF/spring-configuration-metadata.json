@@ -1,8 +1,0 @@
-{
-  "groups": [{
-    "name": "",
-    "type": "com.bugull.hithium.core.util.PropertiesConfig",
-    "sourceType": "com.bugull.hithium.core.util.PropertiesConfig"
-  }],
-  "properties": []
-}

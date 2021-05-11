@@ -19,7 +19,6 @@ import com.mongodb.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
-import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -30,7 +29,6 @@ import redis.clients.jedis.Jedis;
 import javax.annotation.Resource;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -41,9 +39,9 @@ import static com.bugull.hithium.core.common.Const.*;
 public class KCEssDeviceService {
     private static final Logger log = LoggerFactory.getLogger(KCEssDeviceService.class);
 
-    public static final Map<String, Object> REAL_TIME_DATA_TYPE = new HashMap<>();
+    protected static final Map<String, Object> REAL_TIME_DATA_TYPE = new HashMap<>();
 
-    public static String INCOME_RECORD_PREFIX = "DEIVCE_INCOME_RECORED_";
+    protected static final String INCOME_RECORD_PREFIX = "DEIVCE_INCOME_RECORED_";
 
     static {
         REAL_TIME_DATA_TYPE.put("PcsCabinetDic", PcsCabinetDic.class);
@@ -130,12 +128,12 @@ public class KCEssDeviceService {
         try {
             String deviceName = jMessage.getDeviceName();
             log.info("设备上报实时数据:{}", deviceName);
-            JSONObject jsonObject = JSONObject.parseObject(jMessage.getPayloadMsg());
+            JSONObject jsonObject = JSON.parseObject(jMessage.getPayloadMsg());
             JSONObject datajson = (JSONObject) jsonObject.get(Const.DATA);
             List<Equipment> equipmentList = equipmentDao.query().is("deviceName", deviceName).results();
             if (!CollectionUtils.isEmpty(equipmentList) && equipmentList.size() > 0) {
                 jedis.set("REALDATA-" + deviceName, datajson.toString());
-                resolvingRealDataTime(datajson, equipmentList, deviceName);
+                resolvingRealDataTime(datajson, equipmentList);
             } else {
                 log.info("设备上报实时数据未查到对应设备:{}", deviceName);
             }
@@ -149,7 +147,7 @@ public class KCEssDeviceService {
         }
     }
 
-    private void resolvingRealDataTime(JSONObject datajson, List<Equipment> equipmentList, String deviceName) {
+    private void resolvingRealDataTime(JSONObject datajson, List<Equipment> equipmentList) {
         for (Map.Entry<String, Object> entry : REAL_TIME_DATA_TYPE.entrySet()) {
             JSONObject bodyJSONObject = datajson.getJSONObject(entry.getKey());
             if (bodyJSONObject != null) {
@@ -260,14 +258,10 @@ public class KCEssDeviceService {
                 for (TimeOfPriceBo timeOfPriceBo : priceOfTime) {
                     String time = timeOfPriceBo.getTime();
                     String[] split = time.split(",");
-                    List<String> list = new ArrayList<>();
-                    for (String spl : split) {
-                        list.add(spl);
-                    }
                     if (map == null) {
                         map = new HashMap<>();
                     }
-                    map.put(timeOfPriceBo.getType(), list);
+                    map.put(timeOfPriceBo.getType(), Arrays.asList(split));
                 }
                 if (map == null) {
                     return;
@@ -307,7 +301,7 @@ public class KCEssDeviceService {
                         }
                     }
                 } catch (Exception e) {
-                    log.error("解析电表数据错误:{}", e);
+                    log.error("解析电表数据错误", e);
                 }
                 if (typeOfMap == null) {
                     return;
@@ -315,9 +309,7 @@ public class KCEssDeviceService {
                 List<BigDecimal> bigDecimalList = null;
                 for (Map.Entry<Integer, String> entry : typeOfMap.entrySet()) {
                     Integer key = entry.getKey();
-                    List<TimeOfPriceBo> ofPriceBos = priceOfTime.stream().filter(timeOfPriceBo -> {
-                        return timeOfPriceBo.getType() == key;
-                    }).collect(Collectors.toList());
+                    List<TimeOfPriceBo> ofPriceBos = priceOfTime.stream().filter(timeOfPriceBo -> timeOfPriceBo.getType() == key).collect(Collectors.toList());
                     BigDecimal bigDecimal = new BigDecimal(ofPriceBos.get(0).getPrice());
                     if (bigDecimalList == null) {
                         bigDecimalList = new ArrayList<>();
@@ -328,59 +320,62 @@ public class KCEssDeviceService {
                  * 放电降序取第一个  充电升序取第一个
                  * 取出价格列表
                  */
-                bigDecimalList = bigDecimalList.stream().sorted(new Comparator<BigDecimal>() {
-                    @Override
-                    public int compare(BigDecimal o1, BigDecimal o2) {
-                        return o2.compareTo(o1);
+                if (!CollectionUtils.isEmpty(bigDecimalList) && !bigDecimalList.isEmpty()) {
+                    bigDecimalList = bigDecimalList.stream().sorted(new Comparator<BigDecimal>() {
+                        @Override
+                        public int compare(BigDecimal o1, BigDecimal o2) {
+                            return o2.compareTo(o1);
+                        }
+                    }).collect(Collectors.toList());
+                    /**
+                     * 上一次上报数据电表数据
+                     */
+                    Iterable<DBObject> iterable = ammeterDataDicDao.aggregate().match(ammeterDataDicDao.query().is("deviceName", equipment.getDeviceName())
+                            .is("equipmentId", equipment.getEquipmentId())).sort("{generationDataTime:-1}").limit(1).results();
+                    AmmeterDataDic fromDBObject = null;
+                    if (iterable != null) {
+                        for (DBObject object : iterable) {
+                            fromDBObject = MapperUtil.fromDBObject(AmmeterDataDic.class, object);
+                        }
                     }
-                }).collect(Collectors.toList());
-                /**
-                 * 上一次上报数据电表数据
-                 */
-                Iterable<DBObject> iterable = ammeterDataDicDao.aggregate().match(ammeterDataDicDao.query().is("deviceName", equipment.getDeviceName())
-                        .is("equipmentId", equipment.getEquipmentId())).sort("{generationDataTime:-1}").limit(1).results();
-                AmmeterDataDic fromDBObject = null;
-                if (iterable != null) {
-                    for (DBObject object : iterable) {
-                        fromDBObject = MapperUtil.fromDBObject(AmmeterDataDic.class, object);
+                    if (fromDBObject != null) {
+                        /**
+                         * TODO 根据实际情况来取得 充放电 电价
+                         */
+                        BigDecimal discharDecimal = bigDecimalList.get(0);//放电单价
+                        BigDecimal charDecimal = bigDecimalList.get(bigDecimalList.size() - 1);//充电单价
+
+                        BigDecimal lastTimeTotalChargeQuantity = new BigDecimal(fromDBObject.getTotalChargeQuantity());
+                        BigDecimal lastTimeTotalDisChargeQuantity = new BigDecimal(fromDBObject.getTotalDischargeQuantity());
+                        /**
+                         * 当前上报 充电电表数据
+                         */
+                        BigDecimal thisTimeTotalChargeQuantity = new BigDecimal(ammeterDataDic.getTotalChargeQuantity());
+                        BigDecimal thisTimeTotalDisChargeQuantity = new BigDecimal(ammeterDataDic.getTotalDischargeQuantity());
+
+                        //放电
+                        BigDecimal dissubResult = thisTimeTotalDisChargeQuantity.subtract(lastTimeTotalDisChargeQuantity);
+                        BigDecimal charsubResult = thisTimeTotalChargeQuantity.subtract(lastTimeTotalChargeQuantity);
+                        /**
+                         * 放电多少钱 充电多少钱
+                         */
+                        BigDecimal discharResultPrice = discharDecimal.multiply(dissubResult);
+                        BigDecimal charResultPrice = charDecimal.multiply(charsubResult);
+                        //收益
+                        BigDecimal income = discharResultPrice.subtract(charResultPrice);
+                        //计算总收益
+                        updateIncomeWithTotal(income, device);
+                        //计算单天收益
+                        countIncomeOfDay(device, income, ammeterDataDic.getGenerationDataTime());
+                        /**
+                         * key  按日统计  按时间
+                         *  设备-时间-
+                         *  充电放电、 收益 按天统计 按设备 时间 存入当天设备收益
+                         */
+                        updateIncomeOfDay(income, device);
                     }
                 }
-                if (fromDBObject != null) {
-                    /**
-                     * TODO 根据实际情况来取得 充放电 电价
-                     */
-                    BigDecimal discharDecimal = bigDecimalList.get(0);//放电单价
-                    BigDecimal charDecimal = bigDecimalList.get(bigDecimalList.size() - 1);//充电单价
 
-                    BigDecimal lastTimeTotalChargeQuantity = new BigDecimal(fromDBObject.getTotalChargeQuantity());
-                    BigDecimal lastTimeTotalDisChargeQuantity = new BigDecimal(fromDBObject.getTotalDischargeQuantity());
-                    /**
-                     * 当前上报 充电电表数据
-                     */
-                    BigDecimal thisTimeTotalChargeQuantity = new BigDecimal(ammeterDataDic.getTotalChargeQuantity());
-                    BigDecimal thisTimeTotalDisChargeQuantity = new BigDecimal(ammeterDataDic.getTotalDischargeQuantity());
-
-                    //放电
-                    BigDecimal dissubResult = thisTimeTotalDisChargeQuantity.subtract(lastTimeTotalDisChargeQuantity);
-                    BigDecimal charsubResult = thisTimeTotalChargeQuantity.subtract(lastTimeTotalChargeQuantity);
-                    /**
-                     * 放电多少钱 充电多少钱
-                     */
-                    BigDecimal discharResultPrice = discharDecimal.multiply(dissubResult);
-                    BigDecimal charResultPrice = charDecimal.multiply(charsubResult);
-                    //收益
-                    BigDecimal income = discharResultPrice.subtract(charResultPrice);
-                    //计算总收益
-                    updateIncomeWithTotal(income, device);
-                    //计算单天收益
-                    countIncomeOfDay(device, income, ammeterDataDic.getGenerationDataTime());
-                    /**
-                     * key  按日统计  按时间
-                     *  设备-时间-
-                     *  充电放电、 收益 按天统计 按设备 时间 存入当天设备收益
-                     */
-                    updateIncomeOfDay(income, device);
-                }
                 //第一次上报 为空
             }
         }
@@ -407,9 +402,7 @@ public class KCEssDeviceService {
     }
 
     private void countIncomeOfDay(Device device, BigDecimal income, Date recordDate) {
-        this.keyIncDecByBigDecimal(recordDate, income, (d) -> {
-            return getIncomeKey(d, device);
-        });
+        this.keyIncDecByBigDecimal(recordDate, income, (d) -> getIncomeKey(d, device));
     }
 
     private String getIncomeKey(Date recordDate, Device device) {
@@ -473,7 +466,7 @@ public class KCEssDeviceService {
             bamsDataDicBA.setName(equipment.getName());
             bamsDataDicBA.setGenerationDataTime(strToDate(bamsDataDicBA.getTime()));
 
-            updateChargeCapacityNumber(device,bamsDataDicBA);
+            updateChargeCapacityNumber(device, bamsDataDicBA);
             bamsDataDicBADao.insert(bamsDataDicBA);
         }
 
@@ -503,8 +496,8 @@ public class KCEssDeviceService {
     private void updateChargeCapacityNumber(Device device, BamsDataDicBA bamsDataDicBA) {
         String dischargeCapacitySum = bamsDataDicBA.getDischargeCapacitySum();
         String chargeCapacitySum = bamsDataDicBA.getChargeCapacitySum();
-        deviceDao.update().set("dischargeCapacitySum",dischargeCapacitySum)
-                .set("chargeCapacitySum",chargeCapacitySum).execute(device);
+        deviceDao.update().set("dischargeCapacitySum", dischargeCapacitySum)
+                .set("chargeCapacitySum", chargeCapacitySum).execute(device);
     }
 
     private String getChargeKey(Device device) {
@@ -579,7 +572,7 @@ public class KCEssDeviceService {
             String[] tem = temp.split(":");
             resulMap.put(tem[0], Integer.parseInt(tem[1]));
         }
-        if (resulMap == null && resulMap.isEmpty()) {
+        if (resulMap.isEmpty()) {
             return null;
         }
         Map<String, Integer> shortMap = new TreeMap<>(new Comparator<String>() {
@@ -601,18 +594,17 @@ public class KCEssDeviceService {
             log.info("设备告警日志上报 deviceName:{}", deviceName);
             String messagePayloadMsg = jMessage.getPayloadMsg();
             if (!StringUtils.isEmpty(messagePayloadMsg)) {
-                JSONObject jsonObject = JSONObject.parseObject(jMessage.getPayloadMsg());
+                JSONObject jsonObject = JSON.parseObject(jMessage.getPayloadMsg());
                 JSONArray dataArray = (JSONArray) jsonObject.get(Const.DATA);
-                List<BreakDownLog> breakDownLogs = JSONArray.parseArray(dataArray.toJSONString(), BreakDownLog.class);
+                List<BreakDownLog> breakDownLogs = JSON.parseArray(dataArray.toJSONString(), BreakDownLog.class);
                 if (breakDownLogs != null && breakDownLogs.size() > 0) {
                     jedis.set("BREAKDOWNLOG-" + deviceName, dataArray.toString());
                     List<Equipment> equipmentDbList = equipmentDao.query().is("deviceName", deviceName).results();
                     List<BreakDownLog> breakDownLogList = new ArrayList<>();
                     if (!CollectionUtils.isEmpty(equipmentDbList) && equipmentDbList.size() > 0) {
                         for (BreakDownLog breakDownLog : breakDownLogs) {
-                            Equipment equipment = equipmentDbList.stream().filter(equip -> {
-                                return breakDownLog.getEquipmentId() == equip.getEquipmentId();
-                            }).findFirst().get();
+                            Equipment equipment = equipmentDbList.stream().filter(equip ->
+                                    breakDownLog.getEquipmentId() == equip.getEquipmentId()).findFirst().get();
                             //防止空指针
                             if (equipment == null) {
                                 continue;
@@ -656,7 +648,7 @@ public class KCEssDeviceService {
         try {
             String deviceName = jMessage.getDeviceName();
             log.info("设备列表信息上报 deviceName:{}", deviceName);
-            JSONObject jsonObject = JSONObject.parseObject(jMessage.getPayloadMsg());
+            JSONObject jsonObject = JSON.parseObject(jMessage.getPayloadMsg());
             JSONObject dataJson = (JSONObject) jsonObject.get(Const.DATA);
             jedis.set("DEVICEINFO-" + deviceName, dataJson.toString());
             JSONArray stationsArray = (JSONArray) dataJson.get(DEVICE_STATION);
@@ -664,11 +656,11 @@ public class KCEssDeviceService {
             JSONArray cubesArray = (JSONArray) dataJson.get(DEVICE_CUBES);
             JSONArray cabinsArray = (JSONArray) dataJson.get(DEVICE_CABINS);
             JSONArray equipmentsArray = (JSONArray) dataJson.get(DEVICE_EQUIPMENTS);
-            List<DeviceStationsInfo> deviceStationsInfos = JSONArray.parseArray(stationsArray.toJSONString(), DeviceStationsInfo.class);
-            List<PccsInfo> pccsInfos = JSONArray.parseArray(pccsArray.toJSONString(), PccsInfo.class);
-            List<CubesInfo> cubesInfos = JSONArray.parseArray(cubesArray.toJSONString(), CubesInfo.class);
-            List<CabinsInfo> cabinsInfos = JSONArray.parseArray(cabinsArray.toJSONString(), CabinsInfo.class);
-            List<EquipmentInfo> equipmentInfos = JSONArray.parseArray(equipmentsArray.toJSONString(), EquipmentInfo.class);
+            List<DeviceStationsInfo> deviceStationsInfos = JSON.parseArray(stationsArray.toJSONString(), DeviceStationsInfo.class);
+            List<PccsInfo> pccsInfos = JSON.parseArray(pccsArray.toJSONString(), PccsInfo.class);
+            List<CubesInfo> cubesInfos = JSON.parseArray(cubesArray.toJSONString(), CubesInfo.class);
+            List<CabinsInfo> cabinsInfos = JSON.parseArray(cabinsArray.toJSONString(), CabinsInfo.class);
+            List<EquipmentInfo> equipmentInfos = JSON.parseArray(equipmentsArray.toJSONString(), EquipmentInfo.class);
             List<Equipment> equipmentList;
             if (equipmentInfos != null && equipmentInfos.size() > 0) {
                 equipmentList = equipmentInfos.stream().map(equipmentInfo -> {
@@ -701,7 +693,7 @@ public class KCEssDeviceService {
              */
             cabinMsgHanlder(deviceName, equipmentDbList, cabinsInfos);
         } catch (Exception e) {
-            log.error("解析上报设备列表信息失败:{}", e);
+            log.error("解析上报设备列表信息失败", e);
         } finally {
             if (jedis != null) {
                 jedis.close();
@@ -710,20 +702,17 @@ public class KCEssDeviceService {
     }
 
     private void cabinMsgHanlder(String deviceName, List<Equipment> equipmentDbList, List<CabinsInfo> cabinsInfos) {
-        Map<String, List<String>> cabinEquipmentIds = equipmentDbList.stream().filter(equipment -> {
-            return equipment.getCabinId() != null && equipment.getCubeId() != null
-                    && equipment.getPccId() == null && equipment.getStationId() == null;
-        }).collect(Collectors.groupingBy(equipment -> {
-            return equipment.getCubeId() + "---" + equipment.getCabinId();
-        }, Collectors.mapping(Equipment::getId, Collectors.toList())));
+        Map<String, List<String>> cabinEquipmentIds = equipmentDbList.stream().filter(equipment ->
+                equipment.getCabinId() != null && equipment.getCubeId() != null
+                        && equipment.getPccId() == null && equipment.getStationId() == null).collect(Collectors.groupingBy(equipment ->
+                equipment.getCubeId() + "---" + equipment.getCabinId(), Collectors.mapping(Equipment::getId, Collectors.toList())));
 
         /**
          * 单独摄像头的
          */
-        Map<Integer, List<String>> cameraEquipmentIds = equipmentDbList.stream().filter(equipment -> {
-            return equipment.getCabinId() != null && equipment.getCubeId() == null
-                    && equipment.getPccId() == null && equipment.getStationId() == null;
-        }).collect(Collectors.groupingBy(Equipment::getCabinId, Collectors.mapping(Equipment::getId, Collectors.toList())));
+        Map<Integer, List<String>> cameraEquipmentIds = equipmentDbList.stream().filter(equipment ->
+                equipment.getCabinId() != null && equipment.getCubeId() == null
+                        && equipment.getPccId() == null && equipment.getStationId() == null).collect(Collectors.groupingBy(Equipment::getCabinId, Collectors.mapping(Equipment::getId, Collectors.toList())));
         List<Cabin> cabinList = cabinsInfos.stream().map(cabinsInfo -> {
             Cabin cabin = new Cabin();
             BeanUtils.copyProperties(cabinsInfo, cabin, Const.IGNORE_ID);
@@ -762,10 +751,9 @@ public class KCEssDeviceService {
     }
 
     private void cubeMsgHanlder(String deviceName, List<Equipment> equipmentDbList, List<CubesInfo> cubesInfos) {
-        Map<Integer, List<String>> cubeEquipmentIds = equipmentDbList.stream().filter(equipment -> {
-            return equipment.getCabinId() == null && equipment.getCubeId() != null
-                    && equipment.getPccId() == null && equipment.getStationId() == null;
-        }).collect(Collectors.groupingBy(Equipment::getCubeId, Collectors.mapping(Equipment::getId, Collectors.toList())));
+        Map<Integer, List<String>> cubeEquipmentIds = equipmentDbList.stream().filter(equipment ->
+                equipment.getCabinId() == null && equipment.getCubeId() != null
+                        && equipment.getPccId() == null && equipment.getStationId() == null).collect(Collectors.groupingBy(Equipment::getCubeId, Collectors.mapping(Equipment::getId, Collectors.toList())));
         List<Cube> cubeList = cubesInfos.stream().map(cubesInfo -> {
             Cube cube = new Cube();
             BeanUtils.copyProperties(cubesInfo, cube, Const.IGNORE_ID);
@@ -811,16 +799,13 @@ public class KCEssDeviceService {
         device.setStationId(deviceStationsInfo.getId());
         device.setDeviceName(deviceName);
 
-        Map<Integer, List<String>> stationEquipmentIds = equipmentDbList.stream().filter(equipment -> {
-            return equipment.getCabinId() == null && equipment.getCubeId() == null
-                    && equipment.getPccId() == null && equipment.getStationId() != null;
-        }).collect(Collectors.groupingBy(Equipment::getStationId, Collectors.mapping(Equipment::getId, Collectors.toList())));
+        Map<Integer, List<String>> stationEquipmentIds = equipmentDbList.stream().filter(equipment ->
+                equipment.getCabinId() == null && equipment.getCubeId() == null
+                        && equipment.getPccId() == null && equipment.getStationId() != null).collect(Collectors.groupingBy(Equipment::getStationId, Collectors.mapping(Equipment::getId, Collectors.toList())));
         device.setEquipmentIds(stationEquipmentIds.get(device.getStationId()));
 
-        Map<Integer, List<String>> pccEquipmentIds = equipmentDbList.stream().filter(equipment -> {
-            return equipment.getCabinId() == null && equipment.getCubeId() == null
-                    && equipment.getPccId() != null && equipment.getStationId() == null;
-        }).collect(Collectors.groupingBy(Equipment::getPccId, Collectors.mapping(Equipment::getId, Collectors.toList())));
+        Map<Integer, List<String>> pccEquipmentIds = equipmentDbList.stream().filter(equipment -> equipment.getCabinId() == null && equipment.getCubeId() == null
+                && equipment.getPccId() != null && equipment.getStationId() == null).collect(Collectors.groupingBy(Equipment::getPccId, Collectors.mapping(Equipment::getId, Collectors.toList())));
         List<Pccs> pccsList = pccsInfos.stream().map(pccsInfo -> {
             Pccs pccs = new Pccs();
             BeanUtils.copyProperties(pccsInfo, pccs, Const.IGNORE_ID);
@@ -842,9 +827,7 @@ public class KCEssDeviceService {
                 pccsDao.insert(pccs);
             }
         }
-        List<String> pccIds = pccsList.stream().map(pccs -> {
-            return pccs.getId();
-        }).collect(Collectors.toList());
+        List<String> pccIds = pccsList.stream().map(pccs -> pccs.getId()).collect(Collectors.toList());
         device.setPccsIds(pccIds);
         device.setAccessTime(new Date());
         if (deviceDao.query().is("deviceName", deviceName)
@@ -885,19 +868,14 @@ public class KCEssDeviceService {
          * 根据新上报的ID更新数据  分别取出两个集合ID
          */
         if (equipmentDbList != null && equipmentDbList.size() > 0) {
-            equipmentDbList.stream().forEach(equipmentDb -> {
-                oldIds.add(equipmentDb.getEquipmentId());
-            });
+            equipmentDbList.stream().forEach(equipmentDb -> oldIds.add(equipmentDb.getEquipmentId()));
         }
-        if (equipmentList != null && equipmentList.size() > 0) {
-            equipmentList.stream().forEach(equipment -> {
-                newIds.add(equipment.getEquipmentId());
-            });
-        }
+        equipmentList.stream().forEach(equipment -> newIds.add(equipment.getEquipmentId()));
 
-        if (oldIds.contains(newIds)) {
+        if (oldIds.containsAll(newIds)) {
             log.info("设备信息列表无需更新");
         } else {
+
             if (equipmentDbList == null && equipmentDbList.size() == 0) {
                 /**
                  * 首次插入
@@ -908,7 +886,7 @@ public class KCEssDeviceService {
                  * 删除
                  */
                 List<Integer> collectDelete = oldIds.stream().filter(it -> !newIds.contains(it)).collect(Collectors.toList());
-                if (collectDelete != null && collectDelete.size() > 0) {
+                if (!CollectionUtils.isEmpty(collectDelete) && !collectDelete.isEmpty()) {
                     for (Integer deleteId : collectDelete) {
                         equipmentDao.remove(equipmentDao.query().is("deviceName", deviceName).is("equipmentId", deleteId));
                     }
@@ -917,7 +895,7 @@ public class KCEssDeviceService {
                  * 新增
                  */
                 List<Integer> collectAdd = newIds.stream().filter(it -> !oldIds.contains(it)).collect(Collectors.toList());
-                if (collectAdd != null && collectAdd.size() > 0) {
+                if (!CollectionUtils.isEmpty(collectAdd) && !collectAdd.isEmpty()) {
                     List<Equipment> addEquipment = new ArrayList<>();
                     for (Equipment equipment : equipmentList) {
                         if (collectAdd.contains(equipment.getEquipmentId())) {
@@ -929,22 +907,19 @@ public class KCEssDeviceService {
                 /**
                  * 已经存在设备进行信息更新
                  */
-                List<Equipment> equipments = equipmentList.stream().filter(equipment -> {
-                    return oldIds.contains(equipment.getEquipmentId());
-                }).collect(Collectors.toList());
-                equipments.stream().forEach(oldEquipment -> {
-                    equipmentDao.update().set("enabled", oldEquipment.isEnabled())
-                            .set("model", oldEquipment.getModel())
-                            .set("manufacturer", oldEquipment.getManufacturer())
-                            .set("stationId", oldEquipment.getStationId())
-                            .set("description", oldEquipment.getDescription())
-                            .set("name", oldEquipment.getName())
-                            .set("pccid", oldEquipment.getPccId())
-                            .set("cubeId", oldEquipment.getCubeId())
-                            .set("cabinId", oldEquipment.getCabinId())
-                            .execute(equipmentDao.query().is("deviceName", deviceName)
-                                    .is("equipmentId", oldEquipment.getEquipmentId()));
-                });
+                List<Equipment> equipments = equipmentList.stream().filter(equipment -> oldIds.contains(equipment.getEquipmentId())).collect(Collectors.toList());
+                equipments.stream().forEach(oldEquipment ->
+                        equipmentDao.update().set("enabled", oldEquipment.isEnabled())
+                                .set("model", oldEquipment.getModel())
+                                .set("manufacturer", oldEquipment.getManufacturer())
+                                .set("stationId", oldEquipment.getStationId())
+                                .set("description", oldEquipment.getDescription())
+                                .set("name", oldEquipment.getName())
+                                .set("pccid", oldEquipment.getPccId())
+                                .set("cubeId", oldEquipment.getCubeId())
+                                .set("cabinId", oldEquipment.getCabinId())
+                                .execute(equipmentDao.query().is("deviceName", deviceName)
+                                        .is("equipmentId", oldEquipment.getEquipmentId())));
             }
         }
     }
