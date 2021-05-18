@@ -6,10 +6,18 @@ import com.bugull.hithiumfarmweb.http.bo.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
 import com.bugull.hithiumfarmweb.http.service.RealTimeDataService;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
+import com.bugull.mongo.fs.BuguFS;
+import com.bugull.mongo.fs.BuguFSFactory;
+import com.bugull.mongo.fs.FileTypeUtil;
+import com.mongodb.BasicDBObject;
+import com.mongodb.DBObject;
+import com.mongodb.gridfs.GridFSDBFile;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import springfox.documentation.annotations.ApiIgnore;
@@ -31,6 +39,7 @@ import java.util.Map;
 @RequestMapping(value = "/realTimeData")
 public class RealTimeDataController extends AbstractController {
 
+    public static final Logger log = LoggerFactory.getLogger(RealTimeDataController.class);
     @Resource
     private RealTimeDataService realTimeDataService;
 
@@ -252,14 +261,27 @@ public class RealTimeDataController extends AbstractController {
         OutputStream outputStream = null;
         try {
             outputStream = response.getOutputStream();
-
             response.setContentType("application/vnd.ms-excel");
             response.setCharacterEncoding("utf-8");
             fileName = URLEncoder.encode(fileName, "UTF-8").replaceAll("\\+", "%20");
             response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
-            realTimeDataService.exportStationOfBattery(deviceName, time, type, outputStream);
+            DBObject query = new BasicDBObject();
+            query.put("filename", deviceName + "_" + time + "_" + type);
+            BuguFS fs = BuguFSFactory.getInstance().create();
+            GridFSDBFile f = fs.findOne(query);
+            if (f != null) {
+                f.getInputStream();
+                int fileLength = (int) f.getLength();
+                String ext = FileTypeUtil.getExtention(deviceName + "_" + time + "_" + type);
+                response.setContentType(FileTypeUtil.getContentType(ext));
+                response.setStatus(200);
+                response.setContentLength(fileLength);
+                f.writeTo(outputStream);
+            } else {
+                realTimeDataService.exportStationOfBattery(deviceName, time, type, outputStream);
+            }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("下载文件失败:{},时间为:{},设备名称:{},导出设备类型:{}", e.getMessage(), time, deviceName, realTimeDataService.getMsgByType(type));
             response.reset();
             response.setStatus(HttpStatus.NOT_ACCEPTABLE.value());
             response.setContentType("application/json; charset=utf-8");
@@ -273,4 +295,5 @@ public class RealTimeDataController extends AbstractController {
             }
         }
     }
+
 }

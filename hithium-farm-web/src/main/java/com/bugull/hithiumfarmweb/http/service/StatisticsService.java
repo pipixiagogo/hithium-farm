@@ -72,8 +72,10 @@ public class StatisticsService {
                 .greaterThanEquals("accessTime", startTime)
                 .lessThanEquals("accessTime", endTime);
         if (!StringUtils.isEmpty(areaNetInNumBo.getProvince())) {
-            if (!propertiesConfig.getProToCitys().containsKey(areaNetInNumBo.getProvince())
-                    || !propertiesConfig.getProToCitys().get(areaNetInNumBo.getProvince()).contains(areaNetInNumBo.getCity())) {
+            if (!propertiesConfig.getProToCitys().containsKey(areaNetInNumBo.getProvince())){
+                return ResHelper.pamIll();
+            }
+            if(!StringUtils.isEmpty(areaNetInNumBo.getCity()) &&  !propertiesConfig.getProToCitys().get(areaNetInNumBo.getProvince()).contains(areaNetInNumBo.getCity())){
                 return ResHelper.pamIll();
             }
             query.is(PROVINCE, areaNetInNumBo.getProvince());
@@ -91,10 +93,12 @@ public class StatisticsService {
         if (objs != null) {
             for (DBObject obj : objs) {
                 String name = obj.get("_id").toString();
-                Double count = Double.valueOf(obj.get("count").toString());
+                String count=obj.get("count").toString();
+                String decimal = new BigDecimal(count).setScale(2,BigDecimal.ROUND_HALF_UP).toString();
+                Double countDoub = Double.valueOf(decimal);
                 StatisticBo bo = map.get(name);
                 if (bo != null) {
-                    bo.setCount(count);
+                    bo.setCount(countDoub);
                 }
             }
         }
@@ -173,8 +177,10 @@ public class StatisticsService {
         BuguQuery<Device> query = deviceDao.query();
         if (areaInfoBo != null) {
             if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
-                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())
-                        || !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
+                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
+                    return ResHelper.pamIll();
+                }
+                if(!StringUtils.isEmpty(areaInfoBo.getCity()) &&  !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())){
                     return ResHelper.pamIll();
                 }
                 query.is(PROVINCE, areaInfoBo.getProvince());
@@ -193,14 +199,14 @@ public class StatisticsService {
         if (chargeIterable != null) {
             for (DBObject object : chargeIterable) {
                 Double sum = Double.valueOf(object.get("count").toString());
-                BigDecimal bigDecimal = BigDecimal.valueOf(sum);
+                BigDecimal bigDecimal = BigDecimal.valueOf(sum).setScale(2,BigDecimal.ROUND_HALF_UP);
                 capacityNumBo.setChargeCapacitySum(bigDecimal.toString());
             }
         }
         if (dischargeIterable != null) {
             for (DBObject object : dischargeIterable) {
                 Double sum = Double.valueOf(object.get("count").toString());
-                BigDecimal bigDecimal = BigDecimal.valueOf(sum);
+                BigDecimal bigDecimal = BigDecimal.valueOf(sum).setScale(2,BigDecimal.ROUND_HALF_UP);
                 capacityNumBo.setDischargeCapacitySum(bigDecimal.toString());
             }
         }
@@ -212,8 +218,10 @@ public class StatisticsService {
         if (areaInfoBo != null) {
             BuguQuery<Device> query = deviceDao.query();
             if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
-                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())
-                        || !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
+                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
+                    return ResHelper.pamIll();
+                }
+                if(!StringUtils.isEmpty(areaInfoBo.getCity()) &&  !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())){
                     return ResHelper.pamIll();
                 }
                 query.is(PROVINCE, areaInfoBo.getProvince());
@@ -264,8 +272,10 @@ public class StatisticsService {
         BuguQuery<Device> query = deviceDao.query();
         if (areaInfoBo != null) {
             if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
-                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())
-                        || propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
+                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
+                    return ResHelper.pamIll();
+                }
+                if(!StringUtils.isEmpty(areaInfoBo.getCity()) &&  !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())){
                     return ResHelper.pamIll();
                 }
                 query.is(PROVINCE, areaInfoBo.getProvince());
@@ -293,8 +303,10 @@ public class StatisticsService {
                 deviceBuguQuery.is(PROVINCE, areaInfoBo.getProvince());
             }
             if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
-                if (!propertiesConfig.getCitys().containsKey(areaInfoBo.getCity())
-                        || !propertiesConfig.getCitys().get(areaInfoBo.getCity()).equals(areaInfoBo.getProvince())) {
+                if (!propertiesConfig.getCitys().containsKey(areaInfoBo.getCity())) {
+                    return ResHelper.pamIll();
+                }
+                if(!StringUtils.isEmpty(areaInfoBo.getCity()) &&  !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())){
                     return ResHelper.pamIll();
                 }
                 deviceBuguQuery.is("city", areaInfoBo.getCity());
@@ -328,8 +340,10 @@ public class StatisticsService {
         IncomeStatisticVo incomeStatisticVo = new IncomeStatisticVo();
         if (areaInfoBo != null) {
             if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
-                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())
-                        || !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
+                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
+                    return ResHelper.pamIll();
+                }
+                if(!StringUtils.isEmpty(areaInfoBo.getCity()) &&  !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())){
                     return ResHelper.pamIll();
                 }
                 query.is(PROVINCE, areaInfoBo.getProvince());
@@ -355,7 +369,7 @@ public class StatisticsService {
         if (iterable != null) {
             for (DBObject object : iterable) {
                 Double income = (Double) object.get("count");
-                bigDecimal = bigDecimal.add(BigDecimal.valueOf(income));
+                bigDecimal = bigDecimal.add(BigDecimal.valueOf(income).setScale(2,BigDecimal.ROUND_HALF_UP));
             }
         }
         incomeStatisticVo.setIncome(bigDecimal.toString());
@@ -366,8 +380,10 @@ public class StatisticsService {
 
         if (areaInfoBo != null) {
             if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
-                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())
-                        || !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
+                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
+                    return ResHelper.pamIll();
+                }
+                if(!StringUtils.isEmpty(areaInfoBo.getCity()) &&  !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())){
                     return ResHelper.pamIll();
                 }
             }
@@ -398,85 +414,13 @@ public class StatisticsService {
         resultMap.put(YEAR, g3.getIncomeStatisticVo());
         return ResHelper.success("", resultMap);
     }
-
-    private String getIncomeKey(Date recordDate, IncomeStatisticVo incomeStatisticVo, String type) {
-        switch (type) {
-            case DAY:
-                return getDayIncomeKey(recordDate, incomeStatisticVo);
-            case MONTH:
-                return getMonthIncomeKey(recordDate, incomeStatisticVo);
-            case YEAR:
-                return getYearIncomeKey(recordDate, incomeStatisticVo);
-            default:
-                return null;
-        }
-    }
-
-    private String getYearIncomeKey(Date recordDate, IncomeStatisticVo incomeStatisticVo) {
-        if (incomeStatisticVo != null) {
-            if (!StringUtils.isEmpty(incomeStatisticVo.getProvince()) && StringUtils.isEmpty(incomeStatisticVo.getCity())) {
-                return INCOME_RECORD_PREFIX + DateUtils.dateToStryyyy(recordDate) + "_" + incomeStatisticVo.getProvince() + "_*";
-            }
-            if (!StringUtils.isEmpty(incomeStatisticVo.getProvince()) && !StringUtils.isEmpty(incomeStatisticVo.getCity())) {
-                return INCOME_RECORD_PREFIX + DateUtils.dateToStryyyy(recordDate) + "_" + incomeStatisticVo.getProvince() + "_" + incomeStatisticVo.getCity();
-            }
-            if (StringUtils.isEmpty(incomeStatisticVo.getProvince()) && !StringUtils.isEmpty(incomeStatisticVo.getCity())) {
-                String province = propertiesConfig.getCitys().get(incomeStatisticVo.getCity());
-                if (!StringUtils.isEmpty(province)) {
-                    incomeStatisticVo.setProvince(province);
-                    return INCOME_RECORD_PREFIX + DateUtils.dateToStryyyy(recordDate) + "_" + province + "_" + incomeStatisticVo.getCity();
-                }
-                return null;
-            }
-        }
-        return INCOME_RECORD_PREFIX + DateUtils.dateToStryyyy(recordDate) + "_*";
-    }
-
-    private String getMonthIncomeKey(Date recordDate, IncomeStatisticVo incomeStatisticVo) {
-        if (incomeStatisticVo != null) {
-            if (!StringUtils.isEmpty(incomeStatisticVo.getProvince()) && StringUtils.isEmpty(incomeStatisticVo.getCity())) {
-                return INCOME_RECORD_PREFIX + DateUtils.dateToStryyyymm(recordDate) + "_" + incomeStatisticVo.getProvince() + "_*";
-            }
-            if (!StringUtils.isEmpty(incomeStatisticVo.getProvince()) && !StringUtils.isEmpty(incomeStatisticVo.getCity())) {
-                return INCOME_RECORD_PREFIX + DateUtils.dateToStryyyymm(recordDate) + "_" + incomeStatisticVo.getProvince() + "_" + incomeStatisticVo.getCity();
-            }
-            if (StringUtils.isEmpty(incomeStatisticVo.getProvince()) && !StringUtils.isEmpty(incomeStatisticVo.getCity())) {
-                String province = propertiesConfig.getCitys().get(incomeStatisticVo.getCity());
-                if (!StringUtils.isEmpty(province)) {
-                    incomeStatisticVo.setProvince(province);
-                    return INCOME_RECORD_PREFIX + DateUtils.dateToStryyyymm(recordDate) + "_" + province + "_" + incomeStatisticVo.getCity();
-                }
-                return null;
-            }
-        }
-        return INCOME_RECORD_PREFIX + DateUtils.dateToStryyyymm(recordDate) + "_*";
-    }
-
-    private String getDayIncomeKey(Date recordDate, IncomeStatisticVo incomeStatisticVo) {
-        if (incomeStatisticVo != null) {
-            if (!StringUtils.isEmpty(incomeStatisticVo.getProvince()) && StringUtils.isEmpty(incomeStatisticVo.getCity())) {
-                return INCOME_RECORD_PREFIX + DateUtils.dateToStr(recordDate) + "_" + incomeStatisticVo.getProvince() + "_*";
-            }
-            if (!StringUtils.isEmpty(incomeStatisticVo.getProvince()) && !StringUtils.isEmpty(incomeStatisticVo.getCity())) {
-                return INCOME_RECORD_PREFIX + DateUtils.dateToStr(recordDate) + "_" + incomeStatisticVo.getProvince() + "_" + incomeStatisticVo.getCity();
-            }
-        }
-        if (StringUtils.isEmpty(incomeStatisticVo.getProvince()) && !StringUtils.isEmpty(incomeStatisticVo.getCity())) {
-            String province = propertiesConfig.getCitys().get(incomeStatisticVo.getCity());
-            if (!StringUtils.isEmpty(province)) {
-                incomeStatisticVo.setProvince(province);
-                return INCOME_RECORD_PREFIX + DateUtils.dateToStr(recordDate) + "_*";
-            }
-            return null;
-        }
-        return INCOME_RECORD_PREFIX + DateUtils.dateToStr(recordDate) + "_*";
-    }
-
     public ResHelper<Map<String, List<IncomeStatisticOfDayVo>>> incomeStatisticOfAll(AreaInfoBo areaInfoBo) {
         if (areaInfoBo != null) {
             if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
-                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())
-                        || !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
+                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
+                    return ResHelper.pamIll();
+                }
+                if(!StringUtils.isEmpty(areaInfoBo.getCity()) &&  !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())){
                     return ResHelper.pamIll();
                 }
             }
@@ -582,7 +526,7 @@ public class StatisticsService {
                         String incomeOfDay = object.get("_id").toString();
                         Double counct = Double.valueOf(object.get("count").toString());
                         IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
-                        incomeStatisticOfDayVo.setIncome(BigDecimal.valueOf(counct).toString());
+                        incomeStatisticOfDayVo.setIncome(BigDecimal.valueOf(counct).setScale(2,BigDecimal.ROUND_HALF_UP).toString());
                         incomeStatisticOfDayVo.setDay(incomeOfDay);
                         resultStatisticOfDayList.add(incomeStatisticOfDayVo);
                     }
@@ -662,8 +606,9 @@ public class StatisticsService {
                         IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
                         String incomeOfDay = (String) object.get("_id");
                         Double count = (Double) object.get("count");
+                        BigDecimal decimal = BigDecimal.valueOf(count);
                         incomeStatisticOfDayVo.setDay(incomeOfDay);
-                        incomeStatisticOfDayVo.setIncome(BigDecimal.valueOf(count).toString());
+                        incomeStatisticOfDayVo.setIncome(decimal.setScale(2,BigDecimal.ROUND_HALF_UP).toString());
                         incomeStatisticOfDayVoList.add(incomeStatisticOfDayVo);
                     }
                     if (!CollectionUtils.isEmpty(incomeStatisticOfDayVoList) && !incomeStatisticOfDayVoList.isEmpty()) {
@@ -722,9 +667,9 @@ public class StatisticsService {
                                 .group(INCOMEOFDAY).sort("{_id:-1}").limit(1).results();
                         if (iterable != null) {
                             for (DBObject object : iterable) {
-                                Double count = (Double) object.get("count");
+                                Double count=(Double)object.get("count");
                                 BigDecimal decimal = BigDecimal.valueOf(count);
-                                incomeStatisticVo.setIncome(decimal.toString());
+                                incomeStatisticVo.setIncome(decimal.setScale(2,BigDecimal.ROUND_HALF_UP).toString());
                             }
                         }
                         incomeStatisticVo.setDate(date);
@@ -735,7 +680,8 @@ public class StatisticsService {
                         if (iterable != null) {
                             for (DBObject object : iterable) {
                                 Double count = (Double) object.get("count");
-                                incomeStatisticVo.setIncome(String.valueOf(count));
+                                BigDecimal decimal = BigDecimal.valueOf(count);
+                                incomeStatisticVo.setIncome(decimal.setScale(2,BigDecimal.ROUND_HALF_UP).toString());
                             }
                         }
                         incomeStatisticVo.setDate(date);
@@ -746,7 +692,8 @@ public class StatisticsService {
                         if (iterable != null) {
                             for (DBObject object : iterable) {
                                 Double count = (Double) object.get("count");
-                                incomeStatisticVo.setIncome(String.valueOf(count));
+                                BigDecimal decimal = BigDecimal.valueOf(count);
+                                incomeStatisticVo.setIncome(decimal.setScale(2,BigDecimal.ROUND_HALF_UP).toString());
                             }
                         }
                         incomeStatisticVo.setDate(date);
@@ -755,27 +702,6 @@ public class StatisticsService {
             } finally {
                 countDownLatch.countDown();
             }
-
-//            Jedis jedis = null;
-//            try {
-//                jedis = redisPoolUtil.getJedis();
-//                String incomeKey = getIncomeKey(new Date(), incomeStatisticVo, type);
-//                if (!StringUtils.isEmpty(incomeKey)) {
-//                    Set<String> keys = jedis.keys(incomeKey);
-//                    BigDecimal result = new BigDecimal(0);
-//                    for (String key : keys) {
-//                        BigDecimal keyBigDecimal = new BigDecimal(jedis.get(key));
-//                        result = result.add(keyBigDecimal);
-//                    }
-//                    incomeStatisticVo.setIncome(result.toString());
-//                }
-//            } finally {
-
-//                if (jedis != null) {
-//                    jedis.close();
-//                }
-
-//            }
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.entity;
 
 import com.bugull.mongo.SimpleEntity;
+import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import io.swagger.annotations.ApiModelProperty;
 import jdk.nashorn.internal.ir.CallNode;
@@ -10,6 +11,7 @@ import lombok.ToString;
 @Data
 @Entity
 @ToString
+@EnsureIndex("{deviceName:1}")
 public class Equipment extends SimpleEntity {
 
 

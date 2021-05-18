@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.entity;
 
 import com.bugull.mongo.SimpleEntity;
+import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import com.bugull.mongo.annotations.Ignore;
 import io.swagger.models.auth.In;
@@ -14,6 +15,7 @@ import java.util.Map;
  */
 @Data
 @Entity
+@EnsureIndex("{deviceName:1}")
 public class BmsCellTempDataDic extends SimpleEntity {
 //    Time	DateTime
 //    EquipmentId	int

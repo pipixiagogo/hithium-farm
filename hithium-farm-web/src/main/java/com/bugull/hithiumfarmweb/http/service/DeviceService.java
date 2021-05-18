@@ -25,6 +25,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
+import java.math.BigDecimal;
 import java.text.ParseException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -52,6 +53,8 @@ public class DeviceService {
     private BamsDataDicBADao bamsDataDicBADao;
     @Resource
     private PropertiesConfig propertiesConfig;
+    @Resource
+    private IncomeEntityDao incomeEntityDao;
 
     private static final Logger log = LoggerFactory.getLogger(DeviceService.class);
 
@@ -103,21 +106,11 @@ public class DeviceService {
             deviceVo.setDeviceName(device.getDeviceName());
             deviceVo.setName(device.getName());
             deviceVo.setDescription(device.getDescription());
-            List<Equipment> equipmentList = equipmentDao.query().is("enabled", true).in("_id", device.getEquipmentIds())
-                    .returnFields("name", "equipmentId", "_id").results();
             EquipmentBo equipmentBo = new EquipmentBo();
             equipmentBo.setName(device.getName());
             equipmentBo.setId(device.getId());
             List<EquipmentBo> equipmentBos = new ArrayList<>();
             equipmentBo.setEquipmentBo(equipmentBos);
-            equipmentList.forEach(equipment -> {
-                EquipmentBo equip = new EquipmentBo();
-                equip.setName(equipment.getName());
-                equip.setId(equipment.getId());
-                equip.setEquipmentId(equipment.getEquipmentId());
-                equip.setEquipmentBo(null);
-                equipmentBos.add(equip);
-            });
             List<Pccs> pccsList = pccsDao.query().is(DEVICE_NAME, deviceName).is("stationId", device.getStationId()).results();
             pccsList.stream().forEach(pccs -> {
                 EquipmentBo equipment = new EquipmentBo();
@@ -535,6 +528,15 @@ public class DeviceService {
             deviceInfoVo.setAreaCity(device.getProvince() + "-" + device.getCity());
             deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(device.getApplicationScenarios()));
             deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
+            Iterable <DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityDao.query().is("deviceName", deviceInfoVo.getDeviceName()))
+                    .group("{_id:null,count:{$sum:{$toDouble:'$income'}}}").limit(1).results();
+            if(iterable != null){
+                for(DBObject object:iterable){
+                    Double count = (Double) object.get("count");
+                    BigDecimal incomeBigDecimal=BigDecimal.valueOf(count).setScale(2,BigDecimal.ROUND_HALF_UP);
+                    deviceInfoVo.setIncome(incomeBigDecimal.toString());
+                }
+            }
             return deviceInfoVo;
         }
         return null;

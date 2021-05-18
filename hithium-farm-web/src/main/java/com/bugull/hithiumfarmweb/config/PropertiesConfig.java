@@ -30,6 +30,7 @@ public class PropertiesConfig {
     public static final String MONGO_USERNAME = "mongo.username";
     public static final String MONGO_PASSWORD = "mongo.password";
 
+
     public static final String CITYS = "city.json";
     private Map<String, String> citys = null;
     private Map<String, Set<String>> proToCitys = null;
@@ -37,7 +38,8 @@ public class PropertiesConfig {
     private Object lock=new Object();
     @Value("${mqtt.clientid.subscriber}")
     private String mqttClientIdSub;
-
+    @Value("${excel.realtime.data.excel.export.dir}")
+    private String realTimeDataExcelTempDir;
     @Value("${mqtt.complete.timeout}")
     private int completeTimeout;
 
@@ -58,6 +60,23 @@ public class PropertiesConfig {
 
     @Value("${mqtt.clientid.publisher}")
     private String mqttClientIdPub;
+    @Value("${excel.start.time.export.excel.switch}")
+    private boolean startExportExcelSwitch;
+
+    @Value("${excel.export.pagesize}")
+    private Integer excelExportPageSize;
+
+    public Integer getExcelExportPageSize() {
+        return excelExportPageSize;
+    }
+
+    public boolean isStartExportExcelSwitch() {
+        return startExportExcelSwitch;
+    }
+
+    public String getRealTimeDataExcelTempDir() {
+        return realTimeDataExcelTempDir;
+    }
 
     public Integer getCompleteTimeout() {
         return completeTimeout;

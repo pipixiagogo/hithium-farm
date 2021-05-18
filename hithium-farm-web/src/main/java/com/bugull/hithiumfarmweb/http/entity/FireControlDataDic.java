@@ -8,6 +8,7 @@ import com.bugull.hithiumfarmweb.http.excelConverter.PcsExceptionConverter;
 import com.bugull.hithiumfarmweb.http.excelConverter.PcsFaultConverter;
 import com.bugull.mongo.BuguEntity;
 import com.bugull.mongo.SimpleEntity;
+import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
@@ -19,6 +20,7 @@ import java.util.Date;
  */
 @Data
 @Entity
+@EnsureIndex("{deviceName:1}")
 public class FireControlDataDic implements BuguEntity {
     @ExcelIgnore
     private String id;

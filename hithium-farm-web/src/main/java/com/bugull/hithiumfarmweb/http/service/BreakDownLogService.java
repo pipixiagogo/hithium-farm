@@ -156,7 +156,6 @@ public class BreakDownLogService {
             if (!propertiesConfig.getCitys().containsKey(city) ||
                     !propertiesConfig.getCitys().get(city).equals(province))
                 throw new ParamsValidateException("省份/市区错误");
-
         }
     }
 

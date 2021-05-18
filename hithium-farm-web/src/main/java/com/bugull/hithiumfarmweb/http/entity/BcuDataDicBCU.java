@@ -5,6 +5,7 @@ import com.alibaba.excel.annotation.ExcelProperty;
 import com.bugull.hithiumfarmweb.http.excelConverter.*;
 import com.bugull.mongo.BuguEntity;
 import com.bugull.mongo.SimpleEntity;
+import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
@@ -13,6 +14,7 @@ import java.util.Date;
 
 @Data
 @Entity
+@EnsureIndex("{deviceName:1}")
 public class BcuDataDicBCU implements BuguEntity {
     @ExcelIgnore
     private String id;

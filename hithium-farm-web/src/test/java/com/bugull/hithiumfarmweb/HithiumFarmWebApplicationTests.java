@@ -5,12 +5,15 @@ import com.alibaba.excel.EasyExcel;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.bugull.hithiumfarmweb.common.BuguPageDao;
 import com.bugull.hithiumfarmweb.common.Const;
+import com.bugull.hithiumfarmweb.config.CustomThreadFactory;
 import com.bugull.hithiumfarmweb.enumerate.DataType;
 import com.bugull.hithiumfarmweb.http.bo.StatisticBo;
 import com.bugull.hithiumfarmweb.http.bo.TimeOfPriceBo;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
+import com.bugull.hithiumfarmweb.http.service.RealTimeDataService;
 import com.bugull.hithiumfarmweb.http.vo.IncomeStatisticOfDayVo;
 import com.bugull.hithiumfarmweb.http.vo.IncomeStatisticVo;
 import com.bugull.hithiumfarmweb.http.vo.PriceOfPercenVo;
@@ -19,6 +22,9 @@ import com.bugull.hithiumfarmweb.utils.UUIDUtil;
 import com.bugull.mongo.BuguConnection;
 import com.bugull.mongo.BuguFramework;
 import com.bugull.mongo.BuguQuery;
+import com.bugull.mongo.fs.BuguFS;
+import com.bugull.mongo.fs.BuguFSFactory;
+import com.bugull.mongo.fs.Uploader;
 import com.bugull.mongo.utils.MapperUtil;
 import com.google.common.eventbus.EventBus;
 import com.mongodb.BasicDBObject;
@@ -41,9 +47,13 @@ import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.bugull.hithiumfarmweb.common.Const.*;
+import static com.bugull.hithiumfarmweb.http.service.RealTimeDataService.EXPORT_DATA_TYPE;
 import static com.bugull.hithiumfarmweb.http.service.StatisticsService.INCOME_RECORD_PREFIX;
 
 public class HithiumFarmWebApplicationTests {
@@ -659,10 +669,10 @@ public class HithiumFarmWebApplicationTests {
         IncomeEntityDao incomeEntityDao = new IncomeEntityDao();
         BuguQuery<IncomeEntity> incomeEntityBuguQuery = incomeEntityDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a");
         Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityBuguQuery).group(INCOMEOFDAY).sort("{_id:-1}").limit(7).results();
-        List<IncomeStatisticOfDayVo> incomeStatisticOfDayVoList=new ArrayList<>();
-        if(iterable != null){
-            for(DBObject object:iterable){
-                String time=(String) object.get("_id");
+        List<IncomeStatisticOfDayVo> incomeStatisticOfDayVoList = new ArrayList<>();
+        if (iterable != null) {
+            for (DBObject object : iterable) {
+                String time = (String) object.get("_id");
                 Double count = Double.valueOf(object.get("count").toString());
                 IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
                 incomeStatisticOfDayVo.setDay(time);
@@ -677,27 +687,27 @@ public class HithiumFarmWebApplicationTests {
         List<IncomeStatisticOfDayVo> incomeStatisticOfDayVos = new ArrayList<>();
 
 
-        for(int i=0;i<7;i++){
+        for (int i = 0; i < 7; i++) {
             IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
-            incomeStatisticOfDayVo.setDay(DateUtils.format(DateUtils.addDateDays(new Date(),-i)));
+            incomeStatisticOfDayVo.setDay(DateUtils.format(DateUtils.addDateDays(new Date(), -i)));
             incomeStatisticOfDayVos.add(incomeStatisticOfDayVo);
         }
 
-       for(IncomeStatisticOfDayVo incomeStatisticOfDayVo:incomeStatisticOfDayVos){
-           for(IncomeStatisticOfDayVo statisticOfDayVo:incomeStatisticOfDayVoList){
-               if(incomeStatisticOfDayVo.getDay().equals(statisticOfDayVo.getDay())){
-                   incomeStatisticOfDayVo.setIncome(statisticOfDayVo.getIncome());
-               }
-           }
-       }
+        for (IncomeStatisticOfDayVo incomeStatisticOfDayVo : incomeStatisticOfDayVos) {
+            for (IncomeStatisticOfDayVo statisticOfDayVo : incomeStatisticOfDayVoList) {
+                if (incomeStatisticOfDayVo.getDay().equals(statisticOfDayVo.getDay())) {
+                    incomeStatisticOfDayVo.setIncome(statisticOfDayVo.getIncome());
+                }
+            }
+        }
 
         System.out.println(incomeStatisticOfDayVos.isEmpty());
-       List<String> device=new ArrayList<>();
+        List<String> device = new ArrayList<>();
         System.out.println(device.isEmpty());
     }
 
     @Test
-    public void testArraysList(){
+    public void testArraysList() {
         BuguConnection conn2 = BuguFramework.getInstance().createConnection();
         conn2.setHost("192.168.241.162");
         conn2.setPort(27017);
@@ -705,7 +715,7 @@ public class HithiumFarmWebApplicationTests {
         conn2.setPassword("ess");
         conn2.setDatabase("ess");
         conn2.connect();
-        DeviceDao deviceDao=new DeviceDao();
+        DeviceDao deviceDao = new DeviceDao();
         Device device = deviceDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a").result();
         Map<Integer, List<String>> map = new HashMap<>();
         for (TimeOfPriceBo priceBo : device.getPriceOfTime()) {
@@ -731,5 +741,124 @@ public class HithiumFarmWebApplicationTests {
         }
 
         System.out.println(map2.size());
+    }
+
+    @Test
+    public void testContain() {
+        List<Integer> list = new ArrayList<>();
+        for (int i = 1; i < 54; i++) {
+            list.add(i);
+        }
+
+        List<Integer> list1 = new ArrayList<>();
+        for (int i = 1; i < 10; i++) {
+            list1.add(i);
+        }
+        boolean b = list.containsAll(list1);
+        System.out.println(b);
+    }
+
+    public ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors() * 2 + 1, Runtime.getRuntime().availableProcessors() * 2 + 1, 0, TimeUnit.SECONDS, new LinkedBlockingDeque<>(100000),
+            new CustomThreadFactory(WEBTHREAD_POOL_TASK), new ThreadPoolExecutor.CallerRunsPolicy());
+
+    @Test
+    public void testCalc() throws InterruptedException {
+        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+        conn2.setHost("192.168.241.162");
+        conn2.setPort(27017);
+        conn2.setUsername("ess");
+        conn2.setPassword("ess");
+        conn2.setDatabase("ess");
+        conn2.connect();
+
+//        int i=-1;
+//        int y=-1;
+//        BigDecimal bigDecimalOfI = new BigDecimal(i);
+//        BigDecimal bigDecimalOfY = new BigDecimal(y);
+//
+//        BigDecimal multiply = bigDecimalOfI.multiply(bigDecimalOfY);
+//        System.out.println(multiply);
+        DeviceDao deviceDao = new DeviceDao();
+        System.out.println("执行了" + new Date());
+        long count = deviceDao.count();
+        int pageSize = 100;
+        Date date = new Date();
+//        Date time = DateUtils.addDateDays(date, -1);
+        String time = "2021-04-16";
+        RealTimeDataService realTimeDataService = new RealTimeDataService();
+        ExportRecordDao exportRecordDao = new ExportRecordDao();
+        int ceil = (int) Math.ceil((double) count / (double) pageSize);
+        System.out.println(ceil);
+        Date date1 = new Date();
+        Date beforeDate = DateUtils.addDateDays(date1, -1);
+        String time1 = DateUtils.format(beforeDate);
+        System.out.println(time1);
+//        for (int i = 0; i < (int) Math.ceil((double) count / (double) pageSize); i++) {
+//            List<Device> deviceList = deviceDao.query().pageSize(pageSize).pageNumber(i + 1).results();
+//            for (Device device : deviceList) {
+//                for (int result : EXPORT_DATA_TYPE) {
+//                    threadPoolExecutor.execute(() -> {
+//                        File file = new File("D:" + File.separator + device.getDeviceName() + device.getDeviceName() + "_" + time + "_" + result + "_" + System.currentTimeMillis() + ".xlsx");
+//                        OutputStream outputStream = null;
+//                        ExportRecord exportRecord = new ExportRecord();
+//                        try {
+//                            makeSureFileExist(file);
+//                            outputStream = new FileOutputStream(file);
+//                            exportRecord.setRecordTime(new Date());
+//                            exportRecord.setFilename(device.getDeviceName() + "_" + time + "_" + result);
+//                            realTimeDataService.exportStationOfBattery(device.getDeviceName(), time, result, outputStream);
+//                            exportRecord.setExporting(true);
+//                            outputStream.close();
+//                            Uploader uploader = new Uploader(file, exportRecord.getFilename(), false);
+//                            uploader.save();
+//                            exportRecordDao.insert(exportRecord);
+//                        } catch (Exception e) {
+//                            exportRecord.setExporting(false);
+//                        } finally {
+//                            if (outputStream != null) {
+//                                try {
+//                                    outputStream.close();
+//                                } catch (IOException e) {
+//                                    e.printStackTrace();
+//                                }
+//                            }
+////                        file.delete();
+//                        }
+//                    });
+//                }
+//            }
+//        }
+//        Thread.sleep(300000);
+    }
+
+    private void makeSureFileExist(File file) throws IOException {
+        if (file.exists()) {
+            return;
+        }
+        synchronized (Thread.currentThread()) {
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+        }
+    }
+
+    @Test
+    public void testCalc2() throws InterruptedException {
+        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+        conn2.setHost("192.168.241.162");
+        conn2.setPort(27017);
+        conn2.setUsername("ess");
+        conn2.setPassword("ess");
+        conn2.setDatabase("ess");
+        conn2.connect();
+        //TODO delete 删除超过一个月的excel
+        ExportRecordDao exportRecordDao = new ExportRecordDao();
+        List<ExportRecord> exportRecords = exportRecordDao.query().lessThanEquals("recordTime", new Date()).results();
+
+        BuguFS fs = BuguFSFactory.getInstance().create();
+        for(ExportRecord exportRecord:exportRecords){
+            fs.remove(exportRecord.getFilename());
+            exportRecordDao.remove(exportRecord);
+        }
     }
 }

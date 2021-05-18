@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.entity;
 
 import com.bugull.mongo.SimpleEntity;
+import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import lombok.Data;
 
@@ -8,6 +9,7 @@ import java.math.BigDecimal;
 
 @Entity
 @Data
+@EnsureIndex("{deviceName:1}")
 public class IncomeEntity extends SimpleEntity {
 
 

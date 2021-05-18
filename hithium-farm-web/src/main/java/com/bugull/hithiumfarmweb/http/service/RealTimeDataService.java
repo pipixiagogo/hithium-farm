@@ -11,6 +11,7 @@ import com.bugull.hithiumfarmweb.common.BuguPageDao;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.common.Const;
 import com.bugull.hithiumfarmweb.common.exception.ExcelExportWithoutDataException;
+import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.bo.*;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
@@ -19,20 +20,26 @@ import com.bugull.hithiumfarmweb.http.vo.BcuDataVolTemVo;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
+import com.bugull.mongo.fs.Uploader;
 import com.bugull.mongo.utils.MapperUtil;
 import com.mongodb.DBObject;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.text.ParseException;
 import java.util.*;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
 
 import static com.bugull.hithiumfarmweb.common.Const.*;
@@ -66,9 +73,18 @@ public class RealTimeDataService {
     private UpsPowerDataDicDao upsPowerDataDicDao;
     @Resource
     private EquipmentDao equipmentDao;
+    @Resource
+    private ThreadPoolExecutor threadPoolExecutor;
+    @Resource
+    private PropertiesConfig propertiesConfig;
+    @Resource
+    private DeviceDao deviceDao;
+    @Resource
+    private ExportRecordDao exportRecordDao;
 
     protected static final List<Integer> AMMETER_EQUIPMENT_IDS = new ArrayList<>();
     protected static final List<Integer> FIRE_AIR_UPS_EQUIPMENT_IDS = new ArrayList<>();
+    public static final List<Integer> EXPORT_DATA_TYPE = new ArrayList<>();
 
     static {
         AMMETER_EQUIPMENT_IDS.add(3);
@@ -77,11 +93,13 @@ public class RealTimeDataService {
         FIRE_AIR_UPS_EQUIPMENT_IDS.add(1);
         FIRE_AIR_UPS_EQUIPMENT_IDS.add(12);
         FIRE_AIR_UPS_EQUIPMENT_IDS.add(13);
-
+        for (int i = 0; i < 4; i++) {
+            EXPORT_DATA_TYPE.add(i);
+        }
     }
 
     public ResHelper<BuguPageQuery.Page<AmmeterDataDic>> ammeterDataQuery(Map<String, Object> params) {
-        BuguPageQuery<AmmeterDataDic> query =  ammeterDataDicDao.pageQuery();
+        BuguPageQuery<AmmeterDataDic> query = ammeterDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -91,7 +109,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<BamsDataDicBA>> bamsDataquery(Map<String, Object> params) {
-        BuguPageQuery<BamsDataDicBA> query =  bamsDataDicBADao.pageQuery();
+        BuguPageQuery<BamsDataDicBA> query = bamsDataDicBADao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -151,7 +169,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<PcsChannelDic>> pcsChannelquery(Map<String, Object> params) {
-        BuguPageQuery<PcsChannelDic> query =  pcsChannelDicDao.pageQuery();
+        BuguPageQuery<PcsChannelDic> query = pcsChannelDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -161,7 +179,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<AirConditionDataDic>> airConditionquery(Map<String, Object> params) {
-        BuguPageQuery<AirConditionDataDic> query =  airConditionDataDicDao.pageQuery();
+        BuguPageQuery<AirConditionDataDic> query = airConditionDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -171,7 +189,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<TemperatureMeterDataDic>> temperatureMeterquery(Map<String, Object> params) {
-        BuguPageQuery<TemperatureMeterDataDic> query =  temperatureMeterDataDicDao.pageQuery();
+        BuguPageQuery<TemperatureMeterDataDic> query = temperatureMeterDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -182,7 +200,7 @@ public class RealTimeDataService {
 
 
     public ResHelper<BuguPageQuery.Page<FireControlDataDic>> fileControlquery(Map<String, Object> params) {
-        BuguPageQuery<FireControlDataDic> query =  fireControlDataDicDao.pageQuery();
+        BuguPageQuery<FireControlDataDic> query = fireControlDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -192,7 +210,7 @@ public class RealTimeDataService {
     }
 
     public ResHelper<BuguPageQuery.Page<UpsPowerDataDic>> upsPowerquery(Map<String, Object> params) {
-        BuguPageQuery<UpsPowerDataDic> query =  upsPowerDataDicDao.pageQuery();
+        BuguPageQuery<UpsPowerDataDic> query = upsPowerDataDicDao.pageQuery();
         if (!queryOfParams(query, params)) {
             return ResHelper.pamIll();
         }
@@ -453,7 +471,7 @@ public class RealTimeDataService {
     }
 
     public List<BamsDataDicBA> getDataBams(String deviceName, Date startTime, Date endTime) {
-        return  bamsDataDicBADao.query().is(DEVICE_NAME, deviceName)
+        return bamsDataDicBADao.query().is(DEVICE_NAME, deviceName)
                 .greaterThanEquals(GENERATION_DATA_TIME, startTime)
                 .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
     }
@@ -462,7 +480,7 @@ public class RealTimeDataService {
         List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is(DEVICE_NAME, deviceName)
                 .greaterThanEquals(GENERATION_DATA_TIME, startTime)
                 .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
-       return airConditionDataDics.stream().map(airConditionDataDic -> {
+        return airConditionDataDics.stream().map(airConditionDataDic -> {
             AirConditionExcelBo airConditionExcelBo = new AirConditionExcelBo();
             BeanUtils.copyProperties(airConditionDataDic, airConditionExcelBo);
             //TODO 直接这样类型转换
@@ -542,6 +560,14 @@ public class RealTimeDataService {
         return list;
     }
 
+    /**
+
+     * @param deviceName
+     * @param time
+     * @param type
+     * @param outputStream
+     * @throws ParseException
+     */
     public void exportStationOfBattery(String deviceName, String time, Integer type, OutputStream outputStream) throws ParseException {
         if (StringUtils.isEmpty(deviceName)) {
             throw new ExcelExportWithoutDataException("该日期暂无数据");
@@ -820,7 +846,6 @@ public class RealTimeDataService {
                 list.add(data);
             }
         }
-
         return list;
     }
 
@@ -830,4 +855,88 @@ public class RealTimeDataService {
                 .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
     }
 
+    /**
+     * 创建个excel导出定时任务 当从数据库拿时候数据较慢时 可进行启动
+     */
+    @Scheduled(cron = "${excel.scheld.export.excel}")
+    public void scheldExportExcel() {
+        if (!propertiesConfig.isStartExportExcelSwitch()) {
+            return;
+        }
+        //当前分页查询导出200个设备 可根据线上情况 实时查看导出情况在决定该设备数量
+        long count = deviceDao.count();
+        int pageSize = propertiesConfig.getExcelExportPageSize();
+        Date date = new Date();
+        Date beforeDate = DateUtils.addDateDays(date, -1);
+        String time = DateUtils.format(beforeDate);
+        log.info("定时执行excel导出任务:设备总数量{},导出时间:{}", count, time);
+        for (int i = 0; i < (int) Math.ceil((double) count / (double) pageSize); i++) {
+            List<Device> deviceList = deviceDao.query().pageSize(pageSize).pageNumber(i + 1).results();
+            for (Device device : deviceList) {
+                for (int type : EXPORT_DATA_TYPE) {
+                    threadPoolExecutor.execute(() -> {
+                        String filePath = propertiesConfig.getRealTimeDataExcelTempDir() + File.separator + device.getDeviceName() + device.getDeviceName() + "_" + time + "_" + type + ".xlsx";
+                        File file = new File(filePath);
+                        OutputStream outputStream = null;
+                        ExportRecord exportRecord = new ExportRecord();
+                        try {
+                            makeSureFileExist(file);
+                            outputStream = new FileOutputStream(file);
+                            exportRecord.setRecordTime(new Date());
+                            String filename = device.getDeviceName() + "_" + time + "_" + type;
+                            exportRecord.setFilename(filename);
+                            exportStationOfBattery(device.getDeviceName(), time, type, outputStream);
+                            exportRecord.setExporting(true);
+                            outputStream.close();
+                            if(!exportRecordDao.query().is("filename",filename).exists()){
+                                Uploader uploader = new Uploader(file, exportRecord.getFilename(), false);
+                                uploader.save();
+                                exportRecordDao.insert(exportRecord);
+                            }
+                        } catch (Exception e) {
+                            log.error("定时执行导出excel失败:{},导出excel数据时间为:{},设备名称:{},导出设备类型:{}", e.getMessage(), time, device.getDeviceName(), getMsgByType(type));
+                            exportRecord.setExporting(false);
+                        } finally {
+                            if (outputStream != null) {
+                                try {
+                                    outputStream.close();
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                            file.delete();
+                        }
+                    });
+                }
+            }
+        }
+
+
+    }
+
+    private void makeSureFileExist(File file) throws IOException {
+        if (file.exists()) {
+            return;
+        }
+        synchronized (Thread.currentThread()) {
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+        }
+    }
+
+    public String getMsgByType(Integer type) {
+        switch (type) {
+            case 0:
+                return "PCS";
+            case 1:
+                return "电池堆";
+            case 2:
+                return "电表";
+            case 3:
+                return "附属件";
+            default:
+                return "未知数据";
+        }
+    }
 }
