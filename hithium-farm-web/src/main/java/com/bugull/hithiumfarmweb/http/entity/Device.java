@@ -1,16 +1,16 @@
 package com.bugull.hithiumfarmweb.http.entity;
 
+import com.bugull.hithiumfarmweb.http.bo.TimeOfPowerBo;
 import com.bugull.hithiumfarmweb.http.bo.TimeOfPriceBo;
 import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.EmbedList;
 import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import com.bugull.mongo.annotations.RefList;
-import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -44,7 +44,8 @@ public class Device extends SimpleEntity {
      * 站内描述
      */
     private String description;
-    /**站内名称
+    /**
+     * 站内名称
      */
     private String name;
     /**
@@ -61,13 +62,16 @@ public class Device extends SimpleEntity {
     private Date accessTime;
 
     @EmbedList
-    private List<TimeOfPriceBo>priceOfTime;
+    private List<TimeOfPriceBo> priceOfTime;
+
+    @EmbedList
+    private List<TimeOfPowerBo> timeOfPower;
     //收益
-    private String income="0";
+    private String income = "0";
 
     //总充电量
-    private String dischargeCapacitySum="0";
+    private String dischargeCapacitySum = "0";
     //总充电量
-    private String chargeCapacitySum="0";
+    private String chargeCapacitySum = "0";
 
 }

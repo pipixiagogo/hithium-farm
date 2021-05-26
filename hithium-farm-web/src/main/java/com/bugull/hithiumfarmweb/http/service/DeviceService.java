@@ -2,9 +2,7 @@ package com.bugull.hithiumfarmweb.http.service;
 
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
-import com.bugull.hithiumfarmweb.http.bo.EquipmentBo;
-import com.bugull.hithiumfarmweb.http.bo.ModifyDeviceBo;
-import com.bugull.hithiumfarmweb.http.bo.TimeOfPriceBo;
+import com.bugull.hithiumfarmweb.http.bo.*;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
 import com.bugull.hithiumfarmweb.http.vo.*;
@@ -28,11 +26,13 @@ import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.text.ParseException;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.bugull.hithiumfarmweb.common.Const.*;
 import static com.bugull.hithiumfarmweb.utils.DateUtils.DAY_OF_SECONDS;
 import static com.bugull.hithiumfarmweb.utils.DateUtils.HOUR_OF_SECONDS;
+import static com.sun.deploy.cache.Cache.exists;
 
 @Service
 public class DeviceService {
@@ -509,9 +509,10 @@ public class DeviceService {
 
     public Map<String, Object> getPriceOfPercenAndTime(String deviceName) {
         Map<String, Object> result = new HashMap<>();
-        Device device = deviceDao.query().is(DEVICE_NAME, deviceName).returnFields("priceOfTime").result();
+        Device device = deviceDao.query().is(DEVICE_NAME, deviceName).returnFields("priceOfTime", "timeOfPower").result();
         result.put("PERCENT", selectPriceOfPercentage(device));
         result.put("PRICE", selectPriceOfTime(device));
+        result.put("POWER", selectPowerOfTypeTime(device));
         return result;
     }
 
@@ -528,16 +529,90 @@ public class DeviceService {
             deviceInfoVo.setAreaCity(device.getProvince() + "-" + device.getCity());
             deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(device.getApplicationScenarios()));
             deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
-            Iterable <DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityDao.query().is("deviceName", deviceInfoVo.getDeviceName()))
+            Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityDao.query().is("deviceName", deviceInfoVo.getDeviceName()))
                     .group("{_id:null,count:{$sum:{$toDouble:'$income'}}}").limit(1).results();
-            if(iterable != null){
-                for(DBObject object:iterable){
+            if (iterable != null) {
+                for (DBObject object : iterable) {
                     Double count = (Double) object.get("count");
-                    BigDecimal incomeBigDecimal=BigDecimal.valueOf(count).setScale(2,BigDecimal.ROUND_HALF_UP);
+                    BigDecimal incomeBigDecimal = BigDecimal.valueOf(count).setScale(2, BigDecimal.ROUND_HALF_UP);
                     deviceInfoVo.setIncome(incomeBigDecimal.toString());
                 }
             }
             return deviceInfoVo;
+        }
+        return null;
+    }
+
+    public Map<Integer, List<TimeOfPowerBo>> selectPowerOfTypeTime(Device device) {
+        if (device != null) {
+            if (!CollectionUtils.isEmpty(device.getTimeOfPower()) && !device.getTimeOfPower().isEmpty()) {
+                List<TimeOfPowerBo> timeOfPower = device.getTimeOfPower();
+                Map<Integer, List<TimeOfPowerBo>> listMap = timeOfPower.stream().collect(Collectors.groupingBy(
+                        TimeOfPowerBo::getRunMode
+                ));
+                return listMap;
+            }
+        }
+        return null;
+    }
+
+    public ResHelper<Void> modifyDevicePowerInfo(ModifyDevicePowerBo modifyDevicePowerBo) {
+        if (modifyDevicePowerBo != null) {
+            Map<Integer, List<TimeOfPowerBo>> powerOfTime = modifyDevicePowerBo.getPowerOfTime();
+            if (!CollectionUtils.isEmpty(powerOfTime) && !powerOfTime.isEmpty()) {
+                BuguQuery<Device> deviceBuguQuery = deviceDao.query().is(DEVICE_NAME, modifyDevicePowerBo.getDeviceName());
+                if (!deviceBuguQuery.exists()) {
+                    return ResHelper.error("设备不存在");
+                }
+                List<TimeOfPowerBo> timeOfPowerBos = new ArrayList<>();
+                for (Map.Entry<Integer, List<TimeOfPowerBo>> entry : powerOfTime.entrySet()) {
+                    List<TimeOfPowerBo> powerBos = entry.getValue();
+                    for (TimeOfPowerBo timeOfPowerBo : powerBos) {
+                        if (timeOfPowerBo.getRunMode() != entry.getKey()) {
+                            return ResHelper.pamIll();
+                        }
+                        if (timeOfPowerBo.getRunMode() == null || timeOfPowerBo.getType() == null) {
+                            return ResHelper.pamIll();
+                        }
+                        //充电类型 为0  充电类型为1
+                        if(timeOfPowerBo.getType() ==0 || timeOfPowerBo.getType() == 1){
+                            if (timeOfPowerBo != null && !StringUtils.isEmpty(timeOfPowerBo.getPower()) && !StringUtils.isEmpty(timeOfPowerBo.getTime())) {
+                                String time = timeOfPowerBo.getTime();
+                                String[] strs = time.split(",");
+                                for (String str : strs) {
+                                    String[] strings = str.split("-");
+                                    for (String st : strings) {
+                                        if (!st.matches(CHECK_TIME_FORMAT)) {
+                                            return ResHelper.pamIll();
+                                        }
+                                    }
+                                }
+                            } else {
+                                return ResHelper.pamIll();
+                            }
+                        }else {
+                            return ResHelper.pamIll();
+                        }
+                    }
+                    timeOfPowerBos.addAll(entry.getValue());
+                }
+                if (!CollectionUtils.isEmpty(timeOfPowerBos) && !timeOfPowerBos.isEmpty()) {
+                    deviceDao.update().set("timeOfPower", timeOfPowerBos).execute(deviceBuguQuery);
+                    return ResHelper.success("修改成功");
+                }
+            }
+        }
+        return ResHelper.pamIll();
+    }
+
+    public Map<Integer, List<TimeOfPowerBo>> selectPowerOfTypeTimeByDeviceName(String deviceName) {
+        Device device = deviceDao.query().is(DEVICE_NAME, deviceName).returnFields("priceOfTime").result();
+        if (!CollectionUtils.isEmpty(device.getTimeOfPower()) && !device.getTimeOfPower().isEmpty()) {
+            List<TimeOfPowerBo> timeOfPower = device.getTimeOfPower();
+            Map<Integer, List<TimeOfPowerBo>> listMap = timeOfPower.stream().collect(Collectors.groupingBy(
+                    TimeOfPowerBo::getRunMode
+            ));
+            return listMap;
         }
         return null;
     }

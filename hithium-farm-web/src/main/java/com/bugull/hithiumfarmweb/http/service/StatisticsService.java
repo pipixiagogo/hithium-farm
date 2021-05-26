@@ -1,7 +1,6 @@
 package com.bugull.hithiumfarmweb.http.service;
 
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
-import com.bugull.hithiumfarmweb.config.RedisPoolUtil;
 import com.bugull.hithiumfarmweb.http.bo.AreaInfoBo;
 import com.bugull.hithiumfarmweb.http.bo.AreaNetInNumBo;
 import com.bugull.hithiumfarmweb.http.bo.StatisticBo;
@@ -39,8 +38,6 @@ public class StatisticsService {
 
     @Resource
     private DeviceDao deviceDao;
-    @Resource
-    private RedisPoolUtil redisPoolUtil;
     @Resource
     private BreakDownLogDao breakDownLogDao;
     @Resource

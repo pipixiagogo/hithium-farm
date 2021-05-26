@@ -3,9 +3,7 @@ package com.bugull.hithiumfarmweb.http.controller.pri;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.common.validator.ValidatorUtils;
 import com.bugull.hithiumfarmweb.common.validator.group.AddGroup;
-import com.bugull.hithiumfarmweb.http.bo.ConnetDeviceBo;
-import com.bugull.hithiumfarmweb.http.bo.ModifyDeviceBo;
-import com.bugull.hithiumfarmweb.http.bo.TimeOfPriceBo;
+import com.bugull.hithiumfarmweb.http.bo.*;
 import com.bugull.hithiumfarmweb.http.entity.Device;
 import com.bugull.hithiumfarmweb.http.service.ConnetDeviceService;
 import com.bugull.hithiumfarmweb.http.service.DeviceService;
@@ -115,7 +113,7 @@ public class DeviceController extends AbstractController {
     }
 
     @GetMapping(value = "/selectPriceOfPercentage")
-    @ApiOperation(value = "查询设备时间段分布百分比和单价", httpMethod = "GET")
+    @ApiOperation(value = "查询设备时间段分布百分比和单价和功率", httpMethod = "GET")
     @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备码", dataType = "String", dataTypeClass = String.class)
     public ResHelper<Map<String, Object>> selectPriceOfPercentage(@ApiIgnore @RequestParam(value = "deviceName") String deviceName) {
         if (StringUtils.isEmpty(deviceName)) {
@@ -134,5 +132,11 @@ public class DeviceController extends AbstractController {
         return ResHelper.success("",deviceService.queryDeviceName(deviceName));
     }
 
+    @PostMapping(value = "/modifyDevicePowerInfo")
+    @ApiOperation(value = "设置设备时间段功率", httpMethod = "POST")
+    @ApiImplicitParam(name = "modifyDevicePowerBo", value = "设备功率修改实体类", required = true, paramType = "body", dataTypeClass = ModifyDevicePowerBo.class, dataType = "ModifyDevicePowerBo")
+    public ResHelper<Void> modifyDevicePowerInfo(@RequestBody ModifyDevicePowerBo modifyDevicePowerBo) {
+        return deviceService.modifyDevicePowerInfo(modifyDevicePowerBo);
+    }
 
 }

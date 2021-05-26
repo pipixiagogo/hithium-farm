@@ -11,10 +11,6 @@ import java.util.Date;
 public class ExportRecord extends SimpleEntity {
     private Date recordTime;
     private String filename;
-    private String downloadUrl;
     private Boolean exporting;
-    private String exportType;
-    private String originName;
-
-
+    private String failReason;
 }

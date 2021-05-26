@@ -18,7 +18,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Configuration
-@EnableKafka
 @EnableConfigurationProperties(PropertiesConfig.class)
 public class KafkaConfig {
 

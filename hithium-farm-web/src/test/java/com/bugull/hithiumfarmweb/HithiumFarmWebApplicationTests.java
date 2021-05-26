@@ -53,7 +53,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.bugull.hithiumfarmweb.common.Const.*;
-import static com.bugull.hithiumfarmweb.http.service.RealTimeDataService.EXPORT_DATA_TYPE;
 import static com.bugull.hithiumfarmweb.http.service.StatisticsService.INCOME_RECORD_PREFIX;
 
 public class HithiumFarmWebApplicationTests {
@@ -82,15 +81,19 @@ public class HithiumFarmWebApplicationTests {
 
     @Test
     public void createDeviceInfo() {
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("DATATYPE", DataType.DEVICE_LIST_DATA);
-        jsonObject.put("PROJECTTYPE", "KC_ESS");
-        JSONObject jsonObject1 = new JSONObject();
-        jsonObject.put("DATA", jsonObject1);
-        String s = UUID.randomUUID().toString();
-        jsonObject1.put("pipixia2222222222999", s);
-
-        System.out.println(jsonObject);
+//        JSONObject jsonObject = new JSONObject();
+//        jsonObject.put("DATATYPE", DataType.DEVICE_LIST_DATA);
+//        jsonObject.put("PROJECTTYPE", "KC_ESS");
+//        JSONObject jsonObject1 = new JSONObject();
+//        jsonObject.put("DATA", jsonObject1);
+//        String s = UUID.randomUUID().toString();
+//        jsonObject1.put("pipixia2222222222999", s);
+//
+//        System.out.println(jsonObject);
+        int i=-1;
+        if(i == 0 || i==1){
+            System.out.println(true);
+        }
     }
 
     @Test
