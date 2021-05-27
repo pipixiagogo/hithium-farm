@@ -79,6 +79,18 @@ public class PropertiesConfig {
     private int alterBreakdownlogStatusStart;
     @Value("${alter.breakdownlog.status.end}")
     private int alterBreakdownlogStatusEnd;
+    @Value("${redis.data.cache.switch}")
+    private boolean redisCacheSwitch;
+    @Value("${send.to.kafka}")
+    private boolean sendToKafka;
+
+    public boolean isSendToKafka() {
+        return sendToKafka;
+    }
+
+    public boolean isRedisCacheSwitch() {
+        return redisCacheSwitch;
+    }
 
     public int getAlterBreakdownlogStatusStart() {
         return alterBreakdownlogStatusStart;

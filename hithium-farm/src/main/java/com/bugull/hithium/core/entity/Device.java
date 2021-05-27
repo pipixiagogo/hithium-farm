@@ -58,6 +58,8 @@ public class Device extends SimpleEntity {
     private Date accessTime;
     @EmbedList
     private List<TimeOfPriceBo> priceOfTime;
+    @EmbedList
+    private List<TimeOfPowerBo>timeOfPower;
 
     //收益
     private String income = "0";

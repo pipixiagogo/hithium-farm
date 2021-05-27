@@ -124,7 +124,6 @@ public class KCEssDeviceService {
     }
 
     private void handleRealTimeData(JMessage jMessage) {
-        Jedis jedis = redisPoolUtil.getJedis();
         try {
             String deviceName = jMessage.getDeviceName();
             log.info("设备上报实时数据:{}", deviceName);
@@ -132,7 +131,9 @@ public class KCEssDeviceService {
             JSONObject datajson = (JSONObject) jsonObject.get(Const.DATA);
             List<Equipment> equipmentList = equipmentDao.query().is("deviceName", deviceName).results();
             if (!CollectionUtils.isEmpty(equipmentList) && equipmentList.size() > 0) {
-                jedis.set("REALDATA-" + deviceName, datajson.toString());
+                if (propertiesConfig.isRedisCacheSwitch()) {
+                    cacheRealData(datajson, deviceName);
+                }
                 resolvingRealDataTime(datajson, equipmentList);
             } else {
                 log.info("设备上报实时数据未查到对应设备:{}", deviceName);
@@ -140,6 +141,13 @@ public class KCEssDeviceService {
         } catch (Exception e) {
             e.printStackTrace();
             log.error("设备上报实时数据格式错误,丢弃:{}", jMessage.getPayloadMsg());
+        }
+    }
+
+    private void cacheRealData(JSONObject datajson, String deviceName) {
+        Jedis jedis = redisPoolUtil.getJedis();
+        try {
+            jedis.set("REALDATA-" + deviceName, datajson.toString());
         } finally {
             if (jedis != null) {
                 jedis.close();
@@ -328,7 +336,7 @@ public class KCEssDeviceService {
                         }
                     }).collect(Collectors.toList());
                     /**
-                     * 上一次上报数据电表数据
+                     * 上一次上报最新电表数据
                      */
                     Iterable<DBObject> iterable = ammeterDataDicDao.aggregate().match(ammeterDataDicDao.query().is("deviceName", equipment.getDeviceName())
                             .is("equipmentId", equipment.getEquipmentId())).sort("{generationDataTime:-1}").limit(1).results();
@@ -341,38 +349,41 @@ public class KCEssDeviceService {
                     if (fromDBObject != null) {
                         /**
                          * TODO 根据实际情况来取得 充放电 电价
+                         * 电表产生数据时间以最后一个数据时间为准  最后一个数据时间必须是最后的 不然出现收益计算错误
+                         *
+                         * 上报的数据时间大于数据库中存在的最大时间 即为最新数据
                          */
-                        BigDecimal discharDecimal = bigDecimalList.get(0);//放电单价
-                        BigDecimal charDecimal = bigDecimalList.get(bigDecimalList.size() - 1);//充电单价
+                        if (ammeterDataDic.getGenerationDataTime().after(fromDBObject.getGenerationDataTime())) {
+                            BigDecimal discharDecimal = bigDecimalList.get(0);//放电单价
+                            BigDecimal charDecimal = bigDecimalList.get(bigDecimalList.size() - 1);//充电单价
 
-                        BigDecimal lastTimeTotalChargeQuantity = new BigDecimal(fromDBObject.getTotalChargeQuantity());
-                        BigDecimal lastTimeTotalDisChargeQuantity = new BigDecimal(fromDBObject.getTotalDischargeQuantity());
-                        /**
-                         * 当前上报 充电电表数据
-                         */
-                        BigDecimal thisTimeTotalChargeQuantity = new BigDecimal(ammeterDataDic.getTotalChargeQuantity());
-                        BigDecimal thisTimeTotalDisChargeQuantity = new BigDecimal(ammeterDataDic.getTotalDischargeQuantity());
+                            BigDecimal lastTimeTotalChargeQuantity = new BigDecimal(fromDBObject.getTotalChargeQuantity());
+                            BigDecimal lastTimeTotalDisChargeQuantity = new BigDecimal(fromDBObject.getTotalDischargeQuantity());
+                            /**
+                             * 当前上报 充电电表数据
+                             */
+                            BigDecimal thisTimeTotalChargeQuantity = new BigDecimal(ammeterDataDic.getTotalChargeQuantity());
+                            BigDecimal thisTimeTotalDisChargeQuantity = new BigDecimal(ammeterDataDic.getTotalDischargeQuantity());
 
-                        //放电
-                        BigDecimal dissubResult = thisTimeTotalDisChargeQuantity.subtract(lastTimeTotalDisChargeQuantity);
-                        BigDecimal charsubResult = thisTimeTotalChargeQuantity.subtract(lastTimeTotalChargeQuantity);
-                        /**
-                         * 放电多少钱 充电多少钱
-                         */
-                        BigDecimal discharResultPrice = discharDecimal.multiply(dissubResult);
-                        BigDecimal charResultPrice = charDecimal.multiply(charsubResult);
-                        //收益
-                        BigDecimal income = discharResultPrice.subtract(charResultPrice);
-                        //计算总收益
-                        updateIncomeWithTotal(income, device);
-                        //计算单天收益
-                        countIncomeOfDay(device, income, ammeterDataDic.getGenerationDataTime());
-                        /**
-                         * key  按日统计  按时间
-                         *  设备-时间-
-                         *  充电放电、 收益 按天统计 按设备 时间 存入当天设备收益
-                         */
-                        updateIncomeOfDay(income, device);
+                            //放电
+                            BigDecimal dissubResult = thisTimeTotalDisChargeQuantity.subtract(lastTimeTotalDisChargeQuantity);
+                            BigDecimal charsubResult = thisTimeTotalChargeQuantity.subtract(lastTimeTotalChargeQuantity);
+                            /**
+                             * 放电多少钱 充电多少钱
+                             */
+                            BigDecimal discharResultPrice = discharDecimal.multiply(dissubResult);
+                            BigDecimal charResultPrice = charDecimal.multiply(charsubResult);
+                            //收益
+                            BigDecimal income = discharResultPrice.subtract(charResultPrice);
+                            //计算总收益  修改设备列表
+                            updateIncomeWithTotal(income, device);
+                            /**
+                             * key  按日统计  按时间
+                             *  设备-时间-
+                             *  充电放电、 收益 按天统计 按设备 时间 存入当天设备收益
+                             */
+                            updateIncomeOfDay(income, device);
+                        }
                     }
                 }
 
@@ -401,34 +412,6 @@ public class KCEssDeviceService {
 
     }
 
-    private void countIncomeOfDay(Device device, BigDecimal income, Date recordDate) {
-        this.keyIncDecByBigDecimal(recordDate, income, (d) -> getIncomeKey(d, device));
-    }
-
-    private String getIncomeKey(Date recordDate, Device device) {
-        return INCOME_RECORD_PREFIX + DateUtil.dateToStr(recordDate) + "_" + device.getProvince() + "_" + device.getCity();
-    }
-
-    private void keyIncDecByBigDecimal(Date recordDate, BigDecimal income, Function<Date, String> keyGen) {
-        long time = DateUtil.getTodayEndMilSeconds(recordDate);
-        if (time < 0 || time > DateUtil.ONE_DAY_MIL_SECONDS) { //表示已经是昨天的记录了 不进行增加
-            return;
-        }
-        Jedis jedis = redisPoolUtil.getJedis();
-        String key = null;
-        try {
-            key = keyGen.apply(recordDate);
-            //过期时间为7天
-            jedis.incrByFloat(key, income.doubleValue());
-            jedis.expire(key, (int) ((time / 1000) + DateUtil.ONE_DAY_MIN_SECONDS));
-        } catch (Exception e) {
-            log.error("向redis中收益失败key：{}", key, e);
-        } finally {
-            if (jedis != null) {
-                jedis.close();
-            }
-        }
-    }
 
     private void updateIncomeWithTotal(BigDecimal income, Device device) {
         BigDecimal deviceIncome = new BigDecimal(device.getIncome());
@@ -465,39 +448,31 @@ public class KCEssDeviceService {
             bamsDataDicBA.setDeviceName(equipment.getDeviceName());
             bamsDataDicBA.setName(equipment.getName());
             bamsDataDicBA.setGenerationDataTime(strToDate(bamsDataDicBA.getTime()));
-
-            updateChargeCapacityNumber(device, bamsDataDicBA);
+            updateChargeCapacityNumber(device, bamsDataDicBA, equipment);
             bamsDataDicBADao.insert(bamsDataDicBA);
         }
-
-
-//        if (device != null) {
-//            Jedis jedis = null;
-//            try {
-//                jedis = redisPoolUtil.getJedis();
-//                /**
-//                 * 单台总放电量
-//                 */
-//                String dischargeCapacitySum = bamsDataDicBA.getDischargeCapacitySum();
-//                jedis.set(getDischargeKey(device), dischargeCapacitySum);
-//                /**
-//                 * 总充电量
-//                 */
-//                String chargeCapacitySum = bamsDataDicBA.getChargeCapacitySum();
-//                jedis.set(getChargeKey(device), chargeCapacitySum);
-//            } finally {
-//                if (jedis != null) {
-//                    jedis.close();
-//                }
-//            }
-//        }
     }
 
-    private void updateChargeCapacityNumber(Device device, BamsDataDicBA bamsDataDicBA) {
+    private void updateChargeCapacityNumber(Device device, BamsDataDicBA bamsDataDicBA, Equipment equipment) {
         String dischargeCapacitySum = bamsDataDicBA.getDischargeCapacitySum();
         String chargeCapacitySum = bamsDataDicBA.getChargeCapacitySum();
-        deviceDao.update().set("dischargeCapacitySum", dischargeCapacitySum)
-                .set("chargeCapacitySum", chargeCapacitySum).execute(device);
+        Iterable<DBObject> iterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is("deviceName", device.getDeviceName())
+                .is("equipmentId", equipment.getEquipmentId()).sort("{generationDataTime:-1}")).limit(1).results();
+        BamsDataDicBA bamsDataDicObject = null;
+        if (iterable != null) {
+            for (DBObject object : iterable) {
+                bamsDataDicObject = MapperUtil.fromDBObject(BamsDataDicBA.class, object);
+            }
+        }
+        if (bamsDataDicObject == null) {
+            deviceDao.update().set("dischargeCapacitySum", dischargeCapacitySum)
+                    .set("chargeCapacitySum", chargeCapacitySum).execute(device);
+        } else {
+            if (bamsDataDicBA.getGenerationDataTime().after(bamsDataDicObject.getGenerationDataTime())) {
+                deviceDao.update().set("dischargeCapacitySum", dischargeCapacitySum)
+                        .set("chargeCapacitySum", chargeCapacitySum).execute(device);
+            }
+        }
     }
 
     private String getChargeKey(Device device) {
@@ -588,46 +563,42 @@ public class KCEssDeviceService {
     }
 
     private void handleBreakDownLog(JMessage jMessage) {
-        Jedis jedis = redisPoolUtil.getJedis();
+
         try {
             String deviceName = jMessage.getDeviceName();
             log.info("设备告警日志上报 deviceName:{}", deviceName);
             String messagePayloadMsg = jMessage.getPayloadMsg();
-            if (!StringUtils.isEmpty(messagePayloadMsg)) {
-                JSONObject jsonObject = JSON.parseObject(jMessage.getPayloadMsg());
-                JSONArray dataArray = (JSONArray) jsonObject.get(Const.DATA);
-                List<BreakDownLog> breakDownLogs = JSON.parseArray(dataArray.toJSONString(), BreakDownLog.class);
-                if (breakDownLogs != null && breakDownLogs.size() > 0) {
-                    jedis.set("BREAKDOWNLOG-" + deviceName, dataArray.toString());
-                    List<Equipment> equipmentDbList = equipmentDao.query().is("deviceName", deviceName).results();
-                    List<BreakDownLog> breakDownLogList = new ArrayList<>();
-                    if (!CollectionUtils.isEmpty(equipmentDbList) && equipmentDbList.size() > 0) {
-                        for (BreakDownLog breakDownLog : breakDownLogs) {
-                            Equipment equipment = equipmentDbList.stream().filter(equip ->
-                                    breakDownLog.getEquipmentId() == equip.getEquipmentId()).findFirst().get();
-                            //防止空指针
-                            if (equipment == null) {
-                                continue;
-                            }
-                            breakDownLog.setId(null);
-                            breakDownLog.setGenerationDataTime(strToDate(breakDownLog.getTime()));
-                            breakDownLog.setName(equipment.getName());
-                            breakDownLog.setRemoveData(strToDate(breakDownLog.getRemoveTime()));
-                            breakDownLog.setDeviceName(equipment.getDeviceName());
-                            Date date = DateUtil.addDateDays(new Date(), -1);
-                            breakDownLogDao.update()
-                                    .set("status", breakDownLog.getStatus())
-                                    .set("removeReason", breakDownLog.getRemoveReason())
-                                    .set("removeData", breakDownLog.getRemoveData())
-                                    .execute(breakDownLogDao.query().is("deviceName", breakDownLog.getDeviceName())
-                                            .is("message", breakDownLog.getMessage()).is("status", true)
-                                            .greaterThanEquals("generationDataTime", date));
-                            breakDownLogList.add(breakDownLog);
+            List<BreakDownLog> breakDownLogs = getBreakDownLogList(messagePayloadMsg, deviceName);
+            if (!CollectionUtils.isEmpty(breakDownLogs) && !breakDownLogs.isEmpty()) {
+                List<Equipment> equipmentDbList = equipmentDao.query().is("deviceName", deviceName).results();
+                List<BreakDownLog> breakDownLogList = new ArrayList<>();
+                if (!CollectionUtils.isEmpty(equipmentDbList) && !equipmentDbList.isEmpty()) {
+                    for (BreakDownLog breakDownLog : breakDownLogs) {
+                        Equipment equipment = equipmentDbList.stream().filter(equip ->
+                                breakDownLog.getEquipmentId() == equip.getEquipmentId()).findFirst().get();
+                        //防止空指针
+                        if (equipment == null) {
+                            continue;
                         }
-                        if (!CollectionUtils.isEmpty(breakDownLogList) && breakDownLogList.size() > 0) {
-                            breakDownLogList = breakDownLogList.stream().sorted(Comparator.comparing(BreakDownLog::getGenerationDataTime)).collect(Collectors.toList());
-                            breakDownLogDao.insert(breakDownLogList);
-                        }
+                        breakDownLog.setId(null);
+                        breakDownLog.setGenerationDataTime(strToDate(breakDownLog.getTime()));
+                        breakDownLog.setName(equipment.getName());
+                        breakDownLog.setRemoveData(strToDate(breakDownLog.getRemoveTime()));
+                        breakDownLog.setDeviceName(equipment.getDeviceName());
+                        Date date = DateUtil.addDateDays(new Date(), -1);
+                        //将当前告警信息 超过一天的 相同类型的告警信息 修改为 恢复
+                        breakDownLogDao.update()
+                                .set("status", breakDownLog.getStatus())
+                                .set("removeReason", breakDownLog.getRemoveReason())
+                                .set("removeData", breakDownLog.getRemoveData())
+                                .execute(breakDownLogDao.query().is("deviceName", breakDownLog.getDeviceName())
+                                        .is("message", breakDownLog.getMessage()).is("status", true)
+                                        .greaterThanEquals("generationDataTime", date));
+                        breakDownLogList.add(breakDownLog);
+                    }
+                    if (!CollectionUtils.isEmpty(breakDownLogList) && !breakDownLogList.isEmpty()) {
+                        breakDownLogList = breakDownLogList.stream().sorted(Comparator.comparing(BreakDownLog::getGenerationDataTime)).collect(Collectors.toList());
+                        breakDownLogDao.insert(breakDownLogList);
                     }
                 }
             } else {
@@ -635,65 +606,118 @@ public class KCEssDeviceService {
             }
         } catch (Exception e) {
             log.error("设备告警处理错误", e);
+        }
+    }
+
+    private List<BreakDownLog> getBreakDownLogList(String messagePayloadMsg, String deviceName) {
+        if (!StringUtils.isEmpty(messagePayloadMsg)) {
+            JSONObject jsonObject = JSON.parseObject(messagePayloadMsg);
+            if (!CollectionUtils.isEmpty(jsonObject) && !jsonObject.isEmpty()) {
+                JSONArray dataArray = (JSONArray) jsonObject.get(Const.DATA);
+                if (!CollectionUtils.isEmpty(dataArray) && !dataArray.isEmpty()) {
+                    if (propertiesConfig.isRedisCacheSwitch()) {
+                        chcheBreakdownlog(dataArray, deviceName);
+                    }
+                    return JSON.parseArray(dataArray.toJSONString(), BreakDownLog.class);
+                }
+            }
+        }
+        return null;
+    }
+
+    private void chcheBreakdownlog(JSONArray dataArray, String deviceName) {
+        Jedis jedis = redisPoolUtil.getJedis();
+        try {
+            jedis.set("BREAKDOWNLOG-" + deviceName, dataArray.toString());
         } finally {
             if (jedis != null) {
                 jedis.close();
             }
         }
-
     }
 
     private void handleDeviceInfo(JMessage jMessage) {
-        Jedis jedis = redisPoolUtil.getJedis();
+
         try {
             String deviceName = jMessage.getDeviceName();
             log.info("设备列表信息上报 deviceName:{}", deviceName);
             JSONObject jsonObject = JSON.parseObject(jMessage.getPayloadMsg());
             JSONObject dataJson = (JSONObject) jsonObject.get(Const.DATA);
-            jedis.set("DEVICEINFO-" + deviceName, dataJson.toString());
-            JSONArray stationsArray = (JSONArray) dataJson.get(DEVICE_STATION);
-            JSONArray pccsArray = (JSONArray) dataJson.get(DEVICE_PCCS);
-            JSONArray cubesArray = (JSONArray) dataJson.get(DEVICE_CUBES);
-            JSONArray cabinsArray = (JSONArray) dataJson.get(DEVICE_CABINS);
-            JSONArray equipmentsArray = (JSONArray) dataJson.get(DEVICE_EQUIPMENTS);
-            List<DeviceStationsInfo> deviceStationsInfos = JSON.parseArray(stationsArray.toJSONString(), DeviceStationsInfo.class);
-            List<PccsInfo> pccsInfos = JSON.parseArray(pccsArray.toJSONString(), PccsInfo.class);
-            List<CubesInfo> cubesInfos = JSON.parseArray(cubesArray.toJSONString(), CubesInfo.class);
-            List<CabinsInfo> cabinsInfos = JSON.parseArray(cabinsArray.toJSONString(), CabinsInfo.class);
-            List<EquipmentInfo> equipmentInfos = JSON.parseArray(equipmentsArray.toJSONString(), EquipmentInfo.class);
-            List<Equipment> equipmentList;
-            if (equipmentInfos != null && equipmentInfos.size() > 0) {
-                equipmentList = equipmentInfos.stream().map(equipmentInfo -> {
-                    Equipment equipment = new Equipment();
-                    BeanUtils.copyProperties(equipmentInfo, equipment, Const.IGNORE_ID);
-                    equipment.setEquipmentId(equipmentInfo.getId());
-                    equipment.setDeviceName(deviceName);
-                    return equipment;
-                }).collect(Collectors.toList());
-            } else {
-                return;
+
+            if (!dataJson.isEmpty() && !CollectionUtils.isEmpty(dataJson)) {
+                if (propertiesConfig.isRedisCacheSwitch()) {
+                    cacheDeviceInfo(dataJson, deviceName);
+                }
+                JSONArray stationsArray = (JSONArray) dataJson.get(DEVICE_STATION);
+                List<DeviceStationsInfo> deviceStationsInfos = null;
+                if (!CollectionUtils.isEmpty(stationsArray) && !stationsArray.isEmpty()) {
+                    deviceStationsInfos = JSON.parseArray(stationsArray.toJSONString(), DeviceStationsInfo.class);
+                }
+                JSONArray pccsArray = (JSONArray) dataJson.get(DEVICE_PCCS);
+                List<PccsInfo> pccsInfos = null;
+                if (!CollectionUtils.isEmpty(pccsArray) && !pccsArray.isEmpty()) {
+                    pccsInfos = JSON.parseArray(pccsArray.toJSONString(), PccsInfo.class);
+                }
+                JSONArray cubesArray = (JSONArray) dataJson.get(DEVICE_CUBES);
+                List<CubesInfo> cubesInfos = null;
+                if (!CollectionUtils.isEmpty(cubesArray) && !cubesArray.isEmpty()) {
+                    cubesInfos = JSON.parseArray(cubesArray.toJSONString(), CubesInfo.class);
+                }
+                JSONArray cabinsArray = (JSONArray) dataJson.get(DEVICE_CABINS);
+                List<CabinsInfo> cabinsInfos = null;
+                if (!CollectionUtils.isEmpty(cabinsArray) && !cabinsArray.isEmpty()) {
+                    cabinsInfos = JSON.parseArray(cabinsArray.toJSONString(), CabinsInfo.class);
+                }
+                JSONArray equipmentsArray = (JSONArray) dataJson.get(DEVICE_EQUIPMENTS);
+                List<Equipment> equipmentList = null;
+                if (!CollectionUtils.isEmpty(equipmentsArray) && !equipmentsArray.isEmpty()) {
+                    List<EquipmentInfo> equipmentInfos = JSON.parseArray(equipmentsArray.toJSONString(), EquipmentInfo.class);
+                    if (!CollectionUtils.isEmpty(equipmentInfos) && !equipmentInfos.isEmpty()) {
+                        equipmentList = equipmentInfos.stream().map(equipmentInfo -> {
+                            Equipment equipment = new Equipment();
+                            BeanUtils.copyProperties(equipmentInfo, equipment, Const.IGNORE_ID);
+                            equipment.setEquipmentId(equipmentInfo.getId());
+                            equipment.setDeviceName(deviceName);
+                            return equipment;
+                        }).collect(Collectors.toList());
+                    } else {
+                        return;
+                    }
+                    updateDeviceList(equipmentList, deviceName);
+                }
+                /**
+                 * 判断是否更新设备列表  查询更新后的数据
+                 */
+                List<Equipment> equipmentDbList = equipmentDao.query().is("deviceName", deviceName).results();
+                /**
+                 * Pccs信息处理 pcc下的三个设备
+                 */
+                if (!CollectionUtils.isEmpty(deviceStationsInfos) && !deviceStationsInfos.isEmpty() && !CollectionUtils.isEmpty(pccsInfos)
+                        && !pccsInfos.isEmpty()) {
+                    pccsMsgHanlder(deviceName, equipmentDbList, deviceStationsInfos, pccsInfos);
+                }
+                /**
+                 * 储能箱信息处理
+                 */
+                if (!CollectionUtils.isEmpty(cubesInfos) && !cubesInfos.isEmpty()) {
+                    cubeMsgHanlder(deviceName, equipmentDbList, cubesInfos);
+                }
+                /**
+                 * 电池舱信息处理
+                 */
+                if (!CollectionUtils.isEmpty(cabinsInfos) && !cabinsInfos.isEmpty()) {
+                    cabinMsgHanlder(deviceName, equipmentDbList, cabinsInfos);
+                }
             }
-
-            updateDeviceList(equipmentList, deviceName);
-            /**
-             * 判断是否更新设备列表  查询更新后的数据
-             */
-            List<Equipment> equipmentDbList = equipmentDao.query().is("deviceName", deviceName).results();
-
-            /**
-             * Pccs信息处理 pcc下的三个设备
-             */
-            pccsMsgHanlder(deviceName, equipmentDbList, deviceStationsInfos, pccsInfos);
-            /**
-             * 储能箱信息处理
-             */
-            cubeMsgHanlder(deviceName, equipmentDbList, cubesInfos);
-            /**
-             * 电池舱信息处理
-             */
-            cabinMsgHanlder(deviceName, equipmentDbList, cabinsInfos);
         } catch (Exception e) {
             log.error("解析上报设备列表信息失败", e);
+        }
+    }
+
+    private void cacheDeviceInfo(JSONObject dataJson, String deviceName) {
+        Jedis jedis = redisPoolUtil.getJedis();
+        try {
+            jedis.set("DEVICEINFO-" + deviceName, dataJson.toString());
         } finally {
             if (jedis != null) {
                 jedis.close();
@@ -701,7 +725,8 @@ public class KCEssDeviceService {
         }
     }
 
-    private void cabinMsgHanlder(String deviceName, List<Equipment> equipmentDbList, List<CabinsInfo> cabinsInfos) {
+    private void cabinMsgHanlder(String
+                                         deviceName, List<Equipment> equipmentDbList, List<CabinsInfo> cabinsInfos) {
         Map<String, List<String>> cabinEquipmentIds = equipmentDbList.stream().filter(equipment ->
                 equipment.getCabinId() != null && equipment.getCubeId() != null
                         && equipment.getPccId() == null && equipment.getStationId() == null).collect(Collectors.groupingBy(equipment ->
@@ -750,7 +775,8 @@ public class KCEssDeviceService {
         }
     }
 
-    private void cubeMsgHanlder(String deviceName, List<Equipment> equipmentDbList, List<CubesInfo> cubesInfos) {
+    private void cubeMsgHanlder(String
+                                        deviceName, List<Equipment> equipmentDbList, List<CubesInfo> cubesInfos) {
         Map<Integer, List<String>> cubeEquipmentIds = equipmentDbList.stream().filter(equipment ->
                 equipment.getCabinId() == null && equipment.getCubeId() != null
                         && equipment.getPccId() == null && equipment.getStationId() == null).collect(Collectors.groupingBy(Equipment::getCubeId, Collectors.mapping(Equipment::getId, Collectors.toList())));
@@ -789,7 +815,8 @@ public class KCEssDeviceService {
         }
     }
 
-    private void pccsMsgHanlder(String deviceName, List<Equipment> equipmentDbList, List<DeviceStationsInfo> deviceStationsInfos, List<PccsInfo> pccsInfos) {
+    private void pccsMsgHanlder(String
+                                        deviceName, List<Equipment> equipmentDbList, List<DeviceStationsInfo> deviceStationsInfos, List<PccsInfo> pccsInfos) {
         /**
          * 设备信息处理
          */
@@ -860,20 +887,14 @@ public class KCEssDeviceService {
         List<Equipment> equipmentDbList = equipmentDao.query().is("deviceName", deviceName).results();
 
         /**
-         * 是否不同
-         */
-        List<Integer> newIds = new ArrayList<>();
-        List<Integer> oldIds = new ArrayList<>();
-        /**
          * 根据新上报的ID更新数据  分别取出两个集合ID
          */
-        if (equipmentDbList != null && equipmentDbList.size() > 0) {
-            equipmentDbList.stream().forEach(equipmentDb -> oldIds.add(equipmentDb.getEquipmentId()));
-        }
-        equipmentList.stream().forEach(equipment -> newIds.add(equipment.getEquipmentId()));
+        List<Integer> oldIds = equipmentDbList.stream().map(Equipment::getEquipmentId).collect(Collectors.toList());
+
+        List<Integer> newIds = equipmentList.stream().map(Equipment::getEquipmentId).collect(Collectors.toList());
 
         if (oldIds.containsAll(newIds)) {
-            log.info("设备信息列表无需更新");
+            log.info("设备数量列表无修改 deviceName:{}", deviceName);
         } else {
 
             if (equipmentDbList == null && equipmentDbList.size() == 0) {
@@ -904,28 +925,31 @@ public class KCEssDeviceService {
                     }
                     equipmentDao.insert(addEquipment);
                 }
-                /**
-                 * 已经存在设备进行信息更新
-                 */
-                List<Equipment> equipments = equipmentList.stream().filter(equipment -> oldIds.contains(equipment.getEquipmentId())).collect(Collectors.toList());
-                equipments.stream().forEach(oldEquipment ->
-                        equipmentDao.update().set("enabled", oldEquipment.isEnabled())
-                                .set("model", oldEquipment.getModel())
-                                .set("manufacturer", oldEquipment.getManufacturer())
-                                .set("stationId", oldEquipment.getStationId())
-                                .set("description", oldEquipment.getDescription())
-                                .set("name", oldEquipment.getName())
-                                .set("pccid", oldEquipment.getPccId())
-                                .set("cubeId", oldEquipment.getCubeId())
-                                .set("cabinId", oldEquipment.getCabinId())
-                                .execute(equipmentDao.query().is("deviceName", deviceName)
-                                        .is("equipmentId", oldEquipment.getEquipmentId())));
             }
+            log.info("设备数量列表进行修改操作 deviceName:{}", deviceName);
         }
+        /**
+         * 已经存在设备进行信息更新
+         */
+        List<Equipment> equipments = equipmentList.stream().filter(equipment -> oldIds.contains(equipment.getEquipmentId())).collect(Collectors.toList());
+        equipments.stream().forEach(oldEquipment ->
+                equipmentDao.update().set("enabled", oldEquipment.isEnabled())
+                        .set("model", oldEquipment.getModel())
+                        .set("manufacturer", oldEquipment.getManufacturer())
+                        .set("stationId", oldEquipment.getStationId())
+                        .set("description", oldEquipment.getDescription())
+                        .set("name", oldEquipment.getName())
+                        .set("pccid", oldEquipment.getPccId())
+                        .set("cubeId", oldEquipment.getCubeId())
+                        .set("cabinId", oldEquipment.getCabinId())
+                        .execute(equipmentDao.query().is("deviceName", deviceName)
+                                .is("equipmentId", oldEquipment.getEquipmentId())));
+        log.info("更新设备信息列表数据deviceName:{}", deviceName);
     }
 
     /**
      * 修改告警日志状态
+     * 超过一天 小于两天的告警日志 修改为自动恢复
      */
     @Scheduled(cron = "${untrans.report.interval}")
     public void editBreakDownlogStatus() {

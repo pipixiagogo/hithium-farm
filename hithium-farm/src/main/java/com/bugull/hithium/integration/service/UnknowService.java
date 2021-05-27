@@ -49,15 +49,16 @@ public class UnknowService {
 
 //    @Scheduled(cron = "${energy.untrans.report.interval}")
     public void sendKafkaMsg(){
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("DATATYPE", "REAL_TIME_DATA");
-        jsonObject.put("PROJECTTYPE", "KC_ESS");
-        jsonObject.put("DATA", "123");
-       kafkaTemplate.send("topic-demo",jsonObject.toString()).addCallback((bs)->{
-           System.out.println("发送kafka成功");
-       },(t)->{
-           System.out.println("发送kafka失败");
-       });
-
+        for(int i=0;i<1000;i++){
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("DATATYPE", "REAL_TIME_DATA");
+            jsonObject.put("PROJECTTYPE", "KC_ESS");
+            jsonObject.put("DATA", "123"+i);
+            kafkaTemplate.send("test-topic",jsonObject.toString()).addCallback((bs)->{
+                System.out.println("发送kafka成功");
+            },(t)->{
+                System.out.println("发送kafka失败");
+            });
+        }
     }
 }

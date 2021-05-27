@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
+import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.util.StringUtils;
 
@@ -27,7 +28,6 @@ public class MqttApplication {
     private static final Map<String,String> ARGS = new HashMap<>();
     public static final String HOST_NAME_SPLIT = ",";
     public static final String HOST_PORT_SPLIT = ":";
-
 
     public static void main(String[] args) {
         //init mongodb
