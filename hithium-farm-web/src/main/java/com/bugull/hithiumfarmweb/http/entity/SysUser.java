@@ -5,10 +5,7 @@ import com.bugull.hithiumfarmweb.common.validator.group.AddGroup;
 import com.bugull.hithiumfarmweb.common.validator.group.UpdateGroup;
 import com.bugull.mongo.BuguEntity;
 import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EmbedList;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Id;
-import com.bugull.mongo.annotations.IdType;
+import com.bugull.mongo.annotations.*;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
@@ -32,7 +29,7 @@ public class SysUser implements BuguEntity {
     @Id(type = IdType.AUTO_INCREASE,start = 1L)
     private String id;
 
-    @ApiModelProperty(name = "userName", required = true, example = "test   ", value = "登录用户名")
+    @ApiModelProperty(name = "userName", required = true, example = "test", value = "登录用户名")
     @NotBlank(message = "用户名称不能为空", groups = {UpdateGroup.class,AddGroup.class})
     private String userName;
 
@@ -71,6 +68,19 @@ public class SysUser implements BuguEntity {
      */
     @ApiModelProperty(hidden = true)
     private Date refreshTokenExpireTime;
+    /**
+     * 备注
+     */
+    @ApiModelProperty(name ="remarks",value = "备注")
+    private String remarks;
+    /**
+     * 用户账号过期时间
+     */
+    @ApiModelProperty(name ="userExpireTime",value = "账号过期时间 yyyy-MM-dd")
+    @Ignore
+    private String userExpireTimeStr;
+    @ApiModelProperty(hidden = true)
+    private Date userExpireTime;
 
 
 

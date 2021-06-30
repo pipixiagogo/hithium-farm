@@ -163,6 +163,4 @@ public class SysUserController extends AbstractController {
         }
         return sysUserService.resetPwd(users);
     }
-
-
 }

@@ -10,6 +10,7 @@ package com.bugull.hithiumfarmweb.http.oauth2;
 
 import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import com.bugull.hithiumfarmweb.http.service.ShiroService;
+import com.bugull.hithiumfarmweb.utils.ResHelper;
 import org.apache.shiro.authc.*;
 import org.apache.shiro.authz.AuthorizationInfo;
 import org.apache.shiro.authz.SimpleAuthorizationInfo;
@@ -19,6 +20,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.util.Date;
 import java.util.Set;
 
 /**
@@ -67,6 +69,9 @@ public class OAuth2Realm extends AuthorizingRealm {
         }
         if(tokenEntity.getTokenExpireTime().getTime() < System.currentTimeMillis()) {
             throw new IncorrectCredentialsException("token过期,请重新登录");
+        }
+        if (tokenEntity.getUserExpireTime() != null && !tokenEntity.getUserExpireTime().after(new Date())) {
+            throw new IncorrectCredentialsException("账号过期,请联系管理员");
         }
         return new SimpleAuthenticationInfo(tokenEntity, accessToken, getName());
     }

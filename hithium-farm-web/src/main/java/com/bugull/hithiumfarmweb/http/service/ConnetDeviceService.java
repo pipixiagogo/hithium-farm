@@ -66,7 +66,6 @@ public class ConnetDeviceService {
             if (jedis != null) {
                 jedis.close();
             }
-
         }
     }
 

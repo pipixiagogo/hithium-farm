@@ -45,20 +45,42 @@ import static com.bugull.hithiumfarmweb.common.Const.GENERATION_DATA_TIME;
 @Service
 public class ExcelExportService {
     protected static final List<Integer> AMMETER_EQUIPMENT_IDS = new ArrayList<>();
+
+    protected static final List<Integer> PRODUCTION_EQUIOMENT_IDS = new ArrayList<>();
+
     protected static final List<Integer> FIRE_AIR_UPS_EQUIPMENT_IDS = new ArrayList<>();
+    protected static final List<Integer> PRODUCTION_FIRE_AIR_UPS_EQUIPMENT_IDS = new ArrayList<>();
+
+    protected static final List<Integer> PRODUCTION_CABIN_IDS = new ArrayList<>();
+
+
     public static final List<Integer> EXPORT_DATA_TYPE = new ArrayList<>();
 
     static {
         AMMETER_EQUIPMENT_IDS.add(3);
         AMMETER_EQUIPMENT_IDS.add(6);
         AMMETER_EQUIPMENT_IDS.add(11);
+
+        PRODUCTION_EQUIOMENT_IDS.add(4);
+        PRODUCTION_EQUIOMENT_IDS.add(7);
+        PRODUCTION_EQUIOMENT_IDS.add(12);
+
         FIRE_AIR_UPS_EQUIPMENT_IDS.add(1);
         FIRE_AIR_UPS_EQUIPMENT_IDS.add(12);
         FIRE_AIR_UPS_EQUIPMENT_IDS.add(13);
+
+        PRODUCTION_FIRE_AIR_UPS_EQUIPMENT_IDS.add(2);
+        PRODUCTION_FIRE_AIR_UPS_EQUIPMENT_IDS.add(13);
+        PRODUCTION_FIRE_AIR_UPS_EQUIPMENT_IDS.add(14);
+        PRODUCTION_FIRE_AIR_UPS_EQUIPMENT_IDS.add(55);
+
+        PRODUCTION_CABIN_IDS.add(34);
+        PRODUCTION_CABIN_IDS.add(53);
         for (int i = 0; i < 4; i++) {
             EXPORT_DATA_TYPE.add(i);
         }
     }
+
     public static final Logger log = LoggerFactory.getLogger(ExcelExportService.class);
 
     @Resource
@@ -91,34 +113,36 @@ public class ExcelExportService {
     private PcsChannelDicDao pcsChannelDicDao;
     @Resource
     private PcsCabinetDicDao pcsCabinetDicDao;
+    @Resource
+    private TemperatureMeterDataDicDao temperatureMeterDataDicDao;
 
     /**
      * 定时删除数据库中超过一段时间的excel文件 释放存储压力
-     *
+     * <p>
      * 一个月启动一次
      */
-    @Scheduled(cron = "${excel.scheld.export.excel}")
-    public void sheldExcelDel(){
+    @Scheduled(cron = "${excel.scheld.remove.excel}")
+    public void sheldExcelDel() {
         if (!propertiesConfig.isStartExportExcelSwitch()) {
             return;
         }
-
-        Date date = DateUtils.addDateMonths(new Date(), -3);
-        List<ExportRecord> exportRecords = exportRecordDao.query().lessThanEquals("recordTime", date).results();
-        log.info("启动定时删除excel任务,查询到可删除excel文件数量为:{}",exportRecords.size());
+//        Date date = DateUtils.addDateMonths(new Date(), -1);
+        Date date = DateUtils.addDateDays(new Date(), -propertiesConfig.getRemoveExcelDate());
+        List<ExportRecord> exportRecords = exportRecordDao.query().lessThanEquals("recordTime", date).is("exporting", true).results();
+        log.info("启动定时删除excel任务,查询到可删除excel文件数量为:{}", exportRecords.size());
         BuguFS fs = BuguFSFactory.getInstance().create();
-        for(ExportRecord exportRecord:exportRecords){
+        for (ExportRecord exportRecord : exportRecords) {
             fs.remove(exportRecord.getFilename());
             exportRecordDao.remove(exportRecord);
-            log.info("删除excel,时间为:{}",exportRecord.getRecordTime());
+            log.info("删除excel,时间为:{},删除文件名称:{}", exportRecord.getRecordTime(), exportRecord.getFilename());
         }
     }
+
     /**
      * 定时导出前一天excel数据
      */
     @Scheduled(cron = "${excel.scheld.export.excel}")
     public void scheldExportExcel() {
-        System.out.println("执行了");
         if (!propertiesConfig.isStartExportExcelSwitch()) {
             return;
         }
@@ -134,15 +158,17 @@ public class ExcelExportService {
             for (Device device : deviceList) {
                 for (int type : EXPORT_DATA_TYPE) {
                     threadPoolExecutor.execute(() -> {
-                        String filePath = propertiesConfig.getRealTimeDataExcelTempDir() + File.separator + device.getDeviceName()+ "_" + time + "_" + type + ".xlsx";
+                        long exportStart = System.currentTimeMillis();
+                        String filename = device.getDeviceName() + "_" + time + "_" + type;
+                        String filePath = propertiesConfig.getRealTimeDataExcelTempDir() + File.separator + device.getDeviceName() + "_" + time + "_" + type + ".xlsx";
                         DBObject query = new BasicDBObject();
-                        query.put("filename", device.getDeviceName() + "_" + time + "_" + type);
+                        query.put("filename", filename);
                         BuguFS fs = BuguFSFactory.getInstance().create();
                         GridFSDBFile f = fs.findOne(query);
-                        if(f != null){
+                        if (f != null) {
                             return;
                         }
-                        if(exportRecordDao.query().is("filename", device.getDeviceName() + "_" + time + "_" + type).exists()){
+                        if (exportRecordDao.query().is("filename", filename).exists()) {
                             return;
                         }
                         File file = new File(filePath);
@@ -153,16 +179,17 @@ public class ExcelExportService {
                             outputStream = new FileOutputStream(file);
                             Date nowDate = new Date();
                             exportRecord.setRecordTime(nowDate);
-                            String filename = device.getDeviceName() + "_" + time + "_" + type;
                             exportRecord.setFilename(filename);
                             exportStationOfBattery(device.getDeviceName(), time, type, outputStream);
                             exportRecord.setExporting(true);
                             outputStream.close();
-                            if(!exportRecordDao.query().is("filename",filename).exists()){
+                            if (!exportRecordDao.query().is("filename", filename).exists()) {
                                 Uploader uploader = new Uploader(file, exportRecord.getFilename(), false);
                                 uploader.save();
                                 exportRecordDao.insert(exportRecord);
                             }
+                            long exportEnd = System.currentTimeMillis();
+                            log.info("导出excel花费时间:{},设备名称:{},导出设备类型:{}", (exportEnd - exportStart), device.getDeviceName(), getMsgByType(type));
                         } catch (Exception e) {
                             log.error("定时执行导出excel失败:{},导出excel数据时间为:{},设备名称:{},导出设备类型:{}", e.getMessage(), time, device.getDeviceName(), getMsgByType(type));
                             exportRecord.setExporting(false);
@@ -209,21 +236,20 @@ public class ExcelExportService {
             }
         }
     }
+
     /**
      * @param deviceName
      * @param time
      * @param type
      * @param outputStream
-     * @throws ParseException
-     *
-     * TODO 看情况是否启用多线程导出
+     * @throws ParseException TODO 看情况是否启用多线程导出
      */
     public void exportStationOfBattery(String deviceName, String time, Integer type, OutputStream outputStream) throws ParseException {
         if (StringUtils.isEmpty(deviceName)) {
             throw new ExcelExportWithoutDataException("该日期暂无数据");
         }
-        Date startTime = null;
-        Date endTime = null;
+        Date startTime;
+        Date endTime;
         if (StringUtils.isEmpty(time)) {
             Date date = new Date();
             startTime = DateUtils.getStartTime(date);
@@ -237,17 +263,30 @@ public class ExcelExportService {
             endTime = DateUtils.getEndTime(startTime);
         }
         if (type == 0) {
+            /**
+             * 导出PCS数据
+             */
             exportPcsData(outputStream, deviceName, startTime, endTime);
         } else if (type == 1) {
+            /**
+             * 导出电池堆数据
+             */
             exportBamsData(outputStream, deviceName, startTime, endTime);
         } else if (type == 2) {
+            /**
+             * 导出电表数据
+             */
             exportAmmeterData(outputStream, deviceName, startTime, endTime);
         } else if (type == 3) {
+            /**
+             * 附属件导出
+             */
             exportUpsAirFireData(outputStream, deviceName, startTime, endTime);
         } else {
             throw new ExcelExportWithoutDataException("暂无该类型数据");
         }
     }
+
     private void exportPcsData(OutputStream outputStream, String deviceName, Date startTime, Date endTime) {
         ExcelWriter writer = null;
         List pcsCabinData = getPcsCabinData(deviceName, startTime, endTime);
@@ -256,27 +295,48 @@ public class ExcelExportService {
                 writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
                 WriteSheet writeSheet = EasyExcelFactory.writerSheet(0, PCS_DATA_SHEET_NAME).head(PcsCabinetDic.class).build();
                 writer.write(pcsCabinData, writeSheet);
-                List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).greaterThan("equipmentId", 15).lessThan("equipmentId", 32).results();
+                List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).greaterThan("equipmentId", 15).lessThan("equipmentId", 33).results();
                 if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
-                    for (int i = 1, z = 0; i < equipmentList.size() + 1; i++, z++) {
+                    int i = 1;
+                    for (int z = 0; i < equipmentList.size() + 1; i++, z++) {
                         List channelData = getPcsChannelData(deviceName, equipmentList.get(z).getEquipmentId(), startTime, endTime);
                         if (!CollectionUtils.isEmpty(channelData) && !channelData.isEmpty()) {
                             WriteSheet writeSheet2 = EasyExcelFactory.writerSheet(i, equipmentList.get(z).getName()).head(PcsChannelDic.class).build();
                             writer.write(channelData, writeSheet2);
                         }
                     }
+                    List<Equipment> equipmentPcsCabin = equipmentList.stream().filter(equipment -> equipment.getEquipmentId() == 32).collect(Collectors.toList());
+                    if (!CollectionUtils.isEmpty(equipmentPcsCabin) && !equipmentPcsCabin.isEmpty()) {
+                        List pcsCabinEquipmentData = getPcsCabinEquipmentData(deviceName, equipmentPcsCabin.get(0).getEquipmentId(), startTime, endTime);
+                        if (!CollectionUtils.isEmpty(pcsCabinEquipmentData) && !pcsCabinEquipmentData.isEmpty()) {
+                            WriteSheet writeSheet2 = EasyExcelFactory.writerSheet(i - 1, equipmentPcsCabin.get(0).getName()).head(TemperatureMeterDataDic.class).build();
+                            writer.write(pcsCabinEquipmentData, writeSheet2);
+                        }
+                    }
                 }
-            } else {
-                throw new ExcelExportWithoutDataException("该日期暂无数据");
             }
         } finally {
             if (writer != null) {
                 writer.finish();
+            } else {
+                throw new ExcelExportWithoutDataException("该日期暂无数据");
             }
         }
     }
+
+    private List getPcsCabinEquipmentData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
+        return temperatureMeterDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId)
+                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).sort("{generationDataTime:-1}").results();
+    }
+
     private void exportAmmeterData(OutputStream outputStream, String deviceName, Date startTime, Date endTime) {
-        List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", AMMETER_EQUIPMENT_IDS).results();
+        List<Equipment> equipmentList;
+        if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+            equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", PRODUCTION_EQUIOMENT_IDS).results();
+        } else {
+            equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", AMMETER_EQUIPMENT_IDS).results();
+        }
         if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
             ExcelWriter writer = null;
             try {
@@ -288,13 +348,13 @@ public class ExcelExportService {
                         }
                         WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(AmmeterDataDic.class).build();
                         writer.write(ammeterData, writeSheet);
-                    } else {
-                        throw new ExcelExportWithoutDataException("该日期暂无数据");
                     }
                 }
             } finally {
                 if (writer != null) {
                     writer.finish();
+                } else {
+                    throw new ExcelExportWithoutDataException("该日期暂无数据");
                 }
             }
         }
@@ -302,56 +362,101 @@ public class ExcelExportService {
 
 
     private void exportUpsAirFireData(OutputStream outputStream, String deviceName, Date startTime, Date endTime) {
-        List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", FIRE_AIR_UPS_EQUIPMENT_IDS)
-                .results();
+        List<Equipment> equipmentList;
+        if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+            equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", PRODUCTION_FIRE_AIR_UPS_EQUIPMENT_IDS).results();
+        } else {
+            equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", FIRE_AIR_UPS_EQUIPMENT_IDS)
+                    .results();
+        }
         if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
             ExcelWriter writer = null;
             try {
                 for (int i = 0; i < equipmentList.size(); i++) {
-                    if (equipmentList.get(i).getEquipmentId() == 1) {
-                        List<FireControlDataDic> fireControlDataDics = fireControlDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
-                                .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime).results();
-                        if (!CollectionUtils.isEmpty(fireControlDataDics) && !fireControlDataDics.isEmpty()) {
-                            if (writer == null) {
-                                writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                    if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+                        if (equipmentList.get(i).getEquipmentId() == 2) {
+                            List<FireControlDataDic> fireControlDataDics = fireControlDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
+                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
+                                    .sort("{generationDataTime:-1}").results();
+                            if (!CollectionUtils.isEmpty(fireControlDataDics) && !fireControlDataDics.isEmpty()) {
+                                if (writer == null) {
+                                    writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                                }
+                                WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(FireControlDataDic.class).build();
+                                writer.write(fireControlDataDics, writeSheet);
                             }
-                            WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(FireControlDataDic.class).build();
-                            writer.write(fireControlDataDics, writeSheet);
+                        } else if (equipmentList.get(i).getEquipmentId() == 13) {
+                            List<UpsPowerDataDic> upsPowerDataDics = upsPowerDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
+                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
+                                    .sort("{generationDataTime:-1}").results();
+                            if (!CollectionUtils.isEmpty(upsPowerDataDics) && !upsPowerDataDics.isEmpty()) {
+                                if (writer == null) {
+                                    writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                                }
+                                WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(UpsPowerDataDic.class).build();
+                                writer.write(upsPowerDataDics, writeSheet);
+                            }
+                        } else if (equipmentList.get(i).getEquipmentId() == 14 || equipmentList.get(i).getEquipmentId() == 55) {
+                            List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
+                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
+                                    .sort("{generationDataTime:-1}").results();
+                            if (!CollectionUtils.isEmpty(airConditionDataDics) && !airConditionDataDics.isEmpty()) {
+                                if (writer == null) {
+                                    writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                                }
+                                WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(AirConditionDataDic.class).build();
+                                writer.write(airConditionDataDics, writeSheet);
+                            }
                         }
-                    } else if (equipmentList.get(i).getEquipmentId() == 12) {
-                        List<UpsPowerDataDic> upsPowerDataDics = upsPowerDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
-                                .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime).results();
-                        if (!CollectionUtils.isEmpty(upsPowerDataDics) && !upsPowerDataDics.isEmpty()) {
-                            if (writer == null) {
-                                writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                    } else {
+                        if (equipmentList.get(i).getEquipmentId() == 1) {
+                            List<FireControlDataDic> fireControlDataDics = fireControlDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
+                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
+                                    .sort("{generationDataTime:-1}").results();
+                            if (!CollectionUtils.isEmpty(fireControlDataDics) && !fireControlDataDics.isEmpty()) {
+                                if (writer == null) {
+                                    writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                                }
+                                WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(FireControlDataDic.class).build();
+                                writer.write(fireControlDataDics, writeSheet);
                             }
-                            WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(UpsPowerDataDic.class).build();
-                            writer.write(upsPowerDataDics, writeSheet);
-                        }
-                    } else if (equipmentList.get(i).getEquipmentId() == 13) {
-                        List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
-                                .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime).results();
-                        if (!CollectionUtils.isEmpty(airConditionDataDics) && !airConditionDataDics.isEmpty()) {
-                            if (writer == null) {
-                                writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                        } else if (equipmentList.get(i).getEquipmentId() == 12) {
+                            List<UpsPowerDataDic> upsPowerDataDics = upsPowerDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
+                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
+                                    .sort("{generationDataTime:-1}").results();
+                            if (!CollectionUtils.isEmpty(upsPowerDataDics) && !upsPowerDataDics.isEmpty()) {
+                                if (writer == null) {
+                                    writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                                }
+                                WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(UpsPowerDataDic.class).build();
+                                writer.write(upsPowerDataDics, writeSheet);
                             }
-                            WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(AirConditionDataDic.class).build();
-                            writer.write(airConditionDataDics, writeSheet);
+                        } else if (equipmentList.get(i).getEquipmentId() == 13) {
+                            List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
+                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
+                                    .sort("{generationDataTime:-1}").results();
+                            if (!CollectionUtils.isEmpty(airConditionDataDics) && !airConditionDataDics.isEmpty()) {
+                                if (writer == null) {
+                                    writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
+                                }
+                                WriteSheet writeSheet = EasyExcelFactory.writerSheet(i, equipmentList.get(i).getName()).head(AirConditionDataDic.class).build();
+                                writer.write(airConditionDataDics, writeSheet);
+                            }
                         }
                     }
-                }
-                if (writer == null) {
-                    throw new ExcelExportWithoutDataException("该日期暂无数据");
+
                 }
             } finally {
                 if (writer != null) {
                     writer.finish();
+                } else {
+                    throw new ExcelExportWithoutDataException("该日期暂无数据");
                 }
             }
-
+        } else {
+            throw new ExcelExportWithoutDataException("该日期暂无数据");
         }
     }
-
 
 
     private List<List<String>> getVolHeard(String deviceName, Integer equipmentId) {
@@ -396,7 +501,8 @@ public class ExcelExportService {
                 is(DEVICE_NAME, deviceName)
                 .is("equipmentId", equipmentId)
                 .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+                .lessThanEquals(GENERATION_DATA_TIME, endTime)
+                .sort("{generationDataTime:-1}").results();
         List<List<Object>> list = new ArrayList<>();
         if (!CollectionUtils.isEmpty(bmsCellVoltDataDics) && !bmsCellVoltDataDics.isEmpty()) {
             for (BmsCellVoltDataDic bmsCellVoltDataDic : bmsCellVoltDataDics) {
@@ -424,7 +530,9 @@ public class ExcelExportService {
     private List getBcuData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
         return bcuDataDicBCUDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId)
                 .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+                .lessThanEquals(GENERATION_DATA_TIME, endTime)
+                .sort("{generationDataTime:-1}")
+                .results();
     }
 
     private void exportBamsData(OutputStream outputStream, String deviceName, Date startTime, Date endTime) {
@@ -435,7 +543,12 @@ public class ExcelExportService {
                 writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
                 WriteSheet writeSheet = EasyExcelFactory.writerSheet(0, BAMS_DATA_SHEET_NAME).head(BamsDataDicBA.class).build();
                 writer.write(bamsData, writeSheet);
-                List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).greaterThan("equipmentId", 35).lessThan("equipmentId", 54).results();
+                List<Equipment> equipmentList;
+                if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+                    equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).greaterThan("equipmentId", 36).lessThan("equipmentId", 53).results();
+                } else {
+                    equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).greaterThan("equipmentId", 35).lessThan("equipmentId", 54).results();
+                }
                 if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
                     int z = 0;
                     int j;
@@ -476,10 +589,26 @@ public class ExcelExportService {
                             writer.write(data, writeSheet3);
                         }
                     }
+                    if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+                        List<Equipment> equipmentCabinBattery = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", PRODUCTION_CABIN_IDS).results();
+                        if (!CollectionUtils.isEmpty(equipmentCabinBattery) && !equipmentCabinBattery.isEmpty()) {
+                            int k = y + 1;
+                            for (Equipment equipment : equipmentCabinBattery) {
+                                List data = getPcsCabinEquipmentData(deviceName, equipment.getEquipmentId(), startTime, endTime);
+                                WriteSheet writeSheet1 = EasyExcelFactory.writerSheet(k, equipment.getName()).head(TemperatureMeterDataDic.class).build();
+                                if (!CollectionUtils.isEmpty(data) && !data.isEmpty()) {
+                                    writer.write(data, writeSheet1);
+                                }
+                                k++;
+                            }
+                        }
+                    }
                 }
             } finally {
                 if (writer != null) {
                     writer.finish();
+                } else {
+                    throw new ExcelExportWithoutDataException("该日期暂无数据");
                 }
             }
         } else {
@@ -490,7 +619,8 @@ public class ExcelExportService {
     public List<BamsDataDicBA> getDataBams(String deviceName, Date startTime, Date endTime) {
         return bamsDataDicBADao.query().is(DEVICE_NAME, deviceName)
                 .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+                .lessThanEquals(GENERATION_DATA_TIME, endTime)
+                .sort("{generationDataTime:-1}").results();
     }
 
     public List<AirConditionExcelBo> getAirConditionData(String deviceName, Date startTime, Date endTime) {
@@ -551,7 +681,8 @@ public class ExcelExportService {
                 is(DEVICE_NAME, deviceName)
                 .is("equipmentId", equipmentId)
                 .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+                .lessThanEquals(GENERATION_DATA_TIME, endTime)
+                .sort("{generationDataTime:-1}").results();
         List<List<Object>> list = new ArrayList<>();
         if (!CollectionUtils.isEmpty(bmsCellTempDataDics) && !bmsCellTempDataDics.isEmpty()) {
             for (BmsCellTempDataDic bmsCellTempDataDic : bmsCellTempDataDics) {
@@ -578,25 +709,25 @@ public class ExcelExportService {
     }
 
 
-
     private List getAmmeData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
         return ammeterDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId)
                 .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+                .lessThanEquals(GENERATION_DATA_TIME, endTime)
+                .sort("{generationDataTime:-1}").results();
     }
-
 
 
     private List getPcsChannelData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
         return pcsChannelDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId)
                 .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).sort("{generationDataTime:-1}").results();
     }
 
     private List getPcsCabinData(String deviceName, Date startTime, Date endTime) {
         return pcsCabinetDicDao.query().is(DEVICE_NAME, deviceName)
                 .is("equipmentId", 15)
                 .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+                .lessThanEquals(GENERATION_DATA_TIME, endTime)
+                .sort("{generationDataTime:-1}").results();
     }
 }

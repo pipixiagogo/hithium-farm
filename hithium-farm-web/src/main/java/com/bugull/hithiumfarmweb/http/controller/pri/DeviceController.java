@@ -20,8 +20,34 @@ import javax.annotation.Resource;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 储能站模块
+/**储能站模块
+ *    /**
+ *      *!!!--- 根据产线那台设备获取对应EquipmentID ---!!!
+ *      * 1:储能数据转发器
+ *      * 2:储能站消防主机
+ *      * 4:储能站电表1
+ *      * 5:储能站通信前置机
+ *      * 7:集装箱电表2
+ *      * 8:并网口电能质量
+ *      * 9:集装箱数据转发服务器1
+ *      * 10:集装箱通信前置机
+ *      * 11:集装箱配电系统1
+ *      * 12:集装箱电表1
+ *      * 13:集装箱UPS电源1
+ *      * 14:集装箱空调1
+ *      *15:集装箱PCS主控1
+ *      * 16:集装箱PCS通道1
+ *      * 17:集装箱PCS通道2
+ *      * 18-31:集装箱PCS通道16
+ *      * 32:集装箱_Pcs舱动环系统1
+ *      * 33:集装箱_Pcs舱摄像头1
+ *      * 34:集装箱_电池舱1动环系统1
+ *      * 35:集装箱_电池舱1摄像头1
+ *      * 36:集装箱电池堆
+ *      * 37-52:集装箱电池簇1-16
+ *      * 53:集装箱_电池舱2动环系统1
+ *      * 54:集装箱_电池舱2摄像头1
+ *      * 55:集装箱空调2
  */
 @RestController
 @RequestMapping(value = "/device")
@@ -113,7 +139,7 @@ public class DeviceController extends AbstractController {
     }
 
     @GetMapping(value = "/selectPriceOfPercentage")
-    @ApiOperation(value = "查询设备时间段分布百分比和单价和功率", httpMethod = "GET")
+    @ApiOperation(value = "查询设备 时间段 单价和功率的分布百分比", httpMethod = "GET")
     @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备码", dataType = "String", dataTypeClass = String.class)
     public ResHelper<Map<String, Object>> selectPriceOfPercentage(@ApiIgnore @RequestParam(value = "deviceName") String deviceName) {
         if (StringUtils.isEmpty(deviceName)) {

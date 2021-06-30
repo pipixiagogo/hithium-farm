@@ -2,6 +2,7 @@ package com.bugull.hithiumfarmweb.http.bo;
 
 import com.bugull.hithiumfarmweb.common.validator.group.AddGroup;
 import com.bugull.hithiumfarmweb.common.validator.group.UpdateGroup;
+import com.bugull.mongo.annotations.Ignore;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
@@ -14,7 +15,7 @@ public class UpdateUserBo {
     @ApiModelProperty(name = "id", required = true, example = "1", value = "用户ID")
     private Integer id;
 
-    @ApiModelProperty(name = "userName",value = "用户名称")
+    @ApiModelProperty(name = "userName", value = "用户名称")
     private String userName;
 
 //    @ApiModelProperty(name = "email", required = true, example = " ", value = "用户邮箱")
@@ -22,7 +23,13 @@ public class UpdateUserBo {
 //    @ApiModelProperty(name = "mobile", required = true, example = " ", value = "用户手机号")
 //    private String mobile;
 
-    @ApiModelProperty(name ="权限ID列表,可不传 代表无任何权限")
+    @ApiModelProperty(name = "roleIds", value = "权限ID列表,可不传 代表无任何权限")
     private List<String> roleIds;
+    @ApiModelProperty(name = "userExpireTime", value = "账号过期时间 yyyy-MM-dd")
+    private String userExpireTimeStr;
+    @ApiModelProperty(name = "remarks", value = "备注")
+    private String remarks;
+    @ApiModelProperty(name = "status", value = "账号状态")
+    private Integer status;
 
 }

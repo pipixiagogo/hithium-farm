@@ -66,6 +66,16 @@ public class PropertiesConfig {
     @Value("${excel.export.pagesize}")
     private Integer excelExportPageSize;
 
+    @Value("${remove.excel.date}")
+    private Integer removeExcelDate;
+
+    @Value("#{'${production.equipment.devicename:}'.empty ? null : '${production.equipment.devicename:}'.split(',')}")
+    private List<String> productionDeviceNameList;   //判断空 null
+
+    public Integer getRemoveExcelDate() {
+        return removeExcelDate;
+    }
+
     public Integer getExcelExportPageSize() {
         return excelExportPageSize;
     }
@@ -177,5 +187,9 @@ public class PropertiesConfig {
             }
         }
         return true;
+    }
+
+    public List<String> getProductionDeviceNameList() {
+        return productionDeviceNameList;
     }
 }

@@ -8,6 +8,8 @@ import com.alibaba.fastjson.JSONObject;
 import com.bugull.hithiumfarmweb.common.BuguPageDao;
 import com.bugull.hithiumfarmweb.common.Const;
 import com.bugull.hithiumfarmweb.config.CustomThreadFactory;
+import com.bugull.hithiumfarmweb.dao.TestExpireIndexDao;
+import com.bugull.hithiumfarmweb.entity.TestExpireIndex;
 import com.bugull.hithiumfarmweb.enumerate.DataType;
 import com.bugull.hithiumfarmweb.http.bo.StatisticBo;
 import com.bugull.hithiumfarmweb.http.bo.TimeOfPriceBo;
@@ -33,6 +35,7 @@ import com.mongodb.DBObject;
 import io.swagger.models.auth.In;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.poi.ss.formula.functions.T;
 import org.apache.shiro.crypto.hash.Sha256Hash;
 import org.junit.Test;
 import org.springframework.beans.BeanUtils;
@@ -66,6 +69,26 @@ public class HithiumFarmWebApplicationTests {
     }
 
     @Test
+    public void testWhile() {
+//        Random r = new Random(1);
+//    　　for (int i = 0; i < 5; i++){
+//    　　　　int ran1 = r.nextInt(100);
+//    　　　　System.out.println(ran1);
+//    　　}
+//        Random random = new Random();
+//        for(int i=0;i<10;i++){
+//            System.out.println(i);
+//            try {
+//                System.out.println("休息两分钟"+new Date());
+//                Thread.sleep(120000);
+//            }catch (Exception e){
+//            }
+//        }
+        int i = new Random().nextInt(40000 - 35000) + 35000;
+        System.out.println(i);
+    }
+
+    @Test
     public void createUUID() {
         String str = UUIDUtil.get32Str();
         System.out.println(str);
@@ -90,8 +113,8 @@ public class HithiumFarmWebApplicationTests {
 //        jsonObject1.put("pipixia2222222222999", s);
 //
 //        System.out.println(jsonObject);
-        int i=-1;
-        if(i == 0 || i==1){
+        int i = -1;
+        if (i == 0 || i == 1) {
             System.out.println(true);
         }
     }
@@ -174,91 +197,91 @@ public class HithiumFarmWebApplicationTests {
         /**
          * 根据当前时间查询出当前电价 计算充放电收益
          */
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.162");
-        conn2.setPort(27017);
-        conn2.setUsername("ess");
-        conn2.setPassword("ess");
-        conn2.setDatabase("ess");
-        conn2.connect();
-        SimpleDateFormat df = new SimpleDateFormat("HH:mm");
-        DeviceDao deviceDao = new DeviceDao();
-        Device device = deviceDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a").result();
-        List<TimeOfPriceBo> priceOfTime = device.getPriceOfTime();
-        Map<Integer, List<String>> map = new HashMap<>();
-        for (TimeOfPriceBo timeOfPriceBo : priceOfTime) {
-            String time = timeOfPriceBo.getTime();
-            String[] split = time.split(",");
-            List<String> list = new ArrayList<>();
-            for (String spl : split) {
-                list.add(spl);
-            }
-            map.put(timeOfPriceBo.getType(), list);
-        }
-        Map<Integer, String> typeOfMap = null;
-        try {
-            Set<Map.Entry<Integer, List<String>>> entries = map.entrySet();
-            for (Map.Entry<Integer, List<String>> entry : entries) {
-                List<String> entryValue = entry.getValue();
-                for (String value : entryValue) {
-                    String[] split = value.split("-");
-                    Calendar now = Calendar.getInstance();
-                    now.setTime(df.parse(df.format(new Date())));
-                    Calendar begin = Calendar.getInstance();
-                    begin.setTime(df.parse(split[0]));
-                    Calendar end = Calendar.getInstance();
-                    end.setTime(df.parse(split[1]));
-                    /**
-                     * 不相等时候在查看是否在区间内
-                     */
-                    if (!now.equals(begin) && !now.equals(end)) {
-                        if (now.after(begin) && now.before(end)) {
-                            System.out.println("不相等" + begin.getTime() + "---" + end.getTime());
-                            if (typeOfMap == null) {
-                                typeOfMap = new HashMap<>();
-                            }
-                            typeOfMap.put(entry.getKey(), split[0] + "-" + split[1]);
-                        }
-                    } else {
-                        /**
-                         * 相同的话  会有两个区间出来 取哪个？
-                         */
-                        if (typeOfMap == null) {
-                            typeOfMap = new HashMap<>();
-                        }
-                        typeOfMap.put(entry.getKey(), split[0] + "-" + split[1]);
-                        System.out.println("相等" + entry.getKey() + "#####" + begin.getTime() + "---" + end.getTime());
-                    }
-                }
-            }
-        } catch (Exception e) {
-
-        }
-        List<BigDecimal> bigDecimalList = null;
-        for (Map.Entry<Integer, String> entry : typeOfMap.entrySet()) {
-            Integer key = entry.getKey();
-            List<TimeOfPriceBo> ofPriceBos = priceOfTime.stream().filter(timeOfPriceBo -> {
-                return timeOfPriceBo.getType() == key;
-            }).collect(Collectors.toList());
-            BigDecimal bigDecimal = new BigDecimal(ofPriceBos.get(0).getPrice());
-            if (bigDecimalList == null) {
-                bigDecimalList = new ArrayList<>();
-            }
-            bigDecimalList.add(bigDecimal);
-        }
-        /**
-         * 放电降序取第一个  充电升序取第一个
-         */
-        bigDecimalList = bigDecimalList.stream().sorted(new Comparator<BigDecimal>() {
-            @Override
-            public int compare(BigDecimal o1, BigDecimal o2) {
-                return o2.compareTo(o1);
-            }
-        }).collect(Collectors.toList());
-
-        for (BigDecimal bigDecimal : bigDecimalList) {
-            System.out.println(bigDecimal);
-        }
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.170");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
+//        SimpleDateFormat df = new SimpleDateFormat("HH:mm");
+//        DeviceDao deviceDao = new DeviceDao();
+//        Device device = deviceDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a").result();
+//        List<TimeOfPriceBo> priceOfTime = device.getPriceOfTime();
+//        Map<Integer, List<String>> map = new HashMap<>();
+//        for (TimeOfPriceBo timeOfPriceBo : priceOfTime) {
+//            String time = timeOfPriceBo.getTime();
+//            String[] split = time.split(",");
+//            List<String> list = new ArrayList<>();
+//            for (String spl : split) {
+//                list.add(spl);
+//            }
+//            map.put(timeOfPriceBo.getType(), list);
+//        }
+//        Map<Integer, String> typeOfMap = null;
+//        try {
+//            Set<Map.Entry<Integer, List<String>>> entries = map.entrySet();
+//            for (Map.Entry<Integer, List<String>> entry : entries) {
+//                List<String> entryValue = entry.getValue();
+//                for (String value : entryValue) {
+//                    String[] split = value.split("-");
+//                    Calendar now = Calendar.getInstance();
+//                    now.setTime(df.parse(df.format(new Date())));
+//                    Calendar begin = Calendar.getInstance();
+//                    begin.setTime(df.parse(split[0]));
+//                    Calendar end = Calendar.getInstance();
+//                    end.setTime(df.parse(split[1]));
+//                    /**
+//                     * 不相等时候在查看是否在区间内
+//                     */
+//                    if (!now.equals(begin) && !now.equals(end)) {
+//                        if (now.after(begin) && now.before(end)) {
+//                            System.out.println("不相等" + begin.getTime() + "---" + end.getTime());
+//                            if (typeOfMap == null) {
+//                                typeOfMap = new HashMap<>();
+//                            }
+//                            typeOfMap.put(entry.getKey(), split[0] + "-" + split[1]);
+//                        }
+//                    } else {
+//                        /**
+//                         * 相同的话  会有两个区间出来 取哪个？
+//                         */
+//                        if (typeOfMap == null) {
+//                            typeOfMap = new HashMap<>();
+//                        }
+//                        typeOfMap.put(entry.getKey(), split[0] + "-" + split[1]);
+//                        System.out.println("相等" + entry.getKey() + "#####" + begin.getTime() + "---" + end.getTime());
+//                    }
+//                }
+//            }
+//        } catch (Exception e) {
+//
+//        }
+//        List<BigDecimal> bigDecimalList = null;
+//        for (Map.Entry<Integer, String> entry : typeOfMap.entrySet()) {
+//            Integer key = entry.getKey();
+//            List<TimeOfPriceBo> ofPriceBos = priceOfTime.stream().filter(timeOfPriceBo -> {
+//                return timeOfPriceBo.getType() == key;
+//            }).collect(Collectors.toList());
+//            BigDecimal bigDecimal = new BigDecimal(ofPriceBos.get(0).getPrice());
+//            if (bigDecimalList == null) {
+//                bigDecimalList = new ArrayList<>();
+//            }
+//            bigDecimalList.add(bigDecimal);
+//        }
+//        /**
+//         * 放电降序取第一个  充电升序取第一个
+//         */
+//        bigDecimalList = bigDecimalList.stream().sorted(new Comparator<BigDecimal>() {
+//            @Override
+//            public int compare(BigDecimal o1, BigDecimal o2) {
+//                return o2.compareTo(o1);
+//            }
+//        }).collect(Collectors.toList());
+//
+//        for (BigDecimal bigDecimal : bigDecimalList) {
+//            System.out.println(bigDecimal);
+//        }
 
     }
 
@@ -361,17 +384,17 @@ public class HithiumFarmWebApplicationTests {
         /**
          * 根据当前时间查询出当前电价 计算充放电收益
          */
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.162");
-        conn2.setPort(27017);
-        conn2.setUsername("ess");
-        conn2.setPassword("ess");
-        conn2.setDatabase("ess");
-        conn2.connect();
-        DeviceDao deviceDao = new DeviceDao();
-
-        Device result = deviceDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a").result();
-        System.out.println(result);
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.170");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
+//        DeviceDao deviceDao = new DeviceDao();
+//
+//        Device result = deviceDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a").result();
+//        System.out.println(result);
     }
 
     @Test
@@ -469,19 +492,19 @@ public class HithiumFarmWebApplicationTests {
 
     @Test
     public void testRedis() {
-        Jedis jedis = new Jedis("192.168.241.162", 6379);
-        jedis.auth("redis.hithium.pwd");
-//        Set<String> keys = jedis.keys("DEIVCE_INCOME_RECORED_广东省_*");
-//        for(String key:keys){
+//        Jedis jedis = new Jedis("192.168.241.170", 6379);
+//        jedis.auth("redis.hithium.pwd");
+////        Set<String> keys = jedis.keys("DEIVCE_INCOME_RECORED_广东省_*");
+////        for(String key:keys){
+////            System.out.println(key);
+////        }
+////        System.out.println(getDate(new Date()));
+//        Set<String> keys = jedis.keys("DEIVCE_INCOME_RECORED_2021-04-??_广东省_珠海市");
+//        System.out.println(keys.size());
+////        Set<String> keys = jedis.keys(getDate(new Date()));
+//        for (String key : keys) {
 //            System.out.println(key);
 //        }
-//        System.out.println(getDate(new Date()));
-        Set<String> keys = jedis.keys("DEIVCE_INCOME_RECORED_2021-04-??_广东省_珠海市");
-        System.out.println(keys.size());
-//        Set<String> keys = jedis.keys(getDate(new Date()));
-        for (String key : keys) {
-            System.out.println(key);
-        }
     }
 
     public String getDate(Date recordDate) {
@@ -504,53 +527,66 @@ public class HithiumFarmWebApplicationTests {
         conn2.setPassword("hithium.db.mongo");
         conn2.setDatabase("farm");
         conn2.connect();
-        DeviceDao deviceDao = new DeviceDao();
-        Device device = deviceDao.query().is("deviceName", "705780da821448599201d2f4cf68d6a1").result();
+        EquipmentDao equipmentDao = new EquipmentDao();
+        List<Equipment> equipments = equipmentDao.query().is(DEVICE_NAME, "clld3w7tdxjhvuhf6gzn60whffuy0hyj").is("enabled", true).results();
+       List<Equipment> resutlEquipment=new ArrayList<>();
 
-        List<TimeOfPriceBo> priceOfTime = device.getPriceOfTime();
-        Map<Integer, List<String>> map = new HashMap<>();
-        for (TimeOfPriceBo priceBo : priceOfTime) {
-            String[] split = priceBo.getTime().split(",");
-            List<String> list = new ArrayList<>();
-            for (String spl : split) {
-                list.add(spl);
-            }
-            map.put(priceBo.getType(), list);
-        }
-        List<PriceOfPercenVo> priceOfPercenVoList = new ArrayList<>();
-        for (Map.Entry<Integer, List<String>> entry : map.entrySet()) {
-            List<String> entryValue = entry.getValue();
-            try {
-                for (String value : entryValue) {
-                    PriceOfPercenVo priceOfPercenVo = new PriceOfPercenVo();
-                    String[] split = value.split("-");
-                    Calendar begin = Calendar.getInstance();
-                    begin.setTime(DateUtils.dateToStrWithHHmmWith(split[0]));
-                    Calendar end = Calendar.getInstance();
-                    end.setTime(DateUtils.dateToStrWithHHmmWith(split[1]));
-                    /**
-                     * 不相等时候在查看是否在区间内
-                     */
-                    String s = null;
-                    if (begin.before(end)) {
-                        s = DateUtils.timeDifferent(end.getTime(), begin.getTime());
-                    } else {
-                        Date endDate = DateUtils.addDateHours(end.getTime(), 24);
-                        s = DateUtils.timeDifferent(endDate, begin.getTime());
-                    }
-                    priceOfPercenVo.setType(entry.getKey());
-                    priceOfPercenVo.setTime(value);
-                    priceOfPercenVo.setMinute(s);
-                    priceOfPercenVoList.add(priceOfPercenVo);
-                }
-            } catch (Exception e) {
+        /**
+         * 电池簇
+         */
+        List<Equipment> bamsClusterEquipment2 = equipments.stream().
+                filter(equip -> equip.getEquipmentId() > 36 && equip.getEquipmentId() < 53).collect(Collectors.toList());
+        List<Equipment> equipment = equipments.stream().
+                filter(equip -> equip.getEquipmentId() == 34 ||  equip.getEquipmentId() == 53).collect(Collectors.toList());
+        resutlEquipment.addAll(bamsClusterEquipment2);
+        resutlEquipment.addAll(equipment);
+        System.out.println(resutlEquipment.size());
+//        Device device = deviceDao.query().is("deviceName", "705780da821448599201d2f4cf68d6a1").result();
 
-            }
-
-        }
-        for (PriceOfPercenVo priceOfPercenVo : priceOfPercenVoList) {
-            System.out.println(priceOfPercenVo);
-        }
+//        List<TimeOfPriceBo> priceOfTime = device.getPriceOfTime();
+//        Map<Integer, List<String>> map = new HashMap<>();
+//        for (TimeOfPriceBo priceBo : priceOfTime) {
+//            String[] split = priceBo.getTime().split(",");
+//            List<String> list = new ArrayList<>();
+//            for (String spl : split) {
+//                list.add(spl);
+//            }
+//            map.put(priceBo.getType(), list);
+//        }
+//        List<PriceOfPercenVo> priceOfPercenVoList = new ArrayList<>();
+//        for (Map.Entry<Integer, List<String>> entry : map.entrySet()) {
+//            List<String> entryValue = entry.getValue();
+//            try {
+//                for (String value : entryValue) {
+//                    PriceOfPercenVo priceOfPercenVo = new PriceOfPercenVo();
+//                    String[] split = value.split("-");
+//                    Calendar begin = Calendar.getInstance();
+//                    begin.setTime(DateUtils.dateToStrWithHHmmWith(split[0]));
+//                    Calendar end = Calendar.getInstance();
+//                    end.setTime(DateUtils.dateToStrWithHHmmWith(split[1]));
+//                    /**
+//                     * 不相等时候在查看是否在区间内
+//                     */
+//                    String s = null;
+//                    if (begin.before(end)) {
+//                        s = DateUtils.timeDifferent(end.getTime(), begin.getTime());
+//                    } else {
+//                        Date endDate = DateUtils.addDateHours(end.getTime(), 24);
+//                        s = DateUtils.timeDifferent(endDate, begin.getTime());
+//                    }
+//                    priceOfPercenVo.setType(entry.getKey());
+//                    priceOfPercenVo.setTime(value);
+//                    priceOfPercenVo.setMinute(s);
+//                    priceOfPercenVoList.add(priceOfPercenVo);
+//                }
+//            } catch (Exception e) {
+//
+//            }
+//
+//        }
+//        for (PriceOfPercenVo priceOfPercenVo : priceOfPercenVoList) {
+//            System.out.println(priceOfPercenVo);
+//        }
 
     }
 
@@ -569,19 +605,19 @@ public class HithiumFarmWebApplicationTests {
 
     @Test
     public void testCharNum() {
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.162");
-        conn2.setPort(27017);
-        conn2.setUsername("ess");
-        conn2.setPassword("ess");
-        conn2.setDatabase("ess");
-        conn2.connect();
-        DeviceDao deviceDao = new DeviceDao();
-        Iterable<DBObject> iterable = deviceDao.aggregate().group("{_id:null,count:{$sum:{$toDouble:'$chargeCapacitySum'}}}").results();
-        for (DBObject object : iterable) {
-            Double o = (Double) object.get("count");
-            System.out.println(o);
-        }
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.170");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
+//        DeviceDao deviceDao = new DeviceDao();
+//        Iterable<DBObject> iterable = deviceDao.aggregate().group("{_id:null,count:{$sum:{$toDouble:'$chargeCapacitySum'}}}").results();
+//        for (DBObject object : iterable) {
+//            Double o = (Double) object.get("count");
+//            System.out.println(o);
+//        }
     }
 
     /**
@@ -607,41 +643,42 @@ public class HithiumFarmWebApplicationTests {
     /**
      * 不创建对象的写
      */
-    @Test
-    public void noModelWrite() {
-        // 写法1
-        String fileName = "D://noModelWrite" + System.currentTimeMillis() + ".xlsx";
-        // 这里 需要指定写用哪个class去写，然后写到第一个sheet，名字为模板 然后文件流会自动关闭
-        EasyExcel.write(fileName).head(head()).sheet("模板").doWrite(dataList());
-    }
+//    @Test
+//    public void noModelWrite() {
+//        // 写法1
+//        String fileName = "D://noModelWrite" + System.currentTimeMillis() + ".xlsx";
+//        // 这里 需要指定写用哪个class去写，然后写到第一个sheet，名字为模板 然后文件流会自动关闭
+//        EasyExcel.write(fileName).head(head()).sheet("模板").doWrite(dataList());
+//    }
 
     private List<List<String>> head() {
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.162");
-        conn2.setPort(27017);
-        conn2.setUsername("ess");
-        conn2.setPassword("ess");
-        conn2.setDatabase("ess");
-        conn2.connect();
-        BmsCellTempDataDicDao bmsCellTempDataDicDao = new BmsCellTempDataDicDao();
-        BmsCellTempDataDic results = bmsCellTempDataDicDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a").result();
-        Map<String, Integer> tempMap = results.getTempMap();
-        List<List<String>> list = new ArrayList<List<String>>();
-        List<String> head0 = new ArrayList<String>();
-        head0.add("字符串");
-        List<String> head1 = new ArrayList<String>();
-        head1.add("数字" + System.currentTimeMillis());
-        List<String> head2 = new ArrayList<String>();
-        head2.add("日期" + System.currentTimeMillis());
-        list.add(head0);
-        list.add(head1);
-        list.add(head2);
-        for (Map.Entry<String, Integer> entry : tempMap.entrySet()) {
-            List<String> head3 = new ArrayList<String>();
-            head3.add(entry.getKey());
-            list.add(head3);
-        }
-        return list;
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.170");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
+//        BmsCellTempDataDicDao bmsCellTempDataDicDao = new BmsCellTempDataDicDao();
+//        BmsCellTempDataDic results = bmsCellTempDataDicDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a").result();
+//        Map<String, Integer> tempMap = results.getTempMap();
+//        List<List<String>> list = new ArrayList<List<String>>();
+//        List<String> head0 = new ArrayList<String>();
+//        head0.add("字符串");
+//        List<String> head1 = new ArrayList<String>();
+//        head1.add("数字" + System.currentTimeMillis());
+//        List<String> head2 = new ArrayList<String>();
+//        head2.add("日期" + System.currentTimeMillis());
+//        list.add(head0);
+//        list.add(head1);
+//        list.add(head2);
+//        for (Map.Entry<String, Integer> entry : tempMap.entrySet()) {
+//            List<String> head3 = new ArrayList<String>();
+//            head3.add(entry.getKey());
+//            list.add(head3);
+//        }
+//        return list;
+        return null;
     }
 
     private List<List<Object>> dataList() {
@@ -662,88 +699,88 @@ public class HithiumFarmWebApplicationTests {
 //        boolean matches = Const.DATE_PATTERN.matcher(time).matches();
 //        System.out.println(matches);
 //
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.162");
-        conn2.setPort(27017);
-        conn2.setUsername("ess");
-        conn2.setPassword("ess");
-        conn2.setDatabase("ess");
-        conn2.connect();
-        IncomeEntityDao incomeEntityDao = new IncomeEntityDao();
-        BuguQuery<IncomeEntity> incomeEntityBuguQuery = incomeEntityDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a");
-        Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityBuguQuery).group(INCOMEOFDAY).sort("{_id:-1}").limit(7).results();
-        List<IncomeStatisticOfDayVo> incomeStatisticOfDayVoList = new ArrayList<>();
-        if (iterable != null) {
-            for (DBObject object : iterable) {
-                String time = (String) object.get("_id");
-                Double count = Double.valueOf(object.get("count").toString());
-                IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
-                incomeStatisticOfDayVo.setDay(time);
-                incomeStatisticOfDayVo.setIncome(BigDecimal.valueOf(count).toString());
-                incomeStatisticOfDayVoList.add(incomeStatisticOfDayVo);
-            }
-        }
-
-        /**
-         * 创建 空的List<IncomeStatisticOfDayVo></>  将有值的替换 无值的为空  年份就先创建3年吧  月份6个月  天数7天
-         */
-        List<IncomeStatisticOfDayVo> incomeStatisticOfDayVos = new ArrayList<>();
-
-
-        for (int i = 0; i < 7; i++) {
-            IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
-            incomeStatisticOfDayVo.setDay(DateUtils.format(DateUtils.addDateDays(new Date(), -i)));
-            incomeStatisticOfDayVos.add(incomeStatisticOfDayVo);
-        }
-
-        for (IncomeStatisticOfDayVo incomeStatisticOfDayVo : incomeStatisticOfDayVos) {
-            for (IncomeStatisticOfDayVo statisticOfDayVo : incomeStatisticOfDayVoList) {
-                if (incomeStatisticOfDayVo.getDay().equals(statisticOfDayVo.getDay())) {
-                    incomeStatisticOfDayVo.setIncome(statisticOfDayVo.getIncome());
-                }
-            }
-        }
-
-        System.out.println(incomeStatisticOfDayVos.isEmpty());
-        List<String> device = new ArrayList<>();
-        System.out.println(device.isEmpty());
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.170");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
+//        IncomeEntityDao incomeEntityDao = new IncomeEntityDao();
+//        BuguQuery<IncomeEntity> incomeEntityBuguQuery = incomeEntityDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a");
+//        Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityBuguQuery).group(INCOMEOFDAY).sort("{_id:-1}").limit(7).results();
+//        List<IncomeStatisticOfDayVo> incomeStatisticOfDayVoList = new ArrayList<>();
+//        if (iterable != null) {
+//            for (DBObject object : iterable) {
+//                String time = (String) object.get("_id");
+//                Double count = Double.valueOf(object.get("count").toString());
+//                IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
+//                incomeStatisticOfDayVo.setDay(time);
+//                incomeStatisticOfDayVo.setIncome(BigDecimal.valueOf(count).toString());
+//                incomeStatisticOfDayVoList.add(incomeStatisticOfDayVo);
+//            }
+//        }
+//
+//        /**
+//         * 创建 空的List<IncomeStatisticOfDayVo></>  将有值的替换 无值的为空  年份就先创建3年吧  月份6个月  天数7天
+//         */
+//        List<IncomeStatisticOfDayVo> incomeStatisticOfDayVos = new ArrayList<>();
+//
+//
+//        for (int i = 0; i < 7; i++) {
+//            IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
+//            incomeStatisticOfDayVo.setDay(DateUtils.format(DateUtils.addDateDays(new Date(), -i)));
+//            incomeStatisticOfDayVos.add(incomeStatisticOfDayVo);
+//        }
+//
+//        for (IncomeStatisticOfDayVo incomeStatisticOfDayVo : incomeStatisticOfDayVos) {
+//            for (IncomeStatisticOfDayVo statisticOfDayVo : incomeStatisticOfDayVoList) {
+//                if (incomeStatisticOfDayVo.getDay().equals(statisticOfDayVo.getDay())) {
+//                    incomeStatisticOfDayVo.setIncome(statisticOfDayVo.getIncome());
+//                }
+//            }
+//        }
+//
+//        System.out.println(incomeStatisticOfDayVos.isEmpty());
+//        List<String> device = new ArrayList<>();
+//        System.out.println(device.isEmpty());
     }
 
     @Test
     public void testArraysList() {
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.162");
-        conn2.setPort(27017);
-        conn2.setUsername("ess");
-        conn2.setPassword("ess");
-        conn2.setDatabase("ess");
-        conn2.connect();
-        DeviceDao deviceDao = new DeviceDao();
-        Device device = deviceDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a").result();
-        Map<Integer, List<String>> map = new HashMap<>();
-        for (TimeOfPriceBo priceBo : device.getPriceOfTime()) {
-            String[] split = priceBo.getTime().split(",");
-            List<String> list = new ArrayList<>();
-            for (String spl : split) {
-                list.add(spl);
-            }
-            map.put(priceBo.getType(), list);
-        }
-
-        System.out.println(map.size());
-
-
-        Map<Integer, List<String>> map2 = new HashMap<>();
-        for (TimeOfPriceBo priceBo : device.getPriceOfTime()) {
-            String[] split = priceBo.getTime().split(",");
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.170");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
+//        DeviceDao deviceDao = new DeviceDao();
+//        Device device = deviceDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a").result();
+//        Map<Integer, List<String>> map = new HashMap<>();
+//        for (TimeOfPriceBo priceBo : device.getPriceOfTime()) {
+//            String[] split = priceBo.getTime().split(",");
 //            List<String> list = new ArrayList<>();
 //            for (String spl : split) {
 //                list.add(spl);
 //            }
-            map2.put(priceBo.getType(), Arrays.asList(split));
-        }
-
-        System.out.println(map2.size());
+//            map.put(priceBo.getType(), list);
+//        }
+//
+//        System.out.println(map.size());
+//
+//
+//        Map<Integer, List<String>> map2 = new HashMap<>();
+//        for (TimeOfPriceBo priceBo : device.getPriceOfTime()) {
+//            String[] split = priceBo.getTime().split(",");
+////            List<String> list = new ArrayList<>();
+////            for (String spl : split) {
+////                list.add(spl);
+////            }
+//            map2.put(priceBo.getType(), Arrays.asList(split));
+//        }
+//
+//        System.out.println(map2.size());
     }
 
     @Test
@@ -766,13 +803,13 @@ public class HithiumFarmWebApplicationTests {
 
     @Test
     public void testCalc() throws InterruptedException {
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.162");
-        conn2.setPort(27017);
-        conn2.setUsername("ess");
-        conn2.setPassword("ess");
-        conn2.setDatabase("ess");
-        conn2.connect();
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.170");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
 
 //        int i=-1;
 //        int y=-1;
@@ -847,21 +884,118 @@ public class HithiumFarmWebApplicationTests {
 
     @Test
     public void testCalc2() throws InterruptedException {
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.162");
-        conn2.setPort(27017);
-        conn2.setUsername("ess");
-        conn2.setPassword("ess");
-        conn2.setDatabase("ess");
-        conn2.connect();
-        //TODO delete 删除超过一个月的excel
-        ExportRecordDao exportRecordDao = new ExportRecordDao();
-        List<ExportRecord> exportRecords = exportRecordDao.query().lessThanEquals("recordTime", new Date()).results();
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.170");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
+//        //TODO delete 删除超过一个月的excel
+//        ExportRecordDao exportRecordDao = new ExportRecordDao();
+//        List<ExportRecord> exportRecords = exportRecordDao.query().lessThanEquals("recordTime", new Date()).results();
+//
+//        BuguFS fs = BuguFSFactory.getInstance().create();
+//        for (ExportRecord exportRecord : exportRecords) {
+//            fs.remove(exportRecord.getFilename());
+//            exportRecordDao.remove(exportRecord);
+//        }
+    }
 
-        BuguFS fs = BuguFSFactory.getInstance().create();
-        for(ExportRecord exportRecord:exportRecords){
-            fs.remove(exportRecord.getFilename());
-            exportRecordDao.remove(exportRecord);
+    @Test
+    public void applyTime() {
+        Date date = new Date();
+        Date dateMinutes = DateUtils.addDateMinutes(date, -1);
+        boolean before = date.before(dateMinutes);
+        System.out.println(date.after(dateMinutes));
+        System.out.println(before);
+//        int i = new Random().nextInt(1000 - 0) + 0;
+//        System.out.println(i);
+    }
+
+    @Test
+    public void testList() {
+        List<Device> deviceList = new ArrayList<>();
+        Device device = new Device();
+        device.setDeviceName("123");
+        device.setName("321");
+        deviceList.add(device);
+        List<Device> deviceList1 = new ArrayList<>();
+        for (Device device1 : deviceList) {
+            device1.setDeviceName("987");
+            device1.setName("987");
+            deviceList1.add(device1);
         }
+        for (Device device1 : deviceList1) {
+            System.out.println(device1.getDeviceName());
+        }
+    }
+
+    @Test
+    public void testPattern() {
+        String patten1 = "^(?![a-zA-Z]+$)(?![A-Z0-9]+$)(?![A-Z\\W_]+$)(?![a-z0-9]+$)(?![a-z\\W_]+$)(?![0-9\\W_]+$)[a-zA-Z0-9\\W_]{9,}$";
+        String patten2 = "^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])[a-zA-Z0-9]{8,31}$";
+        String patten3 = "^[a-z0-9A-Z]+$";
+        // 匹配数字、字母 密码的正则表达式
+        String patten = "^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{8,12}$";
+
+        String password1 = "fuiang123ggg22";      // false
+        String password2 = "Fukanggggg2222";  // false
+        String password3 = "fuKang123";   // false
+        String password4 = "Fukg12356";   // true
+        String password5 = "##Fuk%%22";     // false
+        String password6 = "###fu123kang%%"; // false
+        String password7 = "66FFFFFFFFFFff";// false
+
+        System.out.println(password1.matches(patten));
+        System.out.println(password2.matches(patten));
+        System.out.println(password3.matches(patten));
+        System.out.println(password4.matches(patten));
+        System.out.println(password5.matches(patten));
+        System.out.println(password6.matches(patten));
+        System.out.println(password7.matches(patten));
+    }
+
+    @Test
+    public void expireTime() {
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.170");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
+//        TestExpireIndex testExpireIndex = new TestExpireIndex();
+////        testExpireIndex.setExpireTime(new Date());
+//        testExpireIndex.setName("李四");
+//        TestExpireIndexDao testExpireIndexDao = new TestExpireIndexDao();
+//        testExpireIndexDao.insert(testExpireIndex);
+    }
+    @Test
+    public void testRun(){
+        for(int i=0;i<100;i++){
+            int j = new Random().nextInt(40000 - 35000) + 35000;
+            System.out.println(j);
+        }
+    }
+    @Test
+    public void testPassword(){
+        String match="^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{6,8}$";
+        String password1="gg1234561";
+        String password2="123456gg3";
+        String password3="22atqYYY";
+        String password4="2AaAa7";
+        String password5="AaAaAa12";
+        String password6="...222aa";
+        String password7="aa123456";
+        System.out.println(password1.matches(match));
+        System.out.println(password2.matches(match));
+        System.out.println(password3.matches(match));
+        System.out.println(password4.matches(match));
+        System.out.println(password5.matches(match));
+        System.out.println(password6.matches(match));
+        System.out.println(password7.matches(match));
+        boolean matches = DATE_PATTERN.matcher("").matches();
+        System.out.println(matches);
     }
 }

@@ -32,8 +32,6 @@ public class ResHelper<T> {
 
     private boolean success;
 
-
-
     public static ResHelper pamIll() {
         return ResHelper.error(PARAM_ILL);
     }

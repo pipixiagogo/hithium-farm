@@ -25,4 +25,13 @@ public class InfoUserVo {
 
     @ApiModelProperty(value = "角色实体类")
     private List<RoleEntityOfUserBo> roleEntityLsit;
+    //    账号状态  0：禁用   1：正常
+    @ApiModelProperty(value = "账号状态")
+    private Integer status;
+    @ApiModelProperty(name ="remarks",value = "备注")
+    private String remarks;
+    @ApiModelProperty(name = "userExpireTime",value = "用户过期时间")
+    private Date userExpireTime;
+
+
 }

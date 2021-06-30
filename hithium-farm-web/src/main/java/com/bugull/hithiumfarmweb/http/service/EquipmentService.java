@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.service;
 
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
+import com.bugull.hithiumfarmweb.common.Const;
 import com.bugull.hithiumfarmweb.http.dao.DeviceDao;
 import com.bugull.hithiumfarmweb.http.dao.EquipmentDao;
 import com.bugull.hithiumfarmweb.http.entity.Equipment;
@@ -19,15 +20,11 @@ public class EquipmentService {
     @Resource
     private EquipmentDao equipmentDao;
 
-    @Resource
-    private DeviceDao deviceDao;
-
     public ResHelper<BuguPageQuery.Page<Equipment>> queryEquipment(Map<String, Object> params) {
-
         BuguPageQuery<Equipment> query =  equipmentDao.pageQuery();
-        String deviceName=(String) params.get("deviceName");
+        String deviceName=(String) params.get(Const.DEVICE_NAME);
         if(!StringUtils.isEmpty(deviceName)){
-            query.is("deviceName",deviceName);
+            query.is(Const.DEVICE_NAME,deviceName);
         }
         query.is("enabled",true);
         if(!PagetLimitUtil.pageLimit(query, params)){

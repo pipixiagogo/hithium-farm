@@ -10,6 +10,7 @@ import com.bugull.mongo.BuguEntity;
 import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
+import com.bugull.mongo.annotations.Id;
 import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
@@ -23,6 +24,7 @@ import java.util.Date;
 @EnsureIndex("{deviceName:1}")
 public class FireControlDataDic implements BuguEntity {
     @ExcelIgnore
+    @Id
     private String id;
     //储能站设备唯一标识
     @ExcelIgnore

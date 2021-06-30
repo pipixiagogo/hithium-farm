@@ -12,8 +12,9 @@ import java.util.regex.Pattern;
  * 常量类
  */
 public class Const {
-
+    public static final String PASSWORD_PATTERN = "^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{6,8}$";
     public static final String DEVICE_NAME="deviceName";
+    public static final String EQUIPMENT_ID="equipmentId";
     public static final String STATUS="status";
     public static final String GENERATION_DATA_TIME="generationDataTime";
     public static final String PROVINCE="province";

@@ -193,7 +193,7 @@ public class BreakDownLogService {
             breakDownLogBuguQuery.is(STATUS, status);
         }
         List<BreakDownLog> breakDownLogList = breakDownLogBuguQuery.greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+                .lessThanEquals(GENERATION_DATA_TIME, endTime).sort("{generationDataTime:-1}").results();
         if (!CollectionUtils.isEmpty(breakDownLogList) && !breakDownLogList.isEmpty()) {
             List<BreakDownLogVo> breakDownLogBos = breakDownLogList.stream().map(data -> {
                 BreakDownLogVo breakDownLogVo = new BreakDownLogVo();

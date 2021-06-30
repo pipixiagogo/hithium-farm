@@ -6,6 +6,7 @@ import com.bugull.hithiumfarmweb.http.excelConverter.EquipStatusConverter;
 import com.bugull.mongo.BuguEntity;
 import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.Entity;
+import com.bugull.mongo.annotations.Id;
 import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
@@ -19,6 +20,7 @@ import java.util.Date;
 public class UpsPowerDataDic implements BuguEntity {
 
     @ExcelIgnore
+    @Id
     private String id;
     @ExcelIgnore
     private String deviceName;

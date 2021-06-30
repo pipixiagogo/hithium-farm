@@ -2,6 +2,7 @@ package com.bugull.hithiumfarmweb.http.controller.pub;
 
 import com.bugull.hithiumfarmweb.common.validator.ValidatorUtils;
 import com.bugull.hithiumfarmweb.common.validator.group.UpdateGroup;
+import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.bo.LoginFormBo;
 import com.bugull.hithiumfarmweb.http.service.CaptchaService;
 import com.bugull.hithiumfarmweb.http.service.SysUserService;
@@ -19,6 +20,7 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * 登录模块
@@ -42,7 +44,6 @@ public class LoginController{
         response.setContentType("image/jpeg");
         //获取图片验证码
         BufferedImage image = captchaService.getCaptcha(uuid);
-
         ServletOutputStream out = response.getOutputStream();
         ImageIO.write(image, "jpg", out);
         IOUtils.closeQuietly(out);

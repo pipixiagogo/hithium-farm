@@ -58,6 +58,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<AmmeterDataDic>> ammeterDataQuery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.ammeterDataQuery(params);
@@ -71,6 +72,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class),
     })
     public ResHelper<BuguPageQuery.Page<BamsDataDicBA>> bamsDataquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.bamsDataquery(params);
@@ -84,6 +86,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<BmsCellTempDataDic>> bmsTempDataquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.bmsTempDataquery(params);
@@ -97,6 +100,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<BmsCellVoltDataDic>> bmsVoltDataquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.bmsVoltDataquery(params);
@@ -110,6 +114,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<BcuDataDicBCU>> bcuDataquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.bcuDataquery(params);
@@ -123,6 +128,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<PcsCabinetDic>> pcsCabinetquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.pcsCabinetquery(params);
@@ -136,6 +142,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<PcsChannelDic>> pcsChannelquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.pcsChannelquery(params);
@@ -149,12 +156,13 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<AirConditionDataDic>> airConditionquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.airConditionquery(params);
     }
 
-    @ApiOperation(value = "温度计数据查询", httpMethod = "GET")
+    @ApiOperation(value = "动环系统数据查询", httpMethod = "GET")
     @GetMapping(value = "/temperatureMeterquery")
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -162,6 +170,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<TemperatureMeterDataDic>> temperatureMeterquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.temperatureMeterquery(params);
@@ -175,6 +184,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<FireControlDataDic>> fileControlquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.fileControlquery(params);
@@ -188,6 +198,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<UpsPowerDataDic>> upsPowerquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.upsPowerquery(params);
@@ -272,7 +283,7 @@ public class RealTimeDataController extends AbstractController {
             response.setCharacterEncoding("utf-8");
             fileName = URLEncoder.encode(fileName, "UTF-8").replaceAll("\\+", "%20");
             response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
-            if(StringUtils.isEmpty(time)){
+            if (StringUtils.isEmpty(time)) {
                 throw new ParamsValidateException("时间参数为空");
             }
             DBObject query = new BasicDBObject();

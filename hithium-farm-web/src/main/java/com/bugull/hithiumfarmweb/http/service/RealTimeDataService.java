@@ -23,6 +23,7 @@ import com.bugull.hithiumfarmweb.utils.ResHelper;
 import com.bugull.mongo.fs.Uploader;
 import com.bugull.mongo.utils.MapperUtil;
 import com.mongodb.DBObject;
+import io.swagger.models.auth.In;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +72,8 @@ public class RealTimeDataService {
     private FireControlDataDicDao fireControlDataDicDao;
     @Resource
     private UpsPowerDataDicDao upsPowerDataDicDao;
+    @Resource
+    private PropertiesConfig propertiesConfig;
 
     public ResHelper<BuguPageQuery.Page<AmmeterDataDic>> ammeterDataQuery(Map<String, Object> params) {
         BuguPageQuery<AmmeterDataDic> query = ammeterDataDicDao.pageQuery();
@@ -96,6 +99,12 @@ public class RealTimeDataService {
         String deviceName = (String) params.get(DEVICE_NAME);
         if (!StringUtils.isEmpty(deviceName)) {
             query.is(DEVICE_NAME, deviceName);
+        }
+        Integer equipmentId = Integer.valueOf((String) params.get(EQUIPMENT_ID));
+        if (equipmentId != null) {
+            query.is(EQUIPMENT_ID, equipmentId);
+        }else {
+            return false;
         }
         if (!PagetLimitUtil.pageLimit(query, params)) return false;
         if (!PagetLimitUtil.orderField(query, params)) return false;
@@ -347,35 +356,62 @@ public class RealTimeDataService {
         if (StringUtils.isEmpty(deviceName) || equipmentId == null) {
             return ResHelper.pamIll();
         }
-        if (equipmentId == 1) {
-            return ResHelper.success("", stationInfoQuery(fireControlDataDicDao, deviceName, equipmentId));
-        }
-        if (equipmentId == 3 || equipmentId == 6 || equipmentId == 11) {
-            return ResHelper.success("", stationInfoQuery(ammeterDataDicDao, deviceName, equipmentId));
-        }
-        if (equipmentId == 12) {
-            return ResHelper.success("", stationInfoQuery(upsPowerDataDicDao, deviceName, equipmentId));
-        }
-        if (equipmentId == 13) {
-            return ResHelper.success("", stationInfoQuery(airConditionDataDicDao, deviceName, equipmentId));
-        }
-        if (equipmentId == 14) {
-            return ResHelper.success("", stationInfoQuery(bamsDataDicBADao, deviceName, equipmentId));
+        if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+            if (equipmentId == 2) {
+                return ResHelper.success("", stationInfoQuery(fireControlDataDicDao, deviceName, equipmentId));
+            }
+            if (equipmentId == 4 || equipmentId == 7 || equipmentId == 12) {
+                return ResHelper.success("", stationInfoQuery(ammeterDataDicDao, deviceName, equipmentId));
+            }
+            if (equipmentId == 13) {
+                return ResHelper.success("", stationInfoQuery(upsPowerDataDicDao, deviceName, equipmentId));
+            }
+            if (equipmentId == 14 || equipmentId == 55) {
+                return ResHelper.success("", stationInfoQuery(airConditionDataDicDao, deviceName, equipmentId));
+            }
+            if (equipmentId == 36) {
+                return ResHelper.success("", stationInfoQuery(bamsDataDicBADao, deviceName, equipmentId));
+            }
+            if (equipmentId == 32 || equipmentId == 34 || equipmentId == 53) {
+                return ResHelper.success("", stationInfoQuery(temperatureMeterDataDicDao, deviceName, equipmentId));
+            }
+            if (equipmentId > 36 && equipmentId < 53) {
+                /**
+                 * 电池簇信息  bcudata、bmscelltemp、bmscellvol
+                 */
+                return ResHelper.success("", bcuDataVolTemp(deviceName, equipmentId));
+            }
+        } else {
+            if (equipmentId == 1) {
+                return ResHelper.success("", stationInfoQuery(fireControlDataDicDao, deviceName, equipmentId));
+            }
+            if (equipmentId == 3 || equipmentId == 6 || equipmentId == 11) {
+                return ResHelper.success("", stationInfoQuery(ammeterDataDicDao, deviceName, equipmentId));
+            }
+            if (equipmentId == 12) {
+                return ResHelper.success("", stationInfoQuery(upsPowerDataDicDao, deviceName, equipmentId));
+            }
+            if (equipmentId == 13) {
+                return ResHelper.success("", stationInfoQuery(airConditionDataDicDao, deviceName, equipmentId));
+            }
+            if (equipmentId == 14) {
+                return ResHelper.success("", stationInfoQuery(bamsDataDicBADao, deviceName, equipmentId));
+            }
+            if (equipmentId == 32 || equipmentId == 34 || equipmentId == 44) {
+                return ResHelper.success("", stationInfoQuery(temperatureMeterDataDicDao, deviceName, equipmentId));
+            }
+            if (equipmentId > 35 && equipmentId < 54) {
+                /**
+                 * 电池簇信息  bcudata、bmscelltemp、bmscellvol
+                 */
+                return ResHelper.success("", bcuDataVolTemp(deviceName, equipmentId));
+            }
         }
         if (equipmentId == 15) {
             return ResHelper.success("", stationInfoQuery(pcsCabinetDicDao, deviceName, equipmentId));
         }
         if (equipmentId > 15 && equipmentId < 32) {
             return ResHelper.success("", stationInfoQuery(pcsChannelDicDao, deviceName, equipmentId));
-        }
-        if (equipmentId == 32 || equipmentId == 34 || equipmentId == 44) {
-            return ResHelper.success("", stationInfoQuery(temperatureMeterDataDicDao, deviceName, equipmentId));
-        }
-        if (equipmentId > 35 && equipmentId < 54) {
-            /**
-             * 电池簇信息  bcudata、bmscelltemp、bmscellvol
-             */
-            return ResHelper.success("", bcuDataVolTemp(deviceName, equipmentId));
         }
         return ResHelper.success("");
     }

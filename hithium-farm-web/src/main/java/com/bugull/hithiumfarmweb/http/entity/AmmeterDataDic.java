@@ -7,6 +7,7 @@ import com.bugull.mongo.BuguEntity;
 import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
+import com.bugull.mongo.annotations.Id;
 import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
@@ -39,6 +40,7 @@ public class AmmeterDataDic implements BuguEntity {
      * 设备名称
      */
     @ExcelIgnore
+    @Id
     private String id;
     @ExcelProperty(value = "设备名称")
     private String name;

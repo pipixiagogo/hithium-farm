@@ -26,13 +26,11 @@ import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.text.ParseException;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.bugull.hithiumfarmweb.common.Const.*;
 import static com.bugull.hithiumfarmweb.utils.DateUtils.DAY_OF_SECONDS;
 import static com.bugull.hithiumfarmweb.utils.DateUtils.HOUR_OF_SECONDS;
-import static com.sun.deploy.cache.Cache.exists;
 
 @Service
 public class DeviceService {
@@ -41,10 +39,6 @@ public class DeviceService {
     private DeviceDao deviceDao;
     @Resource
     private PccsDao pccsDao;
-    @Resource
-    private CubeDao cubeDao;
-    @Resource
-    private CabinDao cabinDao;
     @Resource
     private DeviceAreaEntityDao deviceAreaEntityDao;
     @Resource
@@ -112,37 +106,54 @@ public class DeviceService {
             List<EquipmentBo> equipmentBos = new ArrayList<>();
             equipmentBo.setEquipmentBo(equipmentBos);
             List<Pccs> pccsList = pccsDao.query().is(DEVICE_NAME, deviceName).is("stationId", device.getStationId()).results();
+
             pccsList.stream().forEach(pccs -> {
                 EquipmentBo equipment = new EquipmentBo();
                 equipment.setName(pccs.getName());
                 equipment.setId(pccs.getId());
                 List<EquipmentBo> equipmentBoList = new ArrayList<>();
                 equipment.setEquipmentBo(equipmentBoList);
-
-
                 /**
                  * 并网口后下级目录   电池堆、PCS、其他、电表
                  */
-
                 List<Equipment> equipments = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).results();
                 /**
                  * 电池堆
                  */
-                List<Equipment> bamsEquipments = equipments.stream().
-                        filter(equip -> equip.getEquipmentId() == 14).collect(Collectors.toList());
+                List<Equipment> bamsEquipments;
+                if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+                    bamsEquipments = equipments.stream().
+                            filter(equip -> equip.getEquipmentId() == 36).collect(Collectors.toList());
+                } else {
+                    bamsEquipments = equipments.stream().
+                            filter(equip -> equip.getEquipmentId() == 14).collect(Collectors.toList());
+                }
                 Equipment bamsEquipment = bamsEquipments.get(0);
                 EquipmentBo equipmentBoOfBams = new EquipmentBo();
                 BeanUtils.copyProperties(bamsEquipment, equipmentBoOfBams);
                 equipmentBoList.add(equipmentBoOfBams);
-                List<Equipment> bamsClusterEquipment = equipments.stream().
-                        filter(equip -> equip.getEquipmentId() > 35 && equip.getEquipmentId() < 54).collect(Collectors.toList());
+                List<Equipment> bamsClusterEquipment = new ArrayList<>();
+                if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+                    List<Equipment> clusterEquipment = equipments.stream().
+                            filter(equip -> equip.getEquipmentId() > 36 && equip.getEquipmentId() < 53).collect(Collectors.toList());
+                    List<Equipment> cabinEquipment = equipments.stream().
+                            filter(equip -> equip.getEquipmentId() == 34 || equip.getEquipmentId() == 35 || equip.getEquipmentId() == 53 || equip.getEquipmentId() == 54).collect(Collectors.toList());
+                    bamsClusterEquipment.addAll(clusterEquipment);
+                    bamsClusterEquipment.addAll(cabinEquipment);
+                } else {
+                    List<Equipment> clusterEquipment  = equipments.stream().
+                            filter(equip -> equip.getEquipmentId() > 35 && equip.getEquipmentId() < 54 && equip.getEquipmentId() != 44 && equip.getEquipmentId()!=45).collect(Collectors.toList());
+                    List<Equipment> cabinEquipment = equipments.stream().
+                            filter(equip -> equip.getEquipmentId() == 34 || equip.getEquipmentId() == 35 || equip.getEquipmentId() == 44 || equip.getEquipmentId() == 45).collect(Collectors.toList());
+                    bamsClusterEquipment.addAll(clusterEquipment);
+                    bamsClusterEquipment.addAll(cabinEquipment);
+                }
                 List<EquipmentBo> bos = bamsClusterEquipment.stream().map(clusterEquipment -> {
                     EquipmentBo equipOfBo = new EquipmentBo();
                     BeanUtils.copyProperties(clusterEquipment, equipOfBo);
                     return equipOfBo;
                 }).collect(Collectors.toList());
                 equipmentBoOfBams.setEquipmentBo(bos);
-
                 /**
                  * PCS
                  */
@@ -150,7 +161,7 @@ public class DeviceService {
                         filter(equip -> equip.getEquipmentId() == 15).collect(Collectors.toList());
                 Equipment pcsCabnet = pcsCabinetEquipments.get(0);
                 List<Equipment> pcsChannelEquipments = equipments.stream()
-                        .filter(equip -> equip.getEquipmentId() > 15 && equip.getEquipmentId() < 32).collect(Collectors.toList());
+                        .filter(equip -> equip.getEquipmentId() > 15 && equip.getEquipmentId() < 34).collect(Collectors.toList());
                 List<EquipmentBo> boList = pcsChannelEquipments.stream().map(pcsChannelEquipment -> {
                     EquipmentBo equip = new EquipmentBo();
                     BeanUtils.copyProperties(pcsChannelEquipment, equip);
@@ -159,32 +170,72 @@ public class DeviceService {
                 EquipmentBo pcsCabinetBo = new EquipmentBo();
                 BeanUtils.copyProperties(pcsCabnet, pcsCabinetBo);
                 pcsCabinetBo.setEquipmentBo(boList);
-
                 equipmentBoList.add(pcsCabinetBo);
                 /**
                  * 电表
                  */
                 EquipmentBo ammeterBo = new EquipmentBo();
                 ammeterBo.setName("电表");
-                List<Equipment> ammeterEquipments = equipments.stream().
-                        filter(equip -> equip.getEquipmentId() == 3 || equip.getEquipmentId() == 6 || equip.getEquipmentId() == 11)
-                        .collect(Collectors.toList());
+                List<Equipment> ammeterEquipments;
+                if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+                    ammeterEquipments = equipments.stream().
+                            filter(equip -> equip.getEquipmentId() == 4 || equip.getEquipmentId() == 7 || equip.getEquipmentId() == 12)
+                            .collect(Collectors.toList());
+                } else {
+                    ammeterEquipments = equipments.stream().
+                            filter(equip -> equip.getEquipmentId() == 3 || equip.getEquipmentId() == 6 || equip.getEquipmentId() == 11)
+                            .collect(Collectors.toList());
+                }
                 List<EquipmentBo> equipmentBoList1 = ammeterEquipments.stream().map(ammeterEquipment -> {
                     EquipmentBo equip = new EquipmentBo();
                     BeanUtils.copyProperties(ammeterEquipment, equip);
                     return equip;
                 }).collect(Collectors.toList());
                 ammeterBo.setEquipmentBo(equipmentBoList1);
-
                 equipmentBoList.add(ammeterBo);
+                /**
+                 * 消防主机
+                 */
+                EquipmentBo fireEquipmentBo = new EquipmentBo();
+                if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+                    List<Equipment> fireEquipments = equipments.stream().filter(equip ->
+                            equip.getEquipmentId() == 2
+                    ).collect(Collectors.toList());
+                    if (!CollectionUtils.isEmpty(fireEquipments) && !fireEquipments.isEmpty()) {
+                        Equipment fireEquipment = fireEquipments.get(0);
+                        fireEquipmentBo.setName(fireEquipment.getName());
+                        fireEquipmentBo.setEquipmentId(2);
+                        fireEquipmentBo.setEquipmentBo(null);
+                    }
+                } else {
+                    List<Equipment> fireEquipments = equipments.stream().filter(equip ->
+                            equip.getEquipmentId() == 1
+                    ).collect(Collectors.toList());
+                    if (!CollectionUtils.isEmpty(fireEquipments) && !fireEquipments.isEmpty()) {
+                        Equipment fireEquipment = fireEquipments.get(0);
+                        fireEquipmentBo.setName(fireEquipment.getName());
+                        fireEquipmentBo.setEquipmentId(1);
+                        fireEquipmentBo.setEquipmentBo(null);
+                    }
+                }
+                if (!StringUtils.isEmpty(fireEquipmentBo.getName())) {
+                    equipmentBoList.add(fireEquipmentBo);
+                }
                 /**
                  * 附属表
                  */
                 EquipmentBo subsidiaryBo = new EquipmentBo();
                 subsidiaryBo.setName("附属件");
-                List<Equipment> subsidiaryEquipments = equipments.stream().
-                        filter(equip -> equip.getEquipmentId() == 1 || equip.getEquipmentId() == 12 || equip.getEquipmentId() == 13)
-                        .collect(Collectors.toList());
+                List<Equipment> subsidiaryEquipments;
+                if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+                    subsidiaryEquipments = equipments.stream().
+                            filter(equip -> equip.getEquipmentId() == 13 || equip.getEquipmentId() == 14 || equip.getEquipmentId() == 55)
+                            .collect(Collectors.toList());
+                } else {
+                    subsidiaryEquipments = equipments.stream().
+                            filter(equip -> equip.getEquipmentId() == 1 || equip.getEquipmentId() == 12 || equip.getEquipmentId() == 13)
+                            .collect(Collectors.toList());
+                }
                 List<EquipmentBo> subsidiaryEquipBo = subsidiaryEquipments.stream().map(subsidiaryEquipment -> {
                     EquipmentBo equipmentBo1 = new EquipmentBo();
                     BeanUtils.copyProperties(subsidiaryEquipment, equipmentBo1);
@@ -192,54 +243,6 @@ public class DeviceService {
                 }).collect(Collectors.toList());
                 subsidiaryBo.setEquipmentBo(subsidiaryEquipBo);
                 equipmentBoList.add(subsidiaryBo);
-
-
-//                List<Cube> cubes = cubeDao.query().is("deviceName", deviceName).is("stationId", device.getStationId())
-//                        .is("pccId", pccs.getPccsId()).results();
-//                cubes.stream().forEach(cube -> {
-//                    EquipmentBo equipm = new EquipmentBo();
-//                    equipm.setName(cube.getName());
-//                    equipm.setId(cube.getId());
-//                    List<Cabin> cabinList = cabinDao.query().is("deviceName", deviceName)
-//                            .is("stationId", device.getStationId())
-//                            .is("pccId", pccs.getPccsId()).is("cubeId", cube.getCubeId())
-//                            .results();
-//                    List<EquipmentBo> boList = new ArrayList<>();
-//                    cabinList.stream().forEach(cabin -> {
-//                        EquipmentBo mentBo = new EquipmentBo();
-//                        mentBo.setName(cabin.getName());
-//                        mentBo.setId(cabin.getId());
-//                        List<EquipmentBo> bos = new ArrayList<>();
-//                        List<Equipment> ment = equipmentDao.query().is("enabled", true).in("_id", cabin.getEquipmentIds())
-//                                .returnFields("name", "equipmentId", "_id").results();
-//                        ment.stream().forEach(men -> {
-//                            EquipmentBo menBo = new EquipmentBo();
-//                            menBo.setName(men.getName());
-//                            menBo.setId(men.getId());
-//                            menBo.setEquipmentBo(null);
-//                            menBo.setEquipmentId(men.getEquipmentId());
-//                            bos.add(menBo);
-//                        });
-//                        if (!CollectionUtils.isEmpty(bos) && bos.size() > 0) {
-//                            mentBo.setEquipmentBo(bos);
-//                        }
-//                        boList.add(mentBo);
-//                    });
-//                    List<Equipment> equip = equipmentDao.query().is("enabled", true).in("_id", cube.getEquipmentIds())
-//                            .returnFields("name", "equipmentId", "_id").results();
-//                    equip.stream().forEach(equ -> {
-//                        EquipmentBo ipmentBo = new EquipmentBo();
-//                        ipmentBo.setName(equ.getName());
-//                        ipmentBo.setId(equ.getId());
-//                        ipmentBo.setEquipmentBo(null);
-//                        ipmentBo.setEquipmentId(equ.getEquipmentId());
-//                        equipmentBoList.add(ipmentBo);
-//                    });
-//                    equipm.setEquipmentBo(boList);
-//                    if (!CollectionUtils.isEmpty(equipm.getEquipmentBo()) && equipm.getEquipmentBo().size() > 0) {
-//                        equipmentBoList.add(equipm);
-//                    }
-//                });
                 equipmentBos.add(equipment);
                 List<Equipment> equips = equipmentDao.query().is("enabled", true).in("_id", pccs.getEquipmentIds())
                         .returnFields("name", "equipmentId", "_id").results();
@@ -575,7 +578,7 @@ public class DeviceService {
                             return ResHelper.pamIll();
                         }
                         //充电类型 为0  充电类型为1
-                        if(timeOfPowerBo.getType() ==0 || timeOfPowerBo.getType() == 1){
+                        if (timeOfPowerBo.getType() == 0 || timeOfPowerBo.getType() == 1) {
                             if (timeOfPowerBo != null && !StringUtils.isEmpty(timeOfPowerBo.getPower()) && !StringUtils.isEmpty(timeOfPowerBo.getTime())) {
                                 String time = timeOfPowerBo.getTime();
                                 String[] strs = time.split(",");
@@ -590,7 +593,7 @@ public class DeviceService {
                             } else {
                                 return ResHelper.pamIll();
                             }
-                        }else {
+                        } else {
                             return ResHelper.pamIll();
                         }
                     }

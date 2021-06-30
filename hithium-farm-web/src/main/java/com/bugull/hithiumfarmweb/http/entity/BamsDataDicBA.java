@@ -21,6 +21,7 @@ public class BamsDataDicBA implements BuguEntity {
 
 
     @ExcelIgnore
+    @Id
     private String id;
     @ExcelIgnore
     private String deviceName;
