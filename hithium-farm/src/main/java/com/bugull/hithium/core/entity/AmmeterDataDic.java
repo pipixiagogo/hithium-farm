@@ -77,7 +77,6 @@ public class AmmeterDataDic extends SimpleEntity {
    
     private String totalValleyChargeQuantity;
     //当前反向总有功电能
-   
     private String totalDischargeQuantity;
    
     private String totalTipDischargeQuantity;//当前反向总有功尖电能

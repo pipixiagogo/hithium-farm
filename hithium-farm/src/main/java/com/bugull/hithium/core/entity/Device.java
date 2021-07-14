@@ -29,6 +29,10 @@ public class Device extends SimpleEntity {
     private String longitude;
     private String latitude;
     /**
+     * TODO 根据经纬度查询出详细地址
+     */
+    private String address;
+    /**
      * 应用场景
      */
     private Integer applicationScenarios;
@@ -67,6 +71,8 @@ public class Device extends SimpleEntity {
     private String dischargeCapacitySum;
     //总充电量
     private String chargeCapacitySum;
+
+    private Boolean bindStation=false;
 
 
 }

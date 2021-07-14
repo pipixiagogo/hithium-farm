@@ -104,7 +104,7 @@ public class HttpClientUtil {
                     sb.append( URLEncoder.encode(entry.getKey(),"utf-8") ).append("=")
                             .append( URLEncoder.encode(entry.getValue(),"utf-8") ).append("&");
                 }
-                _url = sb.toString().substring(0,sb.length());
+                _url = sb.substring(0,sb.length());
             }
             HttpGet get = new HttpGet(_url);
             if( httpHeader != null && httpHeader.size() > 0 ){

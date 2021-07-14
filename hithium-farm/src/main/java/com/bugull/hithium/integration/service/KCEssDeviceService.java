@@ -97,6 +97,8 @@ public class KCEssDeviceService {
     private PropertiesConfig propertiesConfig;
     @Resource
     private IncomeEntityDao incomeEntityDao;
+    @Resource
+    private BamsDischargeCapacityDao bamsDischargeCapacityDao;
 
     /**
      * 处理设备
@@ -119,6 +121,7 @@ public class KCEssDeviceService {
                     break;
             }
         } catch (Exception e) {
+            e.printStackTrace();
             log.error("数据解析错误:{},dataType:{}", e, dataType);
         }
     }
@@ -139,8 +142,7 @@ public class KCEssDeviceService {
                 log.info("设备上报实时数据未查到对应设备:{}", deviceName);
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            log.error("设备上报实时数据格式错误,丢弃:{}", jMessage.getPayloadMsg());
+            log.error("设备上报实时数据格式错误,丢弃:{},异常:{}", jMessage.getPayloadMsg(), e);
         }
     }
 
@@ -256,9 +258,9 @@ public class KCEssDeviceService {
     private void saveAndCountIncome(Equipment equipment, AmmeterDataDic ammeterDataDic) {
         Device device = deviceDao.query().is("deviceName", equipment.getDeviceName()).result();
         //TODO 削峰填谷时候计算收益
-//        if (device.getApplicationScenarios() == 4) {
-//            return;
-//        }
+        if (device.getApplicationScenarios() == 4) {
+            return;
+        }
         if (device != null) {
             List<TimeOfPriceBo> priceOfTime = device.getPriceOfTime();
             if (!CollectionUtils.isEmpty(priceOfTime) && priceOfTime.size() > 0) {
@@ -282,7 +284,7 @@ public class KCEssDeviceService {
                         for (String value : entryValue) {
                             String[] split = value.split("-");
                             Calendar now = Calendar.getInstance();
-                            now.setTime(DateUtil.dateToStrWithHHmm(new Date()));
+                            now.setTime(DateUtil.dateToStrWithHHmm(ammeterDataDic.getGenerationDataTime()));
                             Calendar begin = Calendar.getInstance();
                             begin.setTime(DateUtil.dateToStrWithHHmmWith(split[0]));
                             Calendar end = Calendar.getInstance();
@@ -386,7 +388,6 @@ public class KCEssDeviceService {
                         }
                     }
                 }
-
                 //第一次上报 为空
             }
         }
@@ -443,7 +444,6 @@ public class KCEssDeviceService {
     private void handleBamsData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         BamsDataDicBA bamsDataDicBA = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
         Device device = deviceDao.query().is("deviceName", equipment.getDeviceName()).result();
-
         if (bamsDataDicBA != null && device != null) {
             bamsDataDicBA.setDeviceName(equipment.getDeviceName());
             bamsDataDicBA.setName(equipment.getName());
@@ -464,13 +464,50 @@ public class KCEssDeviceService {
                 bamsDataDicObject = MapperUtil.fromDBObject(BamsDataDicBA.class, object);
             }
         }
+        BamsDischargeCapacity bamsDischargeCapacity = new BamsDischargeCapacity();
+        bamsDischargeCapacity.setDischargeCapacitySum(new BigDecimal(dischargeCapacitySum));
+        bamsDischargeCapacity.setChargeCapacitySum(new BigDecimal(chargeCapacitySum));
+        bamsDischargeCapacity.setGenerationDataTime(bamsDataDicBA.getGenerationDataTime());
+        bamsDischargeCapacity.setDeviceName(device.getDeviceName());
+        bamsDischargeCapacity.setEquipmentId(equipment.getEquipmentId());
         if (bamsDataDicObject == null) {
             deviceDao.update().set("dischargeCapacitySum", dischargeCapacitySum)
                     .set("chargeCapacitySum", chargeCapacitySum).execute(device);
+            //没有的话 直接新增 相当于入网了 刚入网的时候呢  不统计啊 要绑定后才统计
+            //第一次进行充放电数量值插入
+            bamsDischargeCapacity.setDischargeCapacitySubtract(new BigDecimal(dischargeCapacitySum));
+            bamsDischargeCapacity.setChargeCapacitySubtract(new BigDecimal(chargeCapacitySum));
+            bamsDischargeCapacityDao.insert(bamsDischargeCapacity);
         } else {
             if (bamsDataDicBA.getGenerationDataTime().after(bamsDataDicObject.getGenerationDataTime())) {
                 deviceDao.update().set("dischargeCapacitySum", dischargeCapacitySum)
                         .set("chargeCapacitySum", chargeCapacitySum).execute(device);
+            }
+            Iterable<DBObject> bamsDischargeCapacityIterable = bamsDischargeCapacityDao.aggregate().match(bamsDischargeCapacityDao.query().is("deviceName", device.getDeviceName())
+                    .is("equipmentId", equipment.getEquipmentId())).sort("{generationDataTime:-1}").limit(1).results();
+            BamsDischargeCapacity bamsDischargeCapacityIterableEntity = null;
+            if (bamsDischargeCapacityIterable != null) {
+                for (DBObject object : bamsDischargeCapacityIterable) {
+                    bamsDischargeCapacityIterableEntity = MapperUtil.fromDBObject(BamsDischargeCapacity.class, object);
+                }
+            }
+            if (bamsDischargeCapacityIterableEntity != null) {
+                BigDecimal dischargeCapacitySumOld = bamsDischargeCapacityIterableEntity.getDischargeCapacitySum();
+                BigDecimal dischargeCapacitySumNew = new BigDecimal(dischargeCapacitySum);
+                BigDecimal dischargeCapacitySubtractResult = dischargeCapacitySumNew.subtract(dischargeCapacitySumOld);
+                bamsDischargeCapacity.setDischargeCapacitySubtract(dischargeCapacitySubtractResult);
+                BigDecimal chargeCapacitySumOld = bamsDischargeCapacityIterableEntity.getChargeCapacitySum();
+                BigDecimal chargeCapacitySumNew = new BigDecimal(chargeCapacitySum);
+                BigDecimal chargeCapacitySubtractResult = chargeCapacitySumNew.subtract(chargeCapacitySumOld);
+                bamsDischargeCapacity.setChargeCapacitySubtract(chargeCapacitySubtractResult);
+                bamsDischargeCapacityDao.insert(bamsDischargeCapacity);
+            } else {
+                /**
+                 * 说明 非第一次上报 但是bams已经有数据了
+                 */
+                bamsDischargeCapacity.setDischargeCapacitySubtract(new BigDecimal(dischargeCapacitySum));
+                bamsDischargeCapacity.setChargeCapacitySubtract(new BigDecimal(chargeCapacitySum));
+                bamsDischargeCapacityDao.insert(bamsDischargeCapacity);
             }
         }
     }
@@ -563,7 +600,6 @@ public class KCEssDeviceService {
     }
 
     private void handleBreakDownLog(JMessage jMessage) {
-
         try {
             String deviceName = jMessage.getDeviceName();
             log.info("设备告警日志上报 deviceName:{}", deviceName);

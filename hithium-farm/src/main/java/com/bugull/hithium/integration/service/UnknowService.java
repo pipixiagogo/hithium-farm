@@ -23,9 +23,6 @@ public class UnknowService {
 
     @Resource
     private MessageHandler mqttOutbound;
-    @Resource
-    private KafkaTemplate kafkaTemplate;
-
     public void handle(Message<JMessage> messageMessage) {
         JMessage jMessage = messageMessage.getPayload();
         log.info("未知数据topic:{}",jMessage.getTopic());
@@ -47,18 +44,4 @@ public class UnknowService {
     }
 
 
-//    @Scheduled(cron = "${energy.untrans.report.interval}")
-    public void sendKafkaMsg(){
-        for(int i=0;i<1000;i++){
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("DATATYPE", "REAL_TIME_DATA");
-            jsonObject.put("PROJECTTYPE", "KC_ESS");
-            jsonObject.put("DATA", "123"+i);
-            kafkaTemplate.send("test-topic",jsonObject.toString()).addCallback((bs)->{
-                System.out.println("发送kafka成功");
-            },(t)->{
-                System.out.println("发送kafka失败");
-            });
-        }
-    }
 }
