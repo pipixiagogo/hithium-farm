@@ -45,7 +45,7 @@ public class OAuth2Realm extends AuthorizingRealm {
     protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
         SysUser userPrincipal = (SysUser) principals.getPrimaryPrincipal();
         //授权过程 用户权限列表
-        Set<String> permsSet = shiroService.getPermissions(userPrincipal);
+        Set<String> permsSet = shiroService.getPermissionOfUser(userPrincipal);
         SimpleAuthorizationInfo info = new SimpleAuthorizationInfo();
         info.setStringPermissions(permsSet);
         return info;

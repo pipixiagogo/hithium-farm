@@ -18,8 +18,8 @@ public class InfoUserVo {
     @ApiModelProperty(value = "创建时间")
     private Date createTime;
 
-//    @ApiModelProperty(value = "手机号")
-//    private String mobile;
+    @ApiModelProperty(value = "手机号")
+    private String mobile;
 //    @ApiModelProperty(value = "邮箱")
 //    private String email;
 
@@ -28,10 +28,13 @@ public class InfoUserVo {
     //    账号状态  0：禁用   1：正常
     @ApiModelProperty(value = "账号状态")
     private Integer status;
-    @ApiModelProperty(name ="remarks",value = "备注")
+    @ApiModelProperty(name = "remarks", value = "备注")
     private String remarks;
-    @ApiModelProperty(name = "userExpireTime",value = "用户过期时间")
+    @ApiModelProperty(name = "userExpireTime", value = "用户过期时间")
     private Date userExpireTime;
+
+    @ApiModelProperty(name = "deviceNameList", value = "用户绑定设备列表")
+    private List<String> deviceNameList;
 
 
 }

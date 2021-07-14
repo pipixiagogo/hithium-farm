@@ -309,19 +309,19 @@ public class FireControlDataDic implements BuguEntity {
     @ExcelProperty(value = "主控2库位2气体探测器2告警状态",converter = BcuDiStatusAlarmConverter.class)
     private Boolean isGasDetectorAlarm8;//主控2库位2气体探测器2告警状态
     @ExcelProperty(value = "消防总控信息")
-    private Short masterCtrlInfo;//消防总控信息
+    private Integer masterCtrlInfo;//消防总控信息
     @ExcelProperty(value = "主控1信息")
-    private Short mainCtrlInfo1;//主控1信息
+    private Integer mainCtrlInfo1;//主控1信息
     @ExcelProperty(value = "主控1库位1信息")
-    private Short fireRepInfo1;//主控1库位1信息
+    private Integer fireRepInfo1;//主控1库位1信息
     @ExcelProperty(value = "主控1库位2信息")
-    private Short fireRepInfo2;//主控1库位2信息
+    private Integer fireRepInfo2;//主控1库位2信息
     @ExcelProperty(value = "主控2信息")
-    private Short mainCtrlInfo2;//主控2信息
+    private Integer mainCtrlInfo2;//主控2信息
     @ExcelProperty(value = "主控2库位1信息")
-    private Short fireRepInfo3;//主控2库位1信息
+    private Integer fireRepInfo3;//主控2库位1信息
     @ExcelProperty(value = "主控2库位2信息")
-    private Short fireRepInfo4;//主控2库位2信息
+    private Integer fireRepInfo4;//主控2库位2信息
     /** IsGasDetectorFault7	bool	主控2库位2气体探测器1故障状态
      * IsGasDetectorAlarm7	bool	主控2库位2气体探测器1告警状态
      * IsGasDetectorFault8	bool	主控2库位2气体探测器2故障状态

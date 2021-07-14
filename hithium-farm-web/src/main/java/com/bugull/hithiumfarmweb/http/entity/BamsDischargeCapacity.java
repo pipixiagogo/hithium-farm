@@ -1,6 +1,5 @@
-package com.bugull.hithium.core.entity;
+package com.bugull.hithiumfarmweb.http.entity;
 
-import com.bugull.mongo.BuguEntity;
 import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.Entity;
 import lombok.Data;

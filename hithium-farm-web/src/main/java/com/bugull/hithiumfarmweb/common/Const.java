@@ -12,6 +12,13 @@ import java.util.regex.Pattern;
  * 常量类
  */
 public class Const {
+
+    public static final String REGEX_MOBILE = "((^(13|15|18)[0-9]{9}$)|(^0[1,2]{1}\\d{1}-?\\d{8}$)|(^0[3-9] {1}\\d{2}-?\\d{7,8}$)|(^0[1,2]{1}\\d{1}-?\\d{8}-(\\d{1,4})$)|(^0[3-9]{1}\\d{2}-? \\d{7,8}-(\\d{1,4})$))";
+    public static final String NO_QUERY_PERMISSION="该账户无查询该设备权限";
+    public static final String NO_MODIFY_PERMISSION="该账户无修改该设备权限";
+    public static final String RUNNING_STATUS_MSG_START="开机";
+    public static final String RUNNING_STATUS_MSG_DOWN="关机";
+    public static final String SEPARATOR_OF_MAP="/";
     public static final String PASSWORD_PATTERN = "^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{6,8}$";
     public static final String DEVICE_NAME="deviceName";
     public static final String EQUIPMENT_ID="equipmentId";
@@ -50,7 +57,7 @@ public class Const {
     public static final String QUARTER ="QUARTER";
     public static final int MAX_YEAR = 2200;
     public static final int MIN_YEAR = 2000;
-    public static final String RESET_PWD="123456";
+    public static final String RESET_PWD="aa123456";
     /**
      * 科创实时数据类型
      */
@@ -71,12 +78,33 @@ public class Const {
 
     public static final String PARAM_ILL = "参数错误";
     public static final String BREAKDOWNLOG_TABLE = "BREAKDOWNLOG_TABLE";
+    public static final String AMMETER_DATADIC_TABLE="AMMETER_DATADIC_TABLE";
+    public static final String BAMS_DATADICDA_TABLE="BAMS_DATADICDA_TABLE";
+//    bmsCellTempDataDicDao
+    public static final String BMSCELL_TEMP_DATADIC_TABLE="BMSCELL_TEMP_DATADIC_TABLE";
+//    bmsCellVoltDataDicDao
+    public static final String BMSCELL_VOL_DATADIC_TABLE="BMSCELL_VOL_DATADIC_TABLE";
+//    bcuDataDicBCUDao
+    public static final String BCU_DATADIC_TABLE="BCU_DATADIC_TABLE";
+//    pcsCabinetDicDao
+    public static final String PCS_CABINETDIC_TABLE="PCS_CABINETDIC_TABLE";
+//    pcsChannelDicDao
+    public static final String PCS_CHANNELDIC_TABLE="PCS_CHANNELDIC_TABLE";
+//    airConditionDataDicDao
+    public static final String AIRCONDITION_DATADIC_TABLE="AIRCONDITION_DATADIC";
+//    temperatureMeterDataDicDao
+    public static final String TEMPERATURE_METERDATADIC_TABLE="TEMPERATURE_METERDATADIC_TABLE";
+//    fireControlDataDicDao
+    public static final String FIRECONTROL_DATADIC_TABLE="FIRECONTROL_DATADIC_TABLE";
+//    upsPowerDataDicDao
+    public static final String UPSPOWER_DATADIC_TABLE="UPSPOWER_DATADIC_TABLE";
+
     public static final Map<String, Set<String>> SORT_FIELDS = new HashMap<>();
 
     static {
-        Set<String> deviceFields = new HashSet<>();
-        getField(deviceFields, "", BreakDownLog.class);
-        SORT_FIELDS.put(BREAKDOWNLOG_TABLE, deviceFields);
+        Set<String> breakdownlogFields = new HashSet<>();
+        getField(breakdownlogFields, "", BreakDownLog.class);
+        SORT_FIELDS.put(BREAKDOWNLOG_TABLE, breakdownlogFields);
     }
 
     /**

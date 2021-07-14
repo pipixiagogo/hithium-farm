@@ -13,6 +13,7 @@ import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang.StringUtils;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.web.bind.annotation.*;
 import springfox.documentation.annotations.ApiIgnore;
 
@@ -37,6 +38,7 @@ public class RoleController extends AbstractController {
      * 查询全部角色
      * @return
      */
+    @RequiresPermissions(value = "sys:user")
     @ApiOperation(value = "查询角色列表",response = ResHelper.class)
     @GetMapping(value = "/selectRole")
     public ResHelper<List<RoleEntity>> selectRole() {
@@ -47,6 +49,7 @@ public class RoleController extends AbstractController {
      * 分页查询角色
      * @return
      */
+    @RequiresPermissions(value = "sys:user")
     @GetMapping(value = "/queryPageRole")
     @ApiOperation(value = "分页查询角色信息",response = ResHelper.class)
     @ApiImplicitParams({
@@ -60,6 +63,7 @@ public class RoleController extends AbstractController {
     /**
      * 添加角色
      */
+    @RequiresPermissions(value = "sys:user")
     @SysLog(value = "新增角色")
     @PostMapping(value = "/saveRole")
     @ApiOperation(value = "新增角色",response = ResHelper.class,httpMethod = "POST")
@@ -73,7 +77,7 @@ public class RoleController extends AbstractController {
         roleEntityBo.setCreateName(getUserName());
         return roleService.saveRole(roleEntityBo);
     }
-
+    @RequiresPermissions(value = "sys:user")
     @SysLog(value = "修改角色信息")
     @ApiOperation(value = "修改角色信息",response = ResHelper.class)
     @PostMapping(value = "/updateRole")
@@ -87,10 +91,10 @@ public class RoleController extends AbstractController {
     }
 
     /**
-     *
      * @param roleIds
      * @return
      */
+    @RequiresPermissions(value = "sys:user")
     @SysLog(value = "批量/单条删除角色")
     @ApiOperation(value = "批量/单条删除角色",response = ResHelper.class)
     @PostMapping(value = "/deleteRole")

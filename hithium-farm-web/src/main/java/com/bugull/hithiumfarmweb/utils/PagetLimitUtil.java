@@ -19,11 +19,11 @@ public class PagetLimitUtil {
         return true;
     }
 
-    public static boolean orderField(BuguPageQuery<?> query,Map<String, Object> params){
-        if (!StringUtils.isBlank((String) params.get("orderField"))) {
+    public static boolean orderField(BuguPageQuery<?> query,Map<String, Object> params,String table){
+        if (!StringUtils.isEmpty((String) params.get("orderField")) && !StringUtils.isEmpty(table)) {
             Integer order = Integer.valueOf((String) params.get("order"));
             String orderField = (String) params.get("orderField");
-            if (!ResHelper.checkOrder(order, orderField, Const.BREAKDOWNLOG_TABLE)) {
+            if (!ResHelper.checkOrder(order, orderField, table)) {
                 return false;
             }
             if (params.get("order") == null) {

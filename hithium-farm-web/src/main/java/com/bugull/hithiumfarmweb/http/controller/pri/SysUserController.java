@@ -28,28 +28,26 @@ import java.util.Map;
 
 /**
  * 用户模块
+ * TODO 添加相应的权限 除admin外都无法修改 !!! 直接采用设备跟账号绑定    用户权限跟账号绑定  !!!
  */
 @RestController
 @RequestMapping(value = "/user")
 public class SysUserController extends AbstractController {
 
+
     @Resource
     private SysUserService sysUserService;
 
     /**
-     * TODO 权限
      * @param sysUser
      * @return
      */
+    @RequiresPermissions(value = "sys:user")
     @SysLog(value = "新增用户")
     @PostMapping(value = "/save")
     @ApiOperation(value = "新增用户", httpMethod = "POST", response = ResHelper.class)
     @ApiImplicitParam(name = "sysUser", value = "用户实体类", required = true, paramType = "body", dataTypeClass = SysUser.class, dataType = "SysUser")
     public ResHelper<Void> saveUser(@RequestBody SysUser sysUser) {
-        /**
-         * 非管理员 无法新增用户 做权限管理就好
-         * TODO 生成用户时候 未分配权限时候 默认最低权限    直接与menu关联  有权限的的menu都看不到  查的时候根据是否有角色来   生成用户时候分配进去 当分配另一个角色时候 把默认角色移除
-         */
         ValidatorUtils.validateEntity(sysUser, AddGroup.class);
         return sysUserService.saveUser(sysUser);
     }
@@ -67,6 +65,7 @@ public class SysUserController extends AbstractController {
      * @param userId
      * @return
      */
+    @RequiresPermissions(value = "sys:user")
     @GetMapping(value = "/info/{userId}")
     @ApiOperation(value = "根据用户ID查询用户信息", response = ResHelper.class)
     @ApiImplicitParam(name = "userId", value = "用户ID", paramType = "path", example = "1", dataType = "int", dataTypeClass = Integer.class)
@@ -80,11 +79,7 @@ public class SysUserController extends AbstractController {
        throw new UnauthorizedException("非管理员无法查看其他用户信息");
     }
 
-    /**
-     * TODO 权限
-     * @param params
-     * @return
-     */
+    @RequiresPermissions(value = "sys:user")
     @GetMapping(value = "/listUser")
     @ApiOperation(value = "分页查询用户信息", response = ResHelper.class)
     @ApiImplicitParams({
@@ -95,6 +90,7 @@ public class SysUserController extends AbstractController {
         return sysUserService.list(params);
     }
 
+    @RequiresPermissions(value = "sys:user")
     @SysLog(value = "修改用户信息")
     @ApiOperation(value = "修改用户信息", response = ResHelper.class)
     @PostMapping(value = "/updateUser")
@@ -107,9 +103,8 @@ public class SysUserController extends AbstractController {
         throw new UnauthorizedException("非管理员无法修改其他用户信息");
     }
 
-
+    @RequiresPermissions(value = "sys:user")
     @SysLog(value = "删除用户")
-//    @RequiresPermissions("sys:user:delete")
     @ApiOperation(value = "删除用户", response = ResHelper.class)
     @PostMapping(value = "/deleteUser")
     @ApiImplicitParam(name = "userIds", value = "用户ID数组", allowMultiple = true, dataType = "string", required = true)
@@ -130,6 +125,23 @@ public class SysUserController extends AbstractController {
     }
 
     /**
+     * 重置密码接口
+     */
+    @RequiresPermissions(value = "sys:user")
+    @ApiOperation(value = "批量重置密码",response = ResHelper.class)
+    @ApiImplicitParam(name = "/userIds", value = "用户ID数组", allowMultiple = true, dataType = "string", required = true)
+    @PostMapping(value = "/resetPwd")
+    public ResHelper<Void> resetPwd(@RequestBody String[] userIds){
+        List<String> users = new ArrayList<>();
+        for (String userId : userIds) {
+            if (!StringUtils.isEmpty(userId)) {
+                users.add(userId);
+            }
+        }
+        return sysUserService.resetPwd(users);
+    }
+
+    /**
      * 修改密码
      */
     @ApiOperation(value = "修改密码",response = ResHelper.class)
@@ -147,20 +159,4 @@ public class SysUserController extends AbstractController {
     }
 
 
-    /**
-     * 重置密码接口
-     * TODO 权限
-     */
-    @ApiOperation(value = "批量重置密码",response = ResHelper.class)
-    @ApiImplicitParam(name = "/userIds", value = "用户ID数组", allowMultiple = true, dataType = "string", required = true)
-    @PostMapping(value = "/resetPwd")
-    public ResHelper<Void> resetPwd(@RequestBody String[] userIds){
-        List<String> users = new ArrayList<>();
-        for (String userId : userIds) {
-            if (!StringUtils.isEmpty(userId)) {
-                users.add(userId);
-            }
-        }
-        return sysUserService.resetPwd(users);
-    }
 }

@@ -20,8 +20,8 @@ public class UpdateUserBo {
 
 //    @ApiModelProperty(name = "email", required = true, example = " ", value = "用户邮箱")
 //    private String email;
-//    @ApiModelProperty(name = "mobile", required = true, example = " ", value = "用户手机号")
-//    private String mobile;
+    @ApiModelProperty(name = "mobile", required = true, example = " ", value = "手机号")
+    private String mobile;
 
     @ApiModelProperty(name = "roleIds", value = "权限ID列表,可不传 代表无任何权限")
     private List<String> roleIds;
@@ -31,5 +31,8 @@ public class UpdateUserBo {
     private String remarks;
     @ApiModelProperty(name = "status", value = "账号状态")
     private Integer status;
+
+    @ApiModelProperty(name = "stationList",value = "用户绑定设备列表")
+    private List<String> stationList;
 
 }

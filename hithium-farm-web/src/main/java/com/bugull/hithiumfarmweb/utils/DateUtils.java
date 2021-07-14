@@ -32,6 +32,7 @@ public class DateUtils {
     public final static Integer HOUR_OF_SECONDS=60*60;
     /** 时间格式(yyyy-MM-dd) */
 	public final static String DATE_PATTERN = "yyyy-MM-dd";
+	public final static String DATE_PATTERN_HH = "yyyy-MM-dd HH";
 	/** 时间格式(yyyy-MM-dd HH:mm:ss) */
 	public final static String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 
@@ -51,7 +52,12 @@ public class DateUtils {
             return new SimpleDateFormat(DATE_PATTERN);
         }
     };
-
+    private static ThreadLocal<SimpleDateFormat> sdf_HH = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat(DATE_PATTERN_HH);
+        }
+    };
     private static ThreadLocal<SimpleDateFormat> sdfDate = new ThreadLocal<SimpleDateFormat>(){
         @Override
         protected SimpleDateFormat initialValue() {
@@ -112,7 +118,11 @@ public class DateUtils {
         String dateString = formatter.format(dateDate);
         return dateString;
     }
-
+    public static String dateToStrWithHH(Date dateDate) {
+        SimpleDateFormat formatter = sdf_HH.get();
+        String dateString = formatter.format(dateDate);
+        return dateString;
+    }
     public static String dateToStryyyymm(Date dateDate) {
         SimpleDateFormat formatter = sdfWithYYYYMM.get();
         String dateString = formatter.format(dateDate);

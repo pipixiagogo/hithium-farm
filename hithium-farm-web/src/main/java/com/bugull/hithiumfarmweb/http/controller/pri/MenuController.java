@@ -49,7 +49,7 @@ public class MenuController extends AbstractController {
     @ApiOperation("返回当前用户菜单")
     public ResHelper<Map<String, Object>> nav() {
         List<MenuEntity> menuEntities = menuService.getUserMenuList(getUser());
-        Set<String> permissions = shiroService.getPermissions(getUser());
+        Set<String> permissions = shiroService.getPermissionOfUser(getUser());
         Map<String, Object> map = new HashMap<>();
         map.put("menuList", menuEntities);
         map.put("permissions", permissions);

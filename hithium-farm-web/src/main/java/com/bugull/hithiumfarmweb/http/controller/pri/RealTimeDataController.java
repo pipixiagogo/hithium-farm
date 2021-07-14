@@ -2,9 +2,11 @@ package com.bugull.hithiumfarmweb.http.controller.pri;
 
 import com.alibaba.fastjson.JSON;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
+import com.bugull.hithiumfarmweb.common.exception.ExcelExportWithoutDataException;
 import com.bugull.hithiumfarmweb.common.exception.ParamsValidateException;
 import com.bugull.hithiumfarmweb.http.bo.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
+import com.bugull.hithiumfarmweb.http.service.EssStationService;
 import com.bugull.hithiumfarmweb.http.service.ExcelExportService;
 import com.bugull.hithiumfarmweb.http.service.RealTimeDataService;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
@@ -21,6 +23,7 @@ import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import springfox.documentation.annotations.ApiIgnore;
 
@@ -37,6 +40,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.bugull.hithiumfarmweb.common.Const.NO_MODIFY_PERMISSION;
+
 /**
  * 储能集装箱实时数据模块
  */
@@ -49,6 +54,8 @@ public class RealTimeDataController extends AbstractController {
     private RealTimeDataService realTimeDataService;
     @Resource
     private ExcelExportService excelExportService;
+    @Resource
+    private EssStationService essStationService;
 
     @ApiOperation(value = "ammeter电表数据查询", httpMethod = "GET")
     @GetMapping(value = "/ammeterDataQuery")
@@ -61,7 +68,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<AmmeterDataDic>> ammeterDataQuery(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return realTimeDataService.ammeterDataQuery(params);
+        return realTimeDataService.ammeterDataQuery(params, getUser());
     }
 
     @ApiOperation(value = "Bams数据查询", httpMethod = "GET")
@@ -75,7 +82,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class),
     })
     public ResHelper<BuguPageQuery.Page<BamsDataDicBA>> bamsDataquery(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return realTimeDataService.bamsDataquery(params);
+        return realTimeDataService.bamsDataquery(params, getUser());
     }
 
     @ApiOperation(value = "Bms单元温度数据查询", httpMethod = "GET")
@@ -89,7 +96,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<BmsCellTempDataDic>> bmsTempDataquery(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return realTimeDataService.bmsTempDataquery(params);
+        return realTimeDataService.bmsTempDataquery(params, getUser());
     }
 
     @ApiOperation(value = "Bms单元电压数据查询", httpMethod = "GET")
@@ -103,7 +110,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<BmsCellVoltDataDic>> bmsVoltDataquery(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return realTimeDataService.bmsVoltDataquery(params);
+        return realTimeDataService.bmsVoltDataquery(params, getUser());
     }
 
     @ApiOperation(value = "Bcu电池簇状态数据查询", httpMethod = "GET")
@@ -117,7 +124,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<BcuDataDicBCU>> bcuDataquery(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return realTimeDataService.bcuDataquery(params);
+        return realTimeDataService.bcuDataquery(params, getUser());
     }
 
     @ApiOperation(value = "pcs舱主机状态数据查询", httpMethod = "GET")
@@ -131,7 +138,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<PcsCabinetDic>> pcsCabinetquery(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return realTimeDataService.pcsCabinetquery(params);
+        return realTimeDataService.pcsCabinetquery(params, getUser());
     }
 
     @ApiOperation(value = "pcs通道状态数据查询", httpMethod = "GET")
@@ -145,7 +152,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<PcsChannelDic>> pcsChannelquery(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return realTimeDataService.pcsChannelquery(params);
+        return realTimeDataService.pcsChannelquery(params, getUser());
     }
 
     @ApiOperation(value = "空调数据查询", httpMethod = "GET")
@@ -159,7 +166,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<AirConditionDataDic>> airConditionquery(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return realTimeDataService.airConditionquery(params);
+        return realTimeDataService.airConditionquery(params, getUser());
     }
 
     @ApiOperation(value = "动环系统数据查询", httpMethod = "GET")
@@ -173,7 +180,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<TemperatureMeterDataDic>> temperatureMeterquery(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return realTimeDataService.temperatureMeterquery(params);
+        return realTimeDataService.temperatureMeterquery(params, getUser());
     }
 
     @ApiOperation(value = "消防控制数据查询", httpMethod = "GET")
@@ -187,7 +194,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<FireControlDataDic>> fileControlquery(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return realTimeDataService.fileControlquery(params);
+        return realTimeDataService.fileControlquery(params, getUser());
     }
 
     @ApiOperation(value = "ups后备电源数据查询", httpMethod = "GET")
@@ -201,7 +208,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
     })
     public ResHelper<BuguPageQuery.Page<UpsPowerDataDic>> upsPowerquery(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return realTimeDataService.upsPowerquery(params);
+        return realTimeDataService.upsPowerquery(params, getUser());
     }
 
     /**
@@ -211,10 +218,27 @@ public class RealTimeDataController extends AbstractController {
     @GetMapping(value = "/bmsTempMsg")
     @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class)
     public ResHelper<List<BmsTempMsgBo>> bmsTempMsg(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
-        if (StringUtils.isEmpty(deviceName)) {
-            return ResHelper.pamIll();
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
+                List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
+                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+                    boolean flag = false;
+                    for (EssStation essStation : essStationList) {
+                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
+                            if (essStation.getDeviceNameList().contains(deviceName)) {
+                                flag = true;
+                            }
+                        }
+                    }
+                    if (!flag) {
+                        return ResHelper.success("");
+                    }
+                }
+            }
+            return realTimeDataService.bmsTempMsg(deviceName);
         }
-        return realTimeDataService.bmsTempMsg(deviceName);
+        return ResHelper.pamIll();
+
     }
 
     /**
@@ -224,10 +248,27 @@ public class RealTimeDataController extends AbstractController {
     @GetMapping(value = "/bamsLatestData")
     @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class)
     public ResHelper<BamsLatestBo> bamsLatestData(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
-        if (StringUtils.isEmpty(deviceName)) {
-            return ResHelper.pamIll();
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
+                List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
+                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+                    boolean flag = false;
+                    for (EssStation essStation : essStationList) {
+                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
+                            if (essStation.getDeviceNameList().contains(deviceName)) {
+                                flag = true;
+                            }
+                        }
+                    }
+                    if (!flag) {
+                        return ResHelper.success("");
+                    }
+                }
+            }
+            return realTimeDataService.bamsLatestData(deviceName);
         }
-        return realTimeDataService.bamsLatestData(deviceName);
+        return ResHelper.pamIll();
+
     }
 
     /**
@@ -237,10 +278,27 @@ public class RealTimeDataController extends AbstractController {
     @GetMapping(value = "/bcuDataqueryByName")
     @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识")})
     public ResHelper<List<BcuDataBo>> bcuDataqueryByName(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
-        if (StringUtils.isEmpty(deviceName)) {
-            return ResHelper.pamIll();
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
+                List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
+                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+                    boolean flag = false;
+                    for (EssStation essStation : essStationList) {
+                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
+                            if (essStation.getDeviceNameList().contains(deviceName)) {
+                                flag = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!flag) {
+                        return ResHelper.success("");
+                    }
+                }
+            }
+            return realTimeDataService.bcuDataqueryByName(deviceName);
         }
-        return realTimeDataService.bcuDataqueryByName(deviceName);
+        return ResHelper.pamIll();
     }
 
     /**
@@ -250,10 +308,27 @@ public class RealTimeDataController extends AbstractController {
     @GetMapping(value = "/bmscellDataQuery")
     @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识"),})
     public ResHelper<List<BmsCellDataBo>> bmscellDataQuery(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
-        if (StringUtils.isEmpty(deviceName)) {
-            return ResHelper.pamIll();
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
+                List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
+                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+                    boolean flag = false;
+                    for (EssStation essStation : essStationList) {
+                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
+                            if (essStation.getDeviceNameList().contains(deviceName)) {
+                                flag = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!flag) {
+                        return ResHelper.success("");
+                    }
+                }
+            }
+            return realTimeDataService.bmscellDataQuery(deviceName);
         }
-        return realTimeDataService.bmscellDataQuery(deviceName);
+        return ResHelper.pamIll();
     }
 
     @ApiOperation(value = "集装箱信息设备查询")
@@ -262,7 +337,28 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = true, paramType = "query", value = "设备ID")})
     public ResHelper<Object> stationInformationQuery(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName,
                                                      @ApiIgnore @RequestParam(value = "equipmentId", required = false) Integer equipmentId) {
-        return realTimeDataService.stationInformationQuery(deviceName, equipmentId);
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
+                List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
+                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+                    boolean flag = false;
+                    for (EssStation essStation : essStationList) {
+                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
+                            if (essStation.getDeviceNameList().contains(deviceName)) {
+                                flag = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!flag) {
+                        return ResHelper.success("");
+                    }
+                }
+            }
+            return realTimeDataService.stationInformationQuery(deviceName, equipmentId);
+        }
+        return ResHelper.pamIll();
+
     }
 
     @ApiOperation(value = "导出电池相关数据 默认为当天数据内容   可选时间 只能为一天的数据")
@@ -285,6 +381,25 @@ public class RealTimeDataController extends AbstractController {
             response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
             if (StringUtils.isEmpty(time)) {
                 throw new ParamsValidateException("时间参数为空");
+            }
+            if (!StringUtils.isEmpty(deviceName)) {
+                if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
+                    List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
+                    if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+                        boolean flag = false;
+                        for (EssStation essStation : essStationList) {
+                            if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
+                                if (essStation.getDeviceNameList().contains(deviceName)) {
+                                    flag = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!flag) {
+                            throw new ExcelExportWithoutDataException("该日期暂无数据");
+                        }
+                    }
+                }
             }
             DBObject query = new BasicDBObject();
             query.put("filename", deviceName + "_" + time + "_" + type);

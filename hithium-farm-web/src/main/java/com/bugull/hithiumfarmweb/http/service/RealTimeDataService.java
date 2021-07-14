@@ -1,46 +1,26 @@
 package com.bugull.hithiumfarmweb.http.service;
 
-import com.alibaba.excel.EasyExcelFactory;
-import com.alibaba.excel.ExcelWriter;
-import com.alibaba.excel.support.ExcelTypeEnum;
-import com.alibaba.excel.write.metadata.WriteSheet;
-import com.alibaba.excel.write.metadata.style.WriteCellStyle;
-import com.alibaba.excel.write.metadata.style.WriteFont;
-import com.alibaba.excel.write.style.HorizontalCellStyleStrategy;
 import com.bugull.hithiumfarmweb.common.BuguPageDao;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
-import com.bugull.hithiumfarmweb.common.Const;
-import com.bugull.hithiumfarmweb.common.exception.ExcelExportWithoutDataException;
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.bo.*;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
-import com.bugull.hithiumfarmweb.http.excelBo.AirConditionExcelBo;
 import com.bugull.hithiumfarmweb.http.vo.BcuDataVolTemVo;
-import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
-import com.bugull.mongo.fs.Uploader;
 import com.bugull.mongo.utils.MapperUtil;
 import com.mongodb.DBObject;
-import io.swagger.models.auth.In;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.text.ParseException;
 import java.util.*;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
 
 import static com.bugull.hithiumfarmweb.common.Const.*;
@@ -74,107 +54,221 @@ public class RealTimeDataService {
     private UpsPowerDataDicDao upsPowerDataDicDao;
     @Resource
     private PropertiesConfig propertiesConfig;
+    @Resource
+    private EssStationService essStationService;
 
-    public ResHelper<BuguPageQuery.Page<AmmeterDataDic>> ammeterDataQuery(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<AmmeterDataDic>> ammeterDataQuery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<AmmeterDataDic> query = ammeterDataDicDao.pageQuery();
-        if (!queryOfParams(query, params)) {
+        if (!queryOfParams(query, params, AMMETER_DATADIC_TABLE)) {
             return ResHelper.pamIll();
+        }
+        String deviceName = (String) params.get(DEVICE_NAME);
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(deviceName)) {
+                    return ResHelper.success("", query.resultWithNullPage());
+                }
+            }
+        }
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            query.in(DEVICE_NAME, deviceNames);
         }
         query.sortDesc("_id");
         BuguPageQuery.Page<AmmeterDataDic> ammeterDataDicPage = query.resultsWithPage();
         return ResHelper.success("", ammeterDataDicPage);
     }
 
-    public ResHelper<BuguPageQuery.Page<BamsDataDicBA>> bamsDataquery(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<BamsDataDicBA>> bamsDataquery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<BamsDataDicBA> query = bamsDataDicBADao.pageQuery();
-        if (!queryOfParams(query, params)) {
+        if (!queryOfParams(query, params, BAMS_DATADICDA_TABLE)) {
             return ResHelper.pamIll();
         }
+        String deviceName = (String) params.get(DEVICE_NAME);
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(deviceName)) {
+                    return ResHelper.success("", query.resultWithNullPage());
+                }
+            }
+        }
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            query.in(DEVICE_NAME, deviceNames);
+        }
         query.sortDesc("_id");
+
         BuguPageQuery.Page<BamsDataDicBA> bamsDataDicBAPage = query.resultsWithPage();
         return ResHelper.success("", bamsDataDicBAPage);
     }
 
-    private boolean queryOfParams(BuguPageQuery<?> query, Map<String, Object> params) {
+    private boolean queryOfParams(BuguPageQuery<?> query, Map<String, Object> params, String table) {
         String deviceName = (String) params.get(DEVICE_NAME);
         if (!StringUtils.isEmpty(deviceName)) {
             query.is(DEVICE_NAME, deviceName);
         }
-        Integer equipmentId = Integer.valueOf((String) params.get(EQUIPMENT_ID));
-        if (equipmentId != null) {
-            query.is(EQUIPMENT_ID, equipmentId);
-        }else {
-            return false;
+        String equipmentIdStr = (String) params.get(EQUIPMENT_ID);
+        if (!StringUtils.isEmpty(equipmentIdStr)) {
+            Integer equipmentId = Integer.valueOf(equipmentIdStr);
+            if (equipmentId != null) {
+                query.is(EQUIPMENT_ID, equipmentId);
+            } else {
+                return false;
+            }
         }
         if (!PagetLimitUtil.pageLimit(query, params)) return false;
-        if (!PagetLimitUtil.orderField(query, params)) return false;
+        if (!PagetLimitUtil.orderField(query, params, table)) return false;
         return true;
     }
 
-    public ResHelper<BuguPageQuery.Page<BmsCellTempDataDic>> bmsTempDataquery(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<BmsCellTempDataDic>> bmsTempDataquery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<BmsCellTempDataDic> query = bmsCellTempDataDicDao.pageQuery();
-        if (!queryOfParams(query, params)) {
+        if (!queryOfParams(query, params, BMSCELL_TEMP_DATADIC_TABLE)) {
             return ResHelper.pamIll();
+        }
+        String deviceName = (String) params.get(DEVICE_NAME);
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(deviceName)) {
+                    return ResHelper.success("", query.resultWithNullPage());
+                }
+            }
+        }
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            query.in(DEVICE_NAME, deviceNames);
         }
         query.sortDesc("_id");
         BuguPageQuery.Page<BmsCellTempDataDic> bmsCellTempDataDicPage = query.resultsWithPage();
         return ResHelper.success("", bmsCellTempDataDicPage);
     }
 
-    public ResHelper<BuguPageQuery.Page<BmsCellVoltDataDic>> bmsVoltDataquery(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<BmsCellVoltDataDic>> bmsVoltDataquery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<BmsCellVoltDataDic> query = bmsCellVoltDataDicDao.pageQuery();
-        if (!queryOfParams(query, params)) {
+        if (!queryOfParams(query, params, BMSCELL_VOL_DATADIC_TABLE)) {
             return ResHelper.pamIll();
+        }
+        String deviceName = (String) params.get(DEVICE_NAME);
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(deviceName)) {
+                    return ResHelper.success("", query.resultWithNullPage());
+                }
+            }
+        }
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            query.in(DEVICE_NAME, deviceNames);
         }
         query.sortDesc("_id");
         BuguPageQuery.Page<BmsCellVoltDataDic> bmsCellVoltDataDicPage = query.resultsWithPage();
         return ResHelper.success("", bmsCellVoltDataDicPage);
     }
 
-    public ResHelper<BuguPageQuery.Page<BcuDataDicBCU>> bcuDataquery(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<BcuDataDicBCU>> bcuDataquery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<BcuDataDicBCU> query = bcuDataDicBCUDao.pageQuery();
-        if (!queryOfParams(query, params)) {
+        if (!queryOfParams(query, params, BCU_DATADIC_TABLE)) {
             return ResHelper.pamIll();
+        }
+        String deviceName = (String) params.get(DEVICE_NAME);
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(deviceName)) {
+                    return ResHelper.success("", query.resultWithNullPage());
+                }
+            }
+        }
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            query.in(DEVICE_NAME, deviceNames);
         }
         query.sortDesc("_id");
         BuguPageQuery.Page<BcuDataDicBCU> bcuDataDicBCUPage = query.resultsWithPage();
         return ResHelper.success("", bcuDataDicBCUPage);
     }
 
-    public ResHelper<BuguPageQuery.Page<PcsCabinetDic>> pcsCabinetquery(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<PcsCabinetDic>> pcsCabinetquery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<PcsCabinetDic> query = pcsCabinetDicDao.pageQuery();
-        if (!queryOfParams(query, params)) {
+        if (!queryOfParams(query, params, PCS_CABINETDIC_TABLE)) {
             return ResHelper.pamIll();
+        }
+        String deviceName = (String) params.get(DEVICE_NAME);
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(deviceName)) {
+                    return ResHelper.success("", query.resultWithNullPage());
+                }
+            }
+        }
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            query.in(DEVICE_NAME, deviceNames);
         }
         query.sortDesc("_id");
         BuguPageQuery.Page<PcsCabinetDic> pcsCabinetDicPage = query.resultsWithPage();
         return ResHelper.success("", pcsCabinetDicPage);
     }
 
-    public ResHelper<BuguPageQuery.Page<PcsChannelDic>> pcsChannelquery(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<PcsChannelDic>> pcsChannelquery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<PcsChannelDic> query = pcsChannelDicDao.pageQuery();
-        if (!queryOfParams(query, params)) {
+        if (!queryOfParams(query, params, PCS_CHANNELDIC_TABLE)) {
             return ResHelper.pamIll();
+        }
+        String deviceName = (String) params.get(DEVICE_NAME);
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(deviceName)) {
+                    return ResHelper.success("", query.resultWithNullPage());
+                }
+            }
+        }
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            query.in(DEVICE_NAME, deviceNames);
         }
         query.sortDesc("_id");
         BuguPageQuery.Page<PcsChannelDic> pcsChannelDicPage = query.resultsWithPage();
         return ResHelper.success("", pcsChannelDicPage);
     }
 
-    public ResHelper<BuguPageQuery.Page<AirConditionDataDic>> airConditionquery(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<AirConditionDataDic>> airConditionquery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<AirConditionDataDic> query = airConditionDataDicDao.pageQuery();
-        if (!queryOfParams(query, params)) {
+        if (!queryOfParams(query, params, AIRCONDITION_DATADIC_TABLE)) {
             return ResHelper.pamIll();
+        }
+        String deviceName = (String) params.get(DEVICE_NAME);
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(deviceName)) {
+                    return ResHelper.success("", query.resultWithNullPage());
+                }
+            }
+        }
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            query.in(DEVICE_NAME, deviceNames);
         }
         query.sortDesc("_id");
         BuguPageQuery.Page<AirConditionDataDic> airConditionDataDicPage = query.resultsWithPage();
         return ResHelper.success("", airConditionDataDicPage);
     }
 
-    public ResHelper<BuguPageQuery.Page<TemperatureMeterDataDic>> temperatureMeterquery(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<TemperatureMeterDataDic>> temperatureMeterquery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<TemperatureMeterDataDic> query = temperatureMeterDataDicDao.pageQuery();
-        if (!queryOfParams(query, params)) {
+        if (!queryOfParams(query, params, TEMPERATURE_METERDATADIC_TABLE)) {
             return ResHelper.pamIll();
+        }
+        String deviceName = (String) params.get(DEVICE_NAME);
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(deviceName)) {
+                    return ResHelper.success("", query.resultWithNullPage());
+                }
+            }
+        }
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            query.in(DEVICE_NAME, deviceNames);
         }
         query.sortDesc("_id");
         BuguPageQuery.Page<TemperatureMeterDataDic> temperatureMeterDataDicPage = query.resultsWithPage();
@@ -182,20 +276,44 @@ public class RealTimeDataService {
     }
 
 
-    public ResHelper<BuguPageQuery.Page<FireControlDataDic>> fileControlquery(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<FireControlDataDic>> fileControlquery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<FireControlDataDic> query = fireControlDataDicDao.pageQuery();
-        if (!queryOfParams(query, params)) {
+        if (!queryOfParams(query, params, FIRECONTROL_DATADIC_TABLE)) {
             return ResHelper.pamIll();
+        }
+        String deviceName = (String) params.get(DEVICE_NAME);
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(deviceName)) {
+                    return ResHelper.success("", query.resultWithNullPage());
+                }
+            }
+        }
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            query.in(DEVICE_NAME, deviceNames);
         }
         query.sortDesc("_id");
         BuguPageQuery.Page<FireControlDataDic> fireControlDataDicPage = query.resultsWithPage();
         return ResHelper.success("", fireControlDataDicPage);
     }
 
-    public ResHelper<BuguPageQuery.Page<UpsPowerDataDic>> upsPowerquery(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<UpsPowerDataDic>> upsPowerquery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<UpsPowerDataDic> query = upsPowerDataDicDao.pageQuery();
-        if (!queryOfParams(query, params)) {
+        if (!queryOfParams(query, params, UPSPOWER_DATADIC_TABLE)) {
             return ResHelper.pamIll();
+        }
+        String deviceName = (String) params.get(DEVICE_NAME);
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if(!deviceNames.contains(deviceName)){
+                    return ResHelper.success("", query.resultWithNullPage());
+                }
+            }
+        }
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            query.in(DEVICE_NAME, deviceNames);
         }
         query.sortDesc("_id");
         BuguPageQuery.Page<UpsPowerDataDic> upsPowerDataDicPage = query.resultsWithPage();

@@ -8,6 +8,7 @@ import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import com.bugull.mongo.annotations.RefList;
 import lombok.Data;
+import org.omg.CORBA.PRIVATE_MEMBER;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -73,5 +74,8 @@ public class Device extends SimpleEntity {
     private String dischargeCapacitySum = "0";
     //总充电量
     private String chargeCapacitySum = "0";
+
+    //是否已经绑定电站
+    private Boolean bindStation=false;
 
 }

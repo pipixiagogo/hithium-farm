@@ -20,6 +20,7 @@ import com.bugull.hithiumfarmweb.http.vo.IncomeStatisticOfDayVo;
 import com.bugull.hithiumfarmweb.http.vo.IncomeStatisticVo;
 import com.bugull.hithiumfarmweb.http.vo.PriceOfPercenVo;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
+import com.bugull.hithiumfarmweb.utils.PatternUtil;
 import com.bugull.hithiumfarmweb.utils.UUIDUtil;
 import com.bugull.mongo.BuguConnection;
 import com.bugull.mongo.BuguFramework;
@@ -37,23 +38,27 @@ import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.poi.ss.formula.functions.T;
 import org.apache.shiro.crypto.hash.Sha256Hash;
+import org.bson.types.ObjectId;
 import org.junit.Test;
 import org.springframework.beans.BeanUtils;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.integration.history.MessageHistory;
+import org.springframework.util.CollectionUtils;
 import redis.clients.jedis.Jedis;
 
 import java.io.*;
 import java.math.BigDecimal;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.bugull.hithiumfarmweb.common.Const.*;
 import static com.bugull.hithiumfarmweb.http.service.StatisticsService.INCOME_RECORD_PREFIX;
@@ -62,30 +67,233 @@ public class HithiumFarmWebApplicationTests {
 
     @Test
     public void contextLoads() {
-        String salt = RandomStringUtils.randomAlphanumeric(20);
-        String s = new Sha256Hash("123456", salt).toHex();
-        System.out.println(salt);
-        System.out.println(s);
+//        String salt = RandomStringUtils.randomAlphanumeric(20);
+//        String s = new Sha256Hash("123456", salt).toHex();
+//        System.out.println(salt);
+//        System.out.println(s);
+//        String s = null;
+//        System.out.println(StringUtils.isEmpty(s));
+
+        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+        conn2.setHost("192.168.241.145").setPort(27017).setUsername("ess").setPassword("ess").setDatabase("ess").connect();
+        DeviceDao deviceDao = new DeviceDao();
+        deviceDao.update().set("bindStation",false).execute(deviceDao.query());
+    }
+
+    @Test
+    public void testMobile() throws ParseException {
+//        boolean mobile = PatternUtil.isMobile("2321899000");
+//        System.out.println(mobile);
+//        Date day = new Date();
+//        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd 00");
+//        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH");
+//        String s = df.format(day);
+//        Date date = df.parse(s);
+//        ArrayList<String> dates = new ArrayList<>();
+//        for (int i = 0; i < 24; i++) {
+//            Calendar cal = Calendar.getInstance();
+//            cal.setTime(date);
+//            cal.add(Calendar.HOUR, 1);
+//            date = cal.getTime();
+//            String s1 = format.format(date);
+//            dates.add(s1);
+//        }
+//        System.out.println(dates.size());
+        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+        conn2.setHost("192.168.241.145");
+        conn2.setPort(27017);
+        conn2.setUsername("ess");
+        conn2.setPassword("ess");
+        conn2.setDatabase("ess");
+        conn2.connect();
+        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();
+        Iterable<DBObject> bamsDischargeCapacityIterable = bamsDischargeCapacityDao.aggregate().match(bamsDischargeCapacityDao.query()
+                .is("deviceName", "d06a4137967744efa6a24dd564480e0a")
+                .is("equipmentId", 14)).sort("{generationDataTime:-1}").limit(1).results();
+        BamsDischargeCapacity bamsDischargeCapacity=null;
+        if (bamsDischargeCapacityIterable != null) {
+            for (DBObject object : bamsDischargeCapacityIterable) {
+                bamsDischargeCapacity = MapperUtil.fromDBObject(BamsDischargeCapacity.class, object);
+            }
+        }
+        System.out.println(bamsDischargeCapacity);
+    }
+
+    @Test
+    public void testStatics() {
+        /**
+         * TODO 明天测试数据加验证
+         */
+        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+        conn2.setHost("192.168.241.145").setPort(27017).setUsername("ess").setPassword("ess").setDatabase("ess").connect();
+        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();
+//        {_id:'$incomeOfDay',count:{$sum:{$toDouble:'$income'}}}
+//        {_id:{ $dateToString: { format: '%Y-%m', date: '$accessTime' } }
+//         %H
+//        date:{$add:['$generationDataTime',28800000]}}
+        Iterable<DBObject> iterable = bamsDischargeCapacityDao.aggregate()
+                        .group("{_id:{$dateToString:{format:'%Y-%m-%d %H',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}")
+                        .sort("{generationDataTime:-1}").limit(25)
+                        .results();
+        Map<String,Double> dbOfResultOfHour=new HashMap<>();
+        if (iterable != null) {
+            for (DBObject object : iterable) {
+                dbOfResultOfHour.put((String) object.get("_id"),(Double) object.get("count"));
+            }
+        }
+        Date startTimeOfDay = DateUtils.getStartTime(new Date());
+        Map<String,Double> initHoursData=new HashMap<>();
+        initHoursData.put(DateUtils.dateToStrWithHH(startTimeOfDay),0D);
+        for (int i = 0; i < 24; i++) {
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(startTimeOfDay);
+            cal.add(Calendar.HOUR, 1);
+            startTimeOfDay = cal.getTime();
+            initHoursData.put(DateUtils.dateToStrWithHH(startTimeOfDay),0D);
+        }
+        Map<String, Double> map3 = Stream.of(initHoursData, dbOfResultOfHour)
+                .flatMap(map -> map.entrySet().stream())
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (v1, v2) -> v2));
+        Map<String, Double> stringDoubleMap = sortByKey(map3);
+        System.out.println(stringDoubleMap);
+    }
+    private Map<String, Double> sortByKey(Map<String, Double> map) {
+        Map<String, Double> result = new LinkedHashMap<>(map.size());
+        map.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEachOrdered(e -> result.put(e.getKey(), e.getValue()));
+        return result;
     }
 
     @Test
     public void testWhile() {
-//        Random r = new Random(1);
-//    　　for (int i = 0; i < 5; i++){
-//    　　　　int ran1 = r.nextInt(100);
-//    　　　　System.out.println(ran1);
-//    　　}
-//        Random random = new Random();
-//        for(int i=0;i<10;i++){
-//            System.out.println(i);
-//            try {
-//                System.out.println("休息两分钟"+new Date());
-//                Thread.sleep(120000);
-//            }catch (Exception e){
+        Date startTimeOfDay = DateUtils.getStartTime(new Date());
+        ArrayList<String> dates = new ArrayList<>();
+        dates.add(DateUtils.dateToStrWithHH(startTimeOfDay));
+        for (int i = 0; i < 24; i++) {
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(startTimeOfDay);
+            cal.add(Calendar.HOUR, 1);
+            cal.set(Calendar.MINUTE, 0);
+            startTimeOfDay = cal.getTime();
+
+            dates.add(DateUtils.dateToStrWithHH(startTimeOfDay));
+        }
+        System.out.println(dates);
+
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.145");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("172.24.63.229");
+//        conn2.setPort(27017);
+//        conn2.setUsername("farm");
+//        conn2.setPassword("hithium.db.mongo");
+//        conn2.setDatabase("farm");
+//        conn2.connect();
+//        BamsDataDicBADao bamsDataDicBADao = new BamsDataDicBADao();
+//        Map<String, Double> resultMap = new LinkedHashMap<>();
+//        DeviceDao deviceDao = new DeviceDao();
+//        List<Device> results = deviceDao.query().results();
+//        List<String> stringList = results.stream().map(device -> device.getDeviceName()).collect(Collectors.toList());
+//        if (!CollectionUtils.isEmpty(stringList) && !stringList.isEmpty()) {
+//            for (String deviceName : stringList) {
+//                for (int i = 0; i < dates.size() - 1; i++) {
+//                    double maxOfYesterday = bamsDataDicBADao.max("dischargeCapacitySum", bamsDataDicBADao.query().is("deviceName", deviceName)
+//                            .greaterThan("generationDataTime", dates.get(i)).lessThan("generationDataTime", dates.get(i + 1)));
+//                    resultMap.put(deviceName + "_" + dates.get(i) + "_" + dates.get(i + 1), maxOfYesterday);
+//                }
 //            }
 //        }
-        int i = new Random().nextInt(40000 - 35000) + 35000;
-        System.out.println(i);
+//        List<BamsDataDicBA> results = bamsDataDicBADao.query().sort("{generationDataTime:-1}").pageSize(1).pageNumber(0).results();
+//        System.out.println(results.get(0));
+//        Iterable<DBObject> iterable = bamsDataDicBADao.aggregate()
+//                .match(bamsDataDicBADao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a")
+//                .is("equipmentId", 14)).sort("{generationDataTime:-1}").limit(1).results();
+//
+//        Iterable<DBObject> iterable1 = bamsDataDicBADao.aggregate()
+//                .match(bamsDataDicBADao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a")
+//                        .is("equipmentId", 14).sort("{generationDataTime:-1}")).limit(1).results();
+//        BamsDataDicBA bamsDataDicObject = null;
+//        if (iterable != null) {
+//            for (DBObject object : iterable) {
+//                bamsDataDicObject = MapperUtil.fromDBObject(BamsDataDicBA.class, object);
+//            }
+//        }
+//        System.out.println(bamsDataDicObject);
+
+//        BcuDataDicBCUDao bcuDataDicBCUDao = new BcuDataDicBCUDao();
+//        Iterable<DBObject> iterable = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is(DEVICE_NAME, "d06a4137967744efa6a24dd564480e0a"))
+//                .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}").sort("{generationDataTime:-1}").limit(16).results();
+//        List<String> strings = new ArrayList<>();
+//        if(iterable != null){
+//            for (DBObject object : iterable) {
+//                ObjectId dataId = (ObjectId) object.get("dataId");
+//                String queryId = dataId.toString();
+//                strings.add(queryId);
+//            }
+//        }
+
+    }
+
+
+    @Test
+    public void testTime23333() {
+        Calendar cale = Calendar.getInstance();
+        int year = cale.get(Calendar.YEAR);
+        int month = cale.get(Calendar.MONTH) + 1;
+        int day = cale.get(Calendar.DATE);
+        int hour = cale.get(Calendar.HOUR_OF_DAY);
+        int minute = cale.get(Calendar.MINUTE);
+        int second = cale.get(Calendar.SECOND);
+        int dow = cale.get(Calendar.DAY_OF_WEEK);
+        int dom = cale.get(Calendar.DAY_OF_MONTH);
+        int doy = cale.get(Calendar.DAY_OF_YEAR);
+
+        System.out.println("Current Date: " + cale.getTime());
+        System.out.println("Year: " + year);
+        System.out.println("Month: " + month);
+        System.out.println("Day: " + day);
+        System.out.println("Hour: " + hour);
+        System.out.println("Minute: " + minute);
+        System.out.println("Second: " + second);
+        System.out.println("Day of Week: " + dow);
+        System.out.println("Day of Month: " + dom);
+        System.out.println("Day of Year: " + doy);
+
+        // 获取当月第一天和最后一天
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String firstday, lastday;
+        // 获取前月的第一天
+        cale = Calendar.getInstance();
+        cale.add(Calendar.MONTH, 0);
+        cale.set(Calendar.DAY_OF_MONTH, 1);
+        cale.set(Calendar.HOUR_OF_DAY, 0);
+        cale.set(Calendar.MINUTE, 0);
+        cale.set(Calendar.SECOND, 0);
+        firstday = format.format(cale.getTime());
+        // 获取前月的最后一天
+        cale = Calendar.getInstance();
+        cale.add(Calendar.MONTH, 1);
+        cale.set(Calendar.DAY_OF_MONTH, 0);
+        cale.set(Calendar.HOUR_OF_DAY, 0);
+        cale.set(Calendar.MINUTE, 0);
+        cale.set(Calendar.SECOND, 0);
+        lastday = format.format(cale.getTime());
+        System.out.println("本月第一天和最后一天分别是 ： " + firstday + " and " + lastday);
+
+        // 获取当前日期字符串
+        Date d = new Date();
+        System.out.println("当前日期字符串1：" + format.format(d));
+        System.out.println("当前日期字符串2：" + year + "/" + month + "/" + day + " "
+                + hour + ":" + minute + ":" + second);
     }
 
     @Test
@@ -529,7 +737,7 @@ public class HithiumFarmWebApplicationTests {
         conn2.connect();
         EquipmentDao equipmentDao = new EquipmentDao();
         List<Equipment> equipments = equipmentDao.query().is(DEVICE_NAME, "clld3w7tdxjhvuhf6gzn60whffuy0hyj").is("enabled", true).results();
-       List<Equipment> resutlEquipment=new ArrayList<>();
+        List<Equipment> resutlEquipment = new ArrayList<>();
 
         /**
          * 电池簇
@@ -537,7 +745,7 @@ public class HithiumFarmWebApplicationTests {
         List<Equipment> bamsClusterEquipment2 = equipments.stream().
                 filter(equip -> equip.getEquipmentId() > 36 && equip.getEquipmentId() < 53).collect(Collectors.toList());
         List<Equipment> equipment = equipments.stream().
-                filter(equip -> equip.getEquipmentId() == 34 ||  equip.getEquipmentId() == 53).collect(Collectors.toList());
+                filter(equip -> equip.getEquipmentId() == 34 || equip.getEquipmentId() == 53).collect(Collectors.toList());
         resutlEquipment.addAll(bamsClusterEquipment2);
         resutlEquipment.addAll(equipment);
         System.out.println(resutlEquipment.size());
@@ -650,7 +858,6 @@ public class HithiumFarmWebApplicationTests {
 //        // 这里 需要指定写用哪个class去写，然后写到第一个sheet，名字为模板 然后文件流会自动关闭
 //        EasyExcel.write(fileName).head(head()).sheet("模板").doWrite(dataList());
 //    }
-
     private List<List<String>> head() {
 //        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
 //        conn2.setHost("192.168.241.170");
@@ -971,23 +1178,25 @@ public class HithiumFarmWebApplicationTests {
 //        TestExpireIndexDao testExpireIndexDao = new TestExpireIndexDao();
 //        testExpireIndexDao.insert(testExpireIndex);
     }
+
     @Test
-    public void testRun(){
-        for(int i=0;i<100;i++){
+    public void testRun() {
+        for (int i = 0; i < 100; i++) {
             int j = new Random().nextInt(40000 - 35000) + 35000;
             System.out.println(j);
         }
     }
+
     @Test
-    public void testPassword(){
-        String match="^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{6,8}$";
-        String password1="gg1234561";
-        String password2="123456gg3";
-        String password3="22atqYYY";
-        String password4="2AaAa7";
-        String password5="AaAaAa12";
-        String password6="...222aa";
-        String password7="aa123456";
+    public void testPassword() {
+        String match = "^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{6,8}$";
+        String password1 = "gg1234561";
+        String password2 = "123456gg3";
+        String password3 = "22atqYYY";
+        String password4 = "2AaAa7";
+        String password5 = "AaAaAa12";
+        String password6 = "...222aa";
+        String password7 = "aa123456";
         System.out.println(password1.matches(match));
         System.out.println(password2.matches(match));
         System.out.println(password3.matches(match));

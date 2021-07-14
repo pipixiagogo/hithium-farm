@@ -2,6 +2,7 @@ package com.bugull.hithiumfarmweb.common;
 
 import com.bugull.mongo.BuguDao;
 import com.bugull.mongo.BuguQuery;
+import org.omg.CORBA.PUBLIC_MEMBER;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,5 +96,10 @@ public class BuguPageQuery<S> extends BuguQuery<S> {
             return new Page<>(this.pageNumber,this.pageSize,totoal,l);
         }
     }
+
+    public  Page<S> resultWithNullPage(){
+        return new Page<>(this.pageNumber,this.pageSize,0,new ArrayList<S>());
+    }
+
 
 }

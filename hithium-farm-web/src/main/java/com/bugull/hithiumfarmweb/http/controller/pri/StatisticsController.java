@@ -3,11 +3,14 @@ package com.bugull.hithiumfarmweb.http.controller.pri;
 import com.bugull.hithiumfarmweb.http.bo.AreaInfoBo;
 import com.bugull.hithiumfarmweb.http.bo.AreaNetInNumBo;
 import com.bugull.hithiumfarmweb.http.bo.StatisticBo;
+import com.bugull.hithiumfarmweb.http.entity.EssStation;
+import com.bugull.hithiumfarmweb.http.service.EssStationService;
 import com.bugull.hithiumfarmweb.http.service.StatisticsService;
 import com.bugull.hithiumfarmweb.http.vo.*;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiOperation;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import springfox.documentation.annotations.ApiIgnore;
@@ -28,6 +31,8 @@ public class StatisticsController extends AbstractController {
 
     @Resource
     private StatisticsService statisticsService;
+    @Resource
+    private EssStationService essStationService;
 
     @PostMapping(value = "/netInNum")
     @ApiOperation(value = "统计总功率")
@@ -42,21 +47,21 @@ public class StatisticsController extends AbstractController {
         if (areaNetInNumBo.getYear() < MIN_YEAR || areaNetInNumBo.getYear() > MAX_YEAR) {
             return ResHelper.pamIll();
         }
-        return statisticsService.statisticNetInNum(areaNetInNumBo);
+        return statisticsService.statisticNetInNum(areaNetInNumBo, getUser());
     }
 
     @PostMapping(value = "/capacityNum")
     @ApiOperation(value = "储能充放电量统计")
     @ApiImplicitParam(name = "areaInfoBo", value = "地区实体类", required = true, paramType = "body", dataTypeClass = AreaInfoBo.class, dataType = "AreaInfoBo")
     public ResHelper<CapacityNumVo> statisticCapacityNum(@RequestBody AreaInfoBo areaInfoBo) {
-        return statisticsService.statisticCapacityNum(areaInfoBo);
+        return statisticsService.statisticCapacityNum(areaInfoBo, getUser());
     }
 
     @PostMapping(value = "/alarmNum")
     @ApiOperation(value = "待办告警数量")
     @ApiImplicitParam(name = "areaInfoBo", value = "地区实体类", required = true, paramType = "body", dataTypeClass = AreaInfoBo.class, dataType = "AreaInfoBo")
     public ResHelper<AlarmNumVo> statisticAlarmNum(@RequestBody AreaInfoBo areaInfoBo) {
-        return statisticsService.statisticAlarmNum(areaInfoBo);
+        return statisticsService.statisticAlarmNum(areaInfoBo, getUser());
     }
 
     /**
@@ -81,35 +86,66 @@ public class StatisticsController extends AbstractController {
     @ApiOperation(value = "设备运行非运行数量统计")
     @ApiImplicitParam(name = "areaInfoBo", value = "地区实体类", readOnly = true, paramType = "body", dataTypeClass = AreaInfoBo.class, dataType = "AreaInfoBo")
     public ResHelper<RunNumVO> runNumStatistic(@RequestBody AreaInfoBo areaInfoBo) {
-        return statisticsService.runNumStatistic(areaInfoBo);
+        return statisticsService.runNumStatistic(areaInfoBo, getUser());
     }
 
+    /**
+     * TODO 总收益要从incomeEntity实体类获取  收益分析代码还要重写
+     * @param areaInfoBo
+     * @return
+     */
     @PostMapping(value = "/incomeStatistic")
     @ApiOperation(value = "获取总收益")
     @ApiImplicitParam(name = "areaInfoBo", value = "地区实体类", readOnly = true, paramType = "body", dataTypeClass = AreaInfoBo.class, dataType = "AreaInfoBo")
     public ResHelper<IncomeStatisticVo> incomeStatistic(@RequestBody AreaInfoBo areaInfoBo) {
-        return statisticsService.incomeStatistic(areaInfoBo);
+        return statisticsService.incomeStatistic(areaInfoBo, getUser());
     }
 
     @PostMapping(value = "/incomeOfDayStatistic")
     @ApiOperation(value = "获取天、月、年收益")
     @ApiImplicitParam(name = "areaInfoBo", value = "地区实体类", readOnly = true, paramType = "body", dataTypeClass = AreaInfoBo.class, dataType = "AreaInfoBo")
-    public ResHelper<Map<String,IncomeStatisticVo>> incomeStatistics(@RequestBody AreaInfoBo areaInfoBo) {
-        return statisticsService.incomeStatistics(areaInfoBo);
+    public ResHelper<Map<String, IncomeStatisticVo>> incomeStatistics(@RequestBody AreaInfoBo areaInfoBo) {
+        return statisticsService.incomeStatistics(areaInfoBo, getUser());
     }
 
     @PostMapping(value = "/incomeStatisticOfAll")
     @ApiOperation(value = "获取最近7天、1个月、12个月收益")
     @ApiImplicitParam(name = "areaInfoBo", value = "地区实体类", readOnly = true, paramType = "body", dataTypeClass = AreaInfoBo.class, dataType = "AreaInfoBo")
-    public ResHelper<Map<String,List<IncomeStatisticOfDayVo>>> incomeStatisticOfAll(@RequestBody AreaInfoBo areaInfoBo) {
-        return statisticsService.incomeStatisticOfAll(areaInfoBo);
+    public ResHelper<Map<String, List<IncomeStatisticOfDayVo>>> incomeStatisticOfAll(@RequestBody AreaInfoBo areaInfoBo) {
+        return statisticsService.incomeStatisticOfAll(areaInfoBo, getUser());
     }
 
     @GetMapping(value = "/deviceOfIncomeStatistic")
     @ApiOperation(value = "按时间 7天、1一个月、12个月 获取单台设备收益")
-    @ApiImplicitParam(name = "deviceName",value = "设备码",paramType = "query",dataType = "String",dataTypeClass = String.class)
-    public ResHelper<Map<String,List<IncomeStatisticOfDayVo>>> deviceOfIncomeStatistic(@ApiIgnore @RequestParam(value = "deviceName") String deviceName){
+    @ApiImplicitParam(name = "deviceName", value = "设备码", paramType = "query", dataType = "String", dataTypeClass = String.class)
+    public ResHelper<Map<String, List<IncomeStatisticOfDayVo>>> deviceOfIncomeStatistic(@ApiIgnore @RequestParam(value = "deviceName") String deviceName) {
+        if (StringUtils.isEmpty(deviceName)) {
+            return ResHelper.pamIll();
+        }
+        if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
+            List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
+            if(!CollectionUtils.isEmpty(essStationList) &&  !essStationList.isEmpty()){
+                boolean flag=false;
+                for(EssStation essStation:essStationList){
+                    if(!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()){
+                        if(essStation.getDeviceNameList().contains(deviceName)){
+                            flag=true;
+                            break;
+                        }
+                    }
+                }
+                if(!flag){
+                    return ResHelper.error(NO_QUERY_PERMISSION);
+                }
+            }
+        }
         return statisticsService.deviceOfIncomeStatistic(deviceName);
+    }
+
+    @GetMapping(value = "/capacityNumOfDate")
+    @ApiOperation(value = "按时间 最近的12小时、天数 7天 、月份半年或者12个月 获取储能充放电统计")
+    public ResHelper<Map<String, Map<String,CapacityNumOfDateVo>>> capacityNumOfDate(){
+        return statisticsService.capacityNumOfDate(getUser());
     }
 
 

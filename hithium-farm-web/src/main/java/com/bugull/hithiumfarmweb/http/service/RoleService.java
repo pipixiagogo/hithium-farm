@@ -24,14 +24,16 @@ public class RoleService {
     @Resource
     private RoleEntityDao roleEntityDao;
     @Resource
-    private MenuEntityDao menuEntityDao;
-    @Resource
     private SysUserDao sysUserDao;
 
     public ResHelper<List<RoleEntity>> select(SysUser sysUser) {
         if (Integer.valueOf(sysUser.getId()) == 1) {
             List<RoleEntity> results = roleEntityDao.query().results();
             return ResHelper.success("", results);
+        }
+        if(!CollectionUtils.isEmpty(sysUser.getRoleIds()) && !sysUser.getRoleIds().isEmpty()){
+            List<RoleEntity> roleEntities = roleEntityDao.query().in("_id", sysUser.getRoleIds()).results();
+            return ResHelper.success("",roleEntities);
         }
         return null;
     }

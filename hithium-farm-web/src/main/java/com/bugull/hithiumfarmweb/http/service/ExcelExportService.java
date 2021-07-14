@@ -126,7 +126,6 @@ public class ExcelExportService {
         if (!propertiesConfig.isStartExportExcelSwitch()) {
             return;
         }
-//        Date date = DateUtils.addDateMonths(new Date(), -1);
         Date date = DateUtils.addDateDays(new Date(), -propertiesConfig.getRemoveExcelDate());
         List<ExportRecord> exportRecords = exportRecordDao.query().lessThanEquals("recordTime", date).is("exporting", true).results();
         log.info("启动定时删除excel任务,查询到可删除excel文件数量为:{}", exportRecords.size());
@@ -444,7 +443,6 @@ public class ExcelExportService {
                             }
                         }
                     }
-
                 }
             } finally {
                 if (writer != null) {

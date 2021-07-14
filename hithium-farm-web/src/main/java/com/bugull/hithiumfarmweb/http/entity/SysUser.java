@@ -4,18 +4,12 @@ package com.bugull.hithiumfarmweb.http.entity;
 import com.bugull.hithiumfarmweb.common.validator.group.AddGroup;
 import com.bugull.hithiumfarmweb.common.validator.group.UpdateGroup;
 import com.bugull.mongo.BuguEntity;
-import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.*;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 import lombok.ToString;
-import org.omg.CORBA.PRIVATE_MEMBER;
-import springfox.documentation.annotations.ApiIgnore;
-
-import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
 import java.util.Date;
 import java.util.List;
 
@@ -39,7 +33,7 @@ public class SysUser implements BuguEntity {
     @ApiModelProperty(hidden = true)
     private String salt;
 
-//    private String mobile;
+    private String mobile;
 //    @NotBlank(message="邮箱不能为空", groups = { UpdateGroup.class, AddGroup.class})
 //    @Email(message="邮箱格式不正确", groups = { UpdateGroup.class,AddGroup.class})
 //    @ApiModelProperty(name = "email",value = "邮箱")
@@ -82,6 +76,10 @@ public class SysUser implements BuguEntity {
     @ApiModelProperty(hidden = true)
     private Date userExpireTime;
 
+    @ApiModelProperty(name = "stationList",value = "用户绑定电站列表")
+    private List<String> stationList;
 
+    @ApiModelProperty(hidden = true)
+    private String perms;
 
 }

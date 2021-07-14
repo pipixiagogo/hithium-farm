@@ -4,6 +4,7 @@ import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 import java.util.Date;
+import java.util.List;
 
 @Data
 public class DeviceInfoVo {
@@ -44,7 +45,7 @@ public class DeviceInfoVo {
 
     //收益
     @ApiModelProperty(value = "收益")
-    private String income="0";
+    private String income = "0";
 
     //总充电量
     @ApiModelProperty(value = "总放电量")
@@ -53,5 +54,6 @@ public class DeviceInfoVo {
     @ApiModelProperty(value = "总充电量")
     private String chargeCapacitySum;
 
-
+    @ApiModelProperty(value = "Pcs运行状态数据")
+    private List<PcsStatusVo> pcsStatusVoList;
 }

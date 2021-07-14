@@ -10,6 +10,7 @@ import com.bugull.hithiumfarmweb.http.bo.PasswordForm;
 import com.bugull.hithiumfarmweb.http.bo.RoleEntityOfUserBo;
 import com.bugull.hithiumfarmweb.http.bo.UpdateUserBo;
 import com.bugull.hithiumfarmweb.http.dao.CaptchaDao;
+import com.bugull.hithiumfarmweb.http.dao.EssStationDao;
 import com.bugull.hithiumfarmweb.http.dao.RoleEntityDao;
 import com.bugull.hithiumfarmweb.http.dao.SysUserDao;
 import com.bugull.hithiumfarmweb.http.entity.RoleEntity;
@@ -19,6 +20,7 @@ import com.bugull.hithiumfarmweb.http.vo.InfoUserVo;
 import com.bugull.hithiumfarmweb.http.vo.LoginVo;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
+import com.bugull.hithiumfarmweb.utils.PatternUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import com.bugull.mongo.BuguQuery;
 import com.bugull.mongo.BuguUpdater;
@@ -51,7 +53,7 @@ public class SysUserService {
     @Resource
     private PropertiesConfig propertiesConfig;
     @Resource
-    private CaptchaDao captchaDao;
+    private EssStationDao essStationDao;
     private static final Logger log = LoggerFactory.getLogger(SysUserService.class);
 
 
@@ -59,6 +61,9 @@ public class SysUserService {
         try {
             if (!sysUser.getPassword().matches(PASSWORD_PATTERN)) {
                 return ResHelper.error("请输入英文与数字组合的6至8位数密码!");
+            }
+            if (StringUtils.isEmpty(sysUser.getMobile()) || !PatternUtil.isMobile(sysUser.getMobile())) {
+                return ResHelper.error("手机号码格式错误");
             }
             if (!StringUtils.isEmpty(sysUser.getUserExpireTimeStr())) {
                 if (!Const.DATE_PATTERN.matcher(sysUser.getUserExpireTimeStr()).matches()) {
@@ -70,21 +75,29 @@ public class SysUserService {
             /**
              * 邮箱+用户名相同  或者 电话 +用户名相同 即为同一用户
              */
-            if (sysUserDao.query().is("userName", sysUser.getUserName()).exists()) {
-                return ResHelper.error("用户已存在");
+            if (sysUserDao.query().is("userName", sysUser.getUserName()).exists() || sysUserDao.query().is("mobile", sysUser.getMobile()).exists()) {
+                return ResHelper.error("用户名/手机号已存在");
             }
-
+            if (!CollectionUtils.isEmpty(sysUser.getStationList()) && !sysUser.getStationList().isEmpty()) {
+                for (String stationId : sysUser.getStationList()) {
+                    if (!essStationDao.exists(stationId)) {
+                        return ResHelper.pamIll();
+                    }
+                }
+            }
             if (!CollectionUtils.isEmpty(sysUser.getRoleIds()) && !sysUser.getRoleIds().isEmpty()) {
                 /**
                  * 验证roleIds的参数
                  */
                 List<RoleEntity> roleEntities = roleEntityDao.query().in("_id", sysUser.getRoleIds()).results();
                 if (!CollectionUtils.isEmpty(roleEntities) && !roleEntities.isEmpty()) {
-
                 } else {
                     return ResHelper.error("角色不存在");
                 }
+            } else {
+                return ResHelper.pamIll();
             }
+
             sysUser.setCreateTime(new Date());
             //sha256加密
             String salt = RandomStringUtils.randomAlphanumeric(20);
@@ -159,6 +172,16 @@ public class SysUserService {
                 if (user.getStatus() != null) {
                     update.set("status", user.getStatus());
                 }
+                if (!StringUtils.isEmpty(user.getMobile())) {
+                    if (!PatternUtil.isMobile(user.getMobile())) {
+                        return ResHelper.error("手机号码格式错误");
+                    }
+                    if (sysUserDao.query().is("userName", user.getMobile()).notEquals("_id", String.valueOf(user.getId())).exists()) {
+                        return ResHelper.error("该手机号已存在");
+                    }
+
+                    update.set("mobile", user.getMobile());
+                }
                 if (!StringUtils.isEmpty(user.getUserExpireTimeStr())) {
                     if (!Const.DATE_PATTERN.matcher(user.getUserExpireTimeStr()).matches()) {
                         return ResHelper.error("账号过期时间:日期格式错误");
@@ -185,6 +208,16 @@ public class SysUserService {
                     } else {
                         return ResHelper.pamIll();
                     }
+                }
+                if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+                    for (String stationId : user.getStationList()) {
+                        if (!essStationDao.exists(stationId)) {
+                            return ResHelper.pamIll();
+                        }
+                    }
+                    update.set("stationList", user.getStationList());
+                } else {
+                    update.set("stationList", new ArrayList<>());
                 }
                 if (!StringUtils.isEmpty(user.getRemarks())) {
                     update.set("remarks", user.getRemarks());
@@ -213,8 +246,9 @@ public class SysUserService {
         if (sysUser.getUserExpireTime() != null && !sysUser.getUserExpireTime().after(new Date())) {
             return ResHelper.error("账号过期,请联系管理员");
         }
-        //删除验证码
-        captchaDao.remove(captchaDao.query().is("uuid", loginFormBo.getUuid()));
+        //删除验证码 在生成验证码时候执行
+//        captchaDao.remove(captchaDao.query().is("uuid", loginFormBo.getUuid()));
+
         return ResHelper.success("登录成功", createToken(sysUser.getId()));
     }
 

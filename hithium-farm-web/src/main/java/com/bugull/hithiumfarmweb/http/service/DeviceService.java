@@ -15,6 +15,7 @@ import com.bugull.mongo.BuguAggregation;
 import com.bugull.mongo.BuguQuery;
 import com.bugull.mongo.utils.MapperUtil;
 import com.mongodb.DBObject;
+import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -49,11 +50,21 @@ public class DeviceService {
     private PropertiesConfig propertiesConfig;
     @Resource
     private IncomeEntityDao incomeEntityDao;
+    @Resource
+    private PcsChannelDicDao pcsChannelDicDao;
+    @Resource
+    private EssStationService essStationService;
 
     private static final Logger log = LoggerFactory.getLogger(DeviceService.class);
 
-    public ResHelper<List<ProvinceVo>> aggrationArea() {
+    public ResHelper<List<ProvinceVo>> aggrationArea(SysUser user) {
         BuguAggregation<Device> aggregate = deviceDao.aggregate();
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                aggregate.match(deviceDao.query().in(DEVICE_NAME, deviceNames));
+            }
+        }
         aggregate.group("{_id:'$province', count:{$sum:1}}");
         aggregate.sort("{count:-1}");
         Iterable<DBObject> results = aggregate.results();
@@ -62,8 +73,13 @@ public class DeviceService {
             ProvinceVo provinceVo = new ProvinceVo();
             String province = (String) res.get("_id");
             Integer count = (Integer) res.get("count");
-            DBObject condition = deviceDao.query().is(PROVINCE, province).getCondition();
-            Iterable<DBObject> iterable = deviceDao.aggregate().match(condition).group("{_id:'$city', count:{$sum:1}}").sort("{count:-1}").results();
+            BuguQuery<Device> deviceBuguQuery = deviceDao.query().is(PROVINCE, province);
+            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                    deviceBuguQuery.in(DEVICE_NAME, deviceNames);
+                }
+            }
+            Iterable<DBObject> iterable = deviceDao.aggregate().match(deviceBuguQuery).group("{_id:'$city', count:{$sum:1}}").sort("{count:-1}").results();
             List<CityVo> cityVoList = new ArrayList<>();
             if (iterable != null) {
                 iterable.forEach(it -> {
@@ -72,7 +88,13 @@ public class DeviceService {
                     Integer num = (Integer) it.get("count");
                     cityVo.setCity(city);
                     cityVo.setNum(num);
-                    List<DeviceAreaEntity> deviceAreaEntities = deviceAreaEntityDao.query().is(PROVINCE, province).is("city", city).results();
+                    BuguQuery<DeviceAreaEntity> deviceAreaEntityBuguQuery = deviceAreaEntityDao.query().is(PROVINCE, province).is("city", city);
+                    if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+                        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                            deviceAreaEntityBuguQuery.in(DEVICE_NAME, deviceNames);
+                        }
+                    }
+                    List<DeviceAreaEntity> deviceAreaEntities = deviceAreaEntityBuguQuery.results();
                     cityVo.setDeviceAreaEntities(deviceAreaEntities);
                     cityVoList.add(cityVo);
                 });
@@ -91,9 +113,6 @@ public class DeviceService {
     }
 
     public DeviceVo query(String deviceName) {
-        /**
-         *  TODO 设备列表分类 按excel导出那个分类
-         */
         Device device = deviceDao.query().is(DEVICE_NAME, deviceName).result();
         DeviceVo deviceVo = new DeviceVo();
         if (device != null) {
@@ -106,7 +125,6 @@ public class DeviceService {
             List<EquipmentBo> equipmentBos = new ArrayList<>();
             equipmentBo.setEquipmentBo(equipmentBos);
             List<Pccs> pccsList = pccsDao.query().is(DEVICE_NAME, deviceName).is("stationId", device.getStationId()).results();
-
             pccsList.stream().forEach(pccs -> {
                 EquipmentBo equipment = new EquipmentBo();
                 equipment.setName(pccs.getName());
@@ -117,151 +135,171 @@ public class DeviceService {
                  * 并网口后下级目录   电池堆、PCS、其他、电表
                  */
                 List<Equipment> equipments = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).results();
+                EquipmentBo equipmentBoOfBams = new EquipmentBo();
                 /**
                  * 电池堆
                  */
-                List<Equipment> bamsEquipments;
-                if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
-                    bamsEquipments = equipments.stream().
-                            filter(equip -> equip.getEquipmentId() == 36).collect(Collectors.toList());
-                } else {
-                    bamsEquipments = equipments.stream().
-                            filter(equip -> equip.getEquipmentId() == 14).collect(Collectors.toList());
-                }
-                Equipment bamsEquipment = bamsEquipments.get(0);
-                EquipmentBo equipmentBoOfBams = new EquipmentBo();
-                BeanUtils.copyProperties(bamsEquipment, equipmentBoOfBams);
-                equipmentBoList.add(equipmentBoOfBams);
-                List<Equipment> bamsClusterEquipment = new ArrayList<>();
-                if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
-                    List<Equipment> clusterEquipment = equipments.stream().
-                            filter(equip -> equip.getEquipmentId() > 36 && equip.getEquipmentId() < 53).collect(Collectors.toList());
-                    List<Equipment> cabinEquipment = equipments.stream().
-                            filter(equip -> equip.getEquipmentId() == 34 || equip.getEquipmentId() == 35 || equip.getEquipmentId() == 53 || equip.getEquipmentId() == 54).collect(Collectors.toList());
-                    bamsClusterEquipment.addAll(clusterEquipment);
-                    bamsClusterEquipment.addAll(cabinEquipment);
-                } else {
-                    List<Equipment> clusterEquipment  = equipments.stream().
-                            filter(equip -> equip.getEquipmentId() > 35 && equip.getEquipmentId() < 54 && equip.getEquipmentId() != 44 && equip.getEquipmentId()!=45).collect(Collectors.toList());
-                    List<Equipment> cabinEquipment = equipments.stream().
-                            filter(equip -> equip.getEquipmentId() == 34 || equip.getEquipmentId() == 35 || equip.getEquipmentId() == 44 || equip.getEquipmentId() == 45).collect(Collectors.toList());
-                    bamsClusterEquipment.addAll(clusterEquipment);
-                    bamsClusterEquipment.addAll(cabinEquipment);
-                }
-                List<EquipmentBo> bos = bamsClusterEquipment.stream().map(clusterEquipment -> {
-                    EquipmentBo equipOfBo = new EquipmentBo();
-                    BeanUtils.copyProperties(clusterEquipment, equipOfBo);
-                    return equipOfBo;
-                }).collect(Collectors.toList());
-                equipmentBoOfBams.setEquipmentBo(bos);
+                getBoOfBamsData(equipments, deviceName, equipmentBoOfBams, equipmentBoList);
                 /**
                  * PCS
                  */
-                List<Equipment> pcsCabinetEquipments = equipments.stream().
-                        filter(equip -> equip.getEquipmentId() == 15).collect(Collectors.toList());
-                Equipment pcsCabnet = pcsCabinetEquipments.get(0);
-                List<Equipment> pcsChannelEquipments = equipments.stream()
-                        .filter(equip -> equip.getEquipmentId() > 15 && equip.getEquipmentId() < 34).collect(Collectors.toList());
-                List<EquipmentBo> boList = pcsChannelEquipments.stream().map(pcsChannelEquipment -> {
-                    EquipmentBo equip = new EquipmentBo();
-                    BeanUtils.copyProperties(pcsChannelEquipment, equip);
-                    return equip;
-                }).collect(Collectors.toList());
-                EquipmentBo pcsCabinetBo = new EquipmentBo();
-                BeanUtils.copyProperties(pcsCabnet, pcsCabinetBo);
-                pcsCabinetBo.setEquipmentBo(boList);
-                equipmentBoList.add(pcsCabinetBo);
+                getBoOfPcsData(equipments, equipmentBoList);
                 /**
                  * 电表
                  */
-                EquipmentBo ammeterBo = new EquipmentBo();
-                ammeterBo.setName("电表");
-                List<Equipment> ammeterEquipments;
-                if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
-                    ammeterEquipments = equipments.stream().
-                            filter(equip -> equip.getEquipmentId() == 4 || equip.getEquipmentId() == 7 || equip.getEquipmentId() == 12)
-                            .collect(Collectors.toList());
-                } else {
-                    ammeterEquipments = equipments.stream().
-                            filter(equip -> equip.getEquipmentId() == 3 || equip.getEquipmentId() == 6 || equip.getEquipmentId() == 11)
-                            .collect(Collectors.toList());
-                }
-                List<EquipmentBo> equipmentBoList1 = ammeterEquipments.stream().map(ammeterEquipment -> {
-                    EquipmentBo equip = new EquipmentBo();
-                    BeanUtils.copyProperties(ammeterEquipment, equip);
-                    return equip;
-                }).collect(Collectors.toList());
-                ammeterBo.setEquipmentBo(equipmentBoList1);
-                equipmentBoList.add(ammeterBo);
+                getBoOfAmmeterData(equipments, deviceName, equipmentBoList);
                 /**
                  * 消防主机
                  */
-                EquipmentBo fireEquipmentBo = new EquipmentBo();
-                if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
-                    List<Equipment> fireEquipments = equipments.stream().filter(equip ->
-                            equip.getEquipmentId() == 2
-                    ).collect(Collectors.toList());
-                    if (!CollectionUtils.isEmpty(fireEquipments) && !fireEquipments.isEmpty()) {
-                        Equipment fireEquipment = fireEquipments.get(0);
-                        fireEquipmentBo.setName(fireEquipment.getName());
-                        fireEquipmentBo.setEquipmentId(2);
-                        fireEquipmentBo.setEquipmentBo(null);
-                    }
-                } else {
-                    List<Equipment> fireEquipments = equipments.stream().filter(equip ->
-                            equip.getEquipmentId() == 1
-                    ).collect(Collectors.toList());
-                    if (!CollectionUtils.isEmpty(fireEquipments) && !fireEquipments.isEmpty()) {
-                        Equipment fireEquipment = fireEquipments.get(0);
-                        fireEquipmentBo.setName(fireEquipment.getName());
-                        fireEquipmentBo.setEquipmentId(1);
-                        fireEquipmentBo.setEquipmentBo(null);
-                    }
-                }
-                if (!StringUtils.isEmpty(fireEquipmentBo.getName())) {
-                    equipmentBoList.add(fireEquipmentBo);
-                }
+                getBoOfFireData(equipments, deviceName, equipmentBoList);
                 /**
                  * 附属表
                  */
-                EquipmentBo subsidiaryBo = new EquipmentBo();
-                subsidiaryBo.setName("附属件");
-                List<Equipment> subsidiaryEquipments;
-                if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
-                    subsidiaryEquipments = equipments.stream().
-                            filter(equip -> equip.getEquipmentId() == 13 || equip.getEquipmentId() == 14 || equip.getEquipmentId() == 55)
-                            .collect(Collectors.toList());
-                } else {
-                    subsidiaryEquipments = equipments.stream().
-                            filter(equip -> equip.getEquipmentId() == 1 || equip.getEquipmentId() == 12 || equip.getEquipmentId() == 13)
-                            .collect(Collectors.toList());
-                }
-                List<EquipmentBo> subsidiaryEquipBo = subsidiaryEquipments.stream().map(subsidiaryEquipment -> {
-                    EquipmentBo equipmentBo1 = new EquipmentBo();
-                    BeanUtils.copyProperties(subsidiaryEquipment, equipmentBo1);
-                    return equipmentBo1;
-                }).collect(Collectors.toList());
-                subsidiaryBo.setEquipmentBo(subsidiaryEquipBo);
-                equipmentBoList.add(subsidiaryBo);
+                getBoOfSubsidiaryData(equipments, deviceName, equipmentBoList, pccs, equipmentBos);
                 equipmentBos.add(equipment);
-                List<Equipment> equips = equipmentDao.query().is("enabled", true).in("_id", pccs.getEquipmentIds())
-                        .returnFields("name", "equipmentId", "_id").results();
-                equips.stream().forEach(ip -> {
-                    EquipmentBo mentBo = new EquipmentBo();
-                    mentBo.setName(ip.getName());
-                    mentBo.setId(ip.getId());
-                    mentBo.setEquipmentBo(null);
-                    mentBo.setEquipmentId(ip.getEquipmentId());
-                    equipmentBos.add(mentBo);
-                });
             });
             deviceVo.setEquipmentBo(equipmentBo);
         }
         return deviceVo;
     }
 
+    private void getBoOfSubsidiaryData(List<Equipment> equipments, String deviceName, List<EquipmentBo> equipmentBoList, Pccs pccs, List<EquipmentBo> equipmentBos) {
+        EquipmentBo subsidiaryBo = new EquipmentBo();
+        subsidiaryBo.setName("附属件");
+        List<Equipment> subsidiaryEquipments;
+        if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+            subsidiaryEquipments = equipments.stream().
+                    filter(equip -> equip.getEquipmentId() == 13 || equip.getEquipmentId() == 14 || equip.getEquipmentId() == 55)
+                    .collect(Collectors.toList());
+        } else {
+            subsidiaryEquipments = equipments.stream().
+                    filter(equip -> equip.getEquipmentId() == 1 || equip.getEquipmentId() == 12 || equip.getEquipmentId() == 13)
+                    .collect(Collectors.toList());
+        }
+        List<EquipmentBo> subsidiaryEquipBo = subsidiaryEquipments.stream().map(subsidiaryEquipment -> {
+            EquipmentBo equipmentBo1 = new EquipmentBo();
+            BeanUtils.copyProperties(subsidiaryEquipment, equipmentBo1);
+            return equipmentBo1;
+        }).collect(Collectors.toList());
+        subsidiaryBo.setEquipmentBo(subsidiaryEquipBo);
+        equipmentBoList.add(subsidiaryBo);
+        List<Equipment> equips = equipmentDao.query().is("enabled", true).in("_id", pccs.getEquipmentIds())
+                .returnFields("name", "equipmentId", "_id").results();
+        equips.stream().forEach(ip -> {
+            EquipmentBo mentBo = new EquipmentBo();
+            mentBo.setName(ip.getName());
+            mentBo.setId(ip.getId());
+            mentBo.setEquipmentBo(null);
+            mentBo.setEquipmentId(ip.getEquipmentId());
+            equipmentBos.add(mentBo);
+        });
+    }
 
-    public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> deviceAreaList(Map<String, Object> params) {
+    private void getBoOfFireData(List<Equipment> equipments, String deviceName, List<EquipmentBo> equipmentBoList) {
+        EquipmentBo fireEquipmentBo = new EquipmentBo();
+        if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+            List<Equipment> fireEquipments = equipments.stream().filter(equip ->
+                    equip.getEquipmentId() == 2
+            ).collect(Collectors.toList());
+            if (!CollectionUtils.isEmpty(fireEquipments) && !fireEquipments.isEmpty()) {
+                Equipment fireEquipment = fireEquipments.get(0);
+                fireEquipmentBo.setName(fireEquipment.getName());
+                fireEquipmentBo.setEquipmentId(2);
+                fireEquipmentBo.setEquipmentBo(null);
+            }
+        } else {
+            List<Equipment> fireEquipments = equipments.stream().filter(equip ->
+                    equip.getEquipmentId() == 1
+            ).collect(Collectors.toList());
+            if (!CollectionUtils.isEmpty(fireEquipments) && !fireEquipments.isEmpty()) {
+                Equipment fireEquipment = fireEquipments.get(0);
+                fireEquipmentBo.setName(fireEquipment.getName());
+                fireEquipmentBo.setEquipmentId(1);
+                fireEquipmentBo.setEquipmentBo(null);
+            }
+        }
+        if (!StringUtils.isEmpty(fireEquipmentBo.getName())) {
+            equipmentBoList.add(fireEquipmentBo);
+        }
+    }
+
+    private void getBoOfAmmeterData(List<Equipment> equipments, String deviceName, List<EquipmentBo> equipmentBoList) {
+        EquipmentBo ammeterBo = new EquipmentBo();
+        ammeterBo.setName("电表");
+        List<Equipment> ammeterEquipments;
+        if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+            ammeterEquipments = equipments.stream().
+                    filter(equip -> equip.getEquipmentId() == 4 || equip.getEquipmentId() == 7 || equip.getEquipmentId() == 12)
+                    .collect(Collectors.toList());
+        } else {
+            ammeterEquipments = equipments.stream().
+                    filter(equip -> equip.getEquipmentId() == 3 || equip.getEquipmentId() == 6 || equip.getEquipmentId() == 11)
+                    .collect(Collectors.toList());
+        }
+        List<EquipmentBo> equipmentBoList1 = ammeterEquipments.stream().map(ammeterEquipment -> {
+            EquipmentBo equip = new EquipmentBo();
+            BeanUtils.copyProperties(ammeterEquipment, equip);
+            return equip;
+        }).collect(Collectors.toList());
+        ammeterBo.setEquipmentBo(equipmentBoList1);
+        equipmentBoList.add(ammeterBo);
+    }
+
+    private void getBoOfPcsData(List<Equipment> equipments, List<EquipmentBo> equipmentBoList) {
+        List<Equipment> pcsCabinetEquipments = equipments.stream().
+                filter(equip -> equip.getEquipmentId() == 15).collect(Collectors.toList());
+        Equipment pcsCabnet = pcsCabinetEquipments.get(0);
+        List<Equipment> pcsChannelEquipments = equipments.stream()
+                .filter(equip -> equip.getEquipmentId() > 15 && equip.getEquipmentId() < 34).collect(Collectors.toList());
+        List<EquipmentBo> boList = pcsChannelEquipments.stream().map(pcsChannelEquipment -> {
+            EquipmentBo equip = new EquipmentBo();
+            BeanUtils.copyProperties(pcsChannelEquipment, equip);
+            return equip;
+        }).collect(Collectors.toList());
+        EquipmentBo pcsCabinetBo = new EquipmentBo();
+        BeanUtils.copyProperties(pcsCabnet, pcsCabinetBo);
+        pcsCabinetBo.setEquipmentBo(boList);
+        equipmentBoList.add(pcsCabinetBo);
+    }
+
+    private void getBoOfBamsData(List<Equipment> equipments, String deviceName, EquipmentBo equipmentBoOfBams, List<EquipmentBo> equipmentBoList) {
+        List<Equipment> bamsEquipments;
+        if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+            bamsEquipments = equipments.stream().
+                    filter(equip -> equip.getEquipmentId() == 36).collect(Collectors.toList());
+        } else {
+            bamsEquipments = equipments.stream().
+                    filter(equip -> equip.getEquipmentId() == 14).collect(Collectors.toList());
+        }
+        Equipment bamsEquipment = bamsEquipments.get(0);
+        BeanUtils.copyProperties(bamsEquipment, equipmentBoOfBams);
+        equipmentBoList.add(equipmentBoOfBams);
+        List<Equipment> bamsClusterEquipment = new ArrayList<>();
+        if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
+            List<Equipment> clusterEquipment = equipments.stream().
+                    filter(equip -> equip.getEquipmentId() > 36 && equip.getEquipmentId() < 53).collect(Collectors.toList());
+            List<Equipment> cabinEquipment = equipments.stream().
+                    filter(equip -> equip.getEquipmentId() == 34 || equip.getEquipmentId() == 35 || equip.getEquipmentId() == 53 || equip.getEquipmentId() == 54).collect(Collectors.toList());
+            bamsClusterEquipment.addAll(clusterEquipment);
+            bamsClusterEquipment.addAll(cabinEquipment);
+        } else {
+            List<Equipment> clusterEquipment = equipments.stream().
+                    filter(equip -> equip.getEquipmentId() > 35 && equip.getEquipmentId() < 54 && equip.getEquipmentId() != 44 && equip.getEquipmentId() != 45).collect(Collectors.toList());
+            List<Equipment> cabinEquipment = equipments.stream().
+                    filter(equip -> equip.getEquipmentId() == 34 || equip.getEquipmentId() == 35 || equip.getEquipmentId() == 44 || equip.getEquipmentId() == 45).collect(Collectors.toList());
+            bamsClusterEquipment.addAll(clusterEquipment);
+            bamsClusterEquipment.addAll(cabinEquipment);
+        }
+        List<EquipmentBo> bos = bamsClusterEquipment.stream().map(clusterEquipment -> {
+            EquipmentBo equipOfBo = new EquipmentBo();
+            BeanUtils.copyProperties(clusterEquipment, equipOfBo);
+            return equipOfBo;
+        }).collect(Collectors.toList());
+        equipmentBoOfBams.setEquipmentBo(bos);
+    }
+
+
+    public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> deviceAreaList(Map<String, Object> params, SysUser user) {
         if (propertiesConfig.verify(params)) {
             BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
             if (!queryOfParams(deviceBuguPageQuery, params)) {
@@ -274,6 +312,12 @@ public class DeviceService {
             }
             if (!StringUtils.isEmpty(city)) {
                 deviceBuguPageQuery.is("city", city);
+            }
+            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+                List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                    deviceBuguPageQuery.in(DEVICE_NAME, deviceNames);
+                }
             }
             deviceBuguPageQuery.sortDesc("accessTime");
             BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
@@ -356,14 +400,20 @@ public class DeviceService {
             query.regexCaseInsensitive("name", name);
         }
         if (!PagetLimitUtil.pageLimit(query, params)) return false;
-        if (!PagetLimitUtil.orderField(query, params)) return false;
+        if (!PagetLimitUtil.orderField(query, params, null)) return false;
         return true;
     }
 
-    public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDeivcesByPage(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDeivcesByPage(Map<String, Object> params, SysUser user) {
         BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
         if (!queryOfParams(deviceBuguPageQuery, params)) {
             return ResHelper.pamIll();
+        }
+        if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+            List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                deviceBuguPageQuery.in(DEVICE_NAME, deviceNames);
+            }
         }
         deviceBuguPageQuery.sortDesc("accessTime");
         BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
@@ -380,63 +430,67 @@ public class DeviceService {
         return ResHelper.success("");
     }
 
-    public ResHelper<Void> modifyDeviceInfo(ModifyDeviceBo modifyDeviceBo) {
-        if (modifyDeviceBo != null) {
-            List<TimeOfPriceBo> priceOfTime = modifyDeviceBo.getPriceOfTime();
-            if (!StringUtils.isEmpty(modifyDeviceBo.getDeviceName()) && !priceOfTime.isEmpty()) {
-                /**
-                 * 格式校验map
-                 */
-                BuguQuery<Device> query = deviceDao.query().is(DEVICE_NAME, modifyDeviceBo.getDeviceName());
-                if (!query.exists()) {
-                    return ResHelper.error("设备不存在");
+    public ResHelper<Void> modifyDeviceInfo(ModifyDeviceBo modifyDeviceBo, SysUser user) {
+        List<TimeOfPriceBo> priceOfTime = modifyDeviceBo.getPriceOfTime();
+        if (!priceOfTime.isEmpty()) {
+            List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(modifyDeviceBo.getDeviceName())) {
+                    return ResHelper.error(NO_MODIFY_PERMISSION);
                 }
-                List<String> list = new ArrayList<>();
-                for (TimeOfPriceBo timeOfPriceBo : priceOfTime) {
-                    if (timeOfPriceBo != null && !StringUtils.isEmpty(timeOfPriceBo.getPrice()) && !StringUtils.isEmpty(timeOfPriceBo.getTime())) {
-                        String time = timeOfPriceBo.getTime();
-                        String[] strs = time.split(",");
-                        for (String str : strs) {
-                            list.add(str);
-                            String[] strings = str.split("-");
-                            for (String st : strings) {
-                                if (!st.matches(CHECK_TIME_FORMAT)) {
-                                    return ResHelper.pamIll();
-                                }
+            }
+            /**
+             * 格式校验map
+             */
+            BuguQuery<Device> query = deviceDao.query().is(DEVICE_NAME, modifyDeviceBo.getDeviceName());
+            if (!query.exists()) {
+                return ResHelper.error("设备不存在");
+            }
+            List<String> list = new ArrayList<>();
+            for (TimeOfPriceBo timeOfPriceBo : priceOfTime) {
+                if (timeOfPriceBo != null && !StringUtils.isEmpty(timeOfPriceBo.getPrice()) && !StringUtils.isEmpty(timeOfPriceBo.getTime())) {
+                    String time = timeOfPriceBo.getTime();
+                    String[] strs = time.split(",");
+                    for (String str : strs) {
+                        list.add(str);
+                        String[] strings = str.split("-");
+                        for (String st : strings) {
+                            if (!st.matches(CHECK_TIME_FORMAT)) {
+                                return ResHelper.pamIll();
                             }
                         }
                     }
                 }
-                try {
-                    int num = DAY_OF_SECONDS;
-                    int sum = 0;
-                    for (String setTime : list) {
-                        String[] setTimes = setTime.split("-");
-                        if (setTimes.length != 2) {
-                            return ResHelper.pamIll();
-                        }
-                        String endTime = setTimes[1];
-                        String startTime = setTimes[0];
-                        Integer endTimeintHour = Integer.valueOf(endTime.split(":")[0]);
-                        Integer startTimeintHour = Integer.valueOf(startTime.split(":")[0]);
-                        Integer endTimeintMin = Integer.valueOf(endTime.split(":")[1]);
-                        Integer startTimeintMin = Integer.valueOf(startTime.split(":")[1]);
-                        if (endTimeintHour > startTimeintHour) {
-                            sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
-                        } else {
-                            endTimeintHour = endTimeintHour + 24;
-                            sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
-                        }
-                    }
-                    if (num != sum) {
+            }
+            try {
+                int num = DAY_OF_SECONDS;
+                int sum = 0;
+                for (String setTime : list) {
+                    String[] setTimes = setTime.split("-");
+                    if (setTimes.length != 2) {
                         return ResHelper.pamIll();
                     }
-                } catch (Exception e) {
+                    String endTime = setTimes[1];
+                    String startTime = setTimes[0];
+                    Integer endTimeintHour = Integer.valueOf(endTime.split(":")[0]);
+                    Integer startTimeintHour = Integer.valueOf(startTime.split(":")[0]);
+                    Integer endTimeintMin = Integer.valueOf(endTime.split(":")[1]);
+                    Integer startTimeintMin = Integer.valueOf(startTime.split(":")[1]);
+                    if (endTimeintHour > startTimeintHour) {
+                        sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
+                    } else {
+                        endTimeintHour = endTimeintHour + 24;
+                        sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
+                    }
+                }
+                if (num != sum) {
                     return ResHelper.pamIll();
                 }
-                deviceDao.update().set("priceOfTime", priceOfTime).execute(query);
-                return ResHelper.success("修改成功");
+            } catch (Exception e) {
+                return ResHelper.pamIll();
             }
+            deviceDao.update().set("priceOfTime", priceOfTime).execute(query);
+            return ResHelper.success("修改成功");
         }
         return ResHelper.pamIll();
     }
@@ -532,18 +586,112 @@ public class DeviceService {
             deviceInfoVo.setAreaCity(device.getProvince() + "-" + device.getCity());
             deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(device.getApplicationScenarios()));
             deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
-            Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityDao.query().is("deviceName", deviceInfoVo.getDeviceName()))
-                    .group("{_id:null,count:{$sum:{$toDouble:'$income'}}}").limit(1).results();
-            if (iterable != null) {
-                for (DBObject object : iterable) {
-                    Double count = (Double) object.get("count");
-                    BigDecimal incomeBigDecimal = BigDecimal.valueOf(count).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    deviceInfoVo.setIncome(incomeBigDecimal.toString());
-                }
-            }
+            getDeviceRunstatusMsg(deviceInfoVo);
+            getDeviceIncome(deviceInfoVo);
+            getPcsDataMsg(deviceInfoVo);
             return deviceInfoVo;
         }
         return null;
+    }
+
+    private void getPcsDataMsg(DeviceInfoVo deviceInfoVo) {
+        Iterable<DBObject> pcsChannelIterable = pcsChannelDicDao.aggregate().match(pcsChannelDicDao.query().is("deviceName", deviceInfoVo.getDeviceName()))
+                .group("{_id:'$equipmentId',dataId:{$last:'$_id'}}").sort("{generationDataTime:-1}").results();
+        if (pcsChannelIterable != null) {
+            List<String> queryIds = new ArrayList<>();
+            for (DBObject pcsChannelObject : pcsChannelIterable) {
+                ObjectId dataId = (ObjectId) pcsChannelObject.get("dataId");
+                String queryId = dataId.toString();
+                queryIds.add(queryId);
+            }
+            if (!CollectionUtils.isEmpty(queryIds) && !queryIds.isEmpty()) {
+                List<PcsChannelDic> pcsChannelDicsList = pcsChannelDicDao.query().in("_id", queryIds).results();
+                if (!CollectionUtils.isEmpty(pcsChannelDicsList) && !pcsChannelDicsList.isEmpty()) {
+                    List<PcsStatusVo> pcsStatusVos = pcsChannelDicsList.stream().sorted(Comparator.comparing(PcsChannelDic::getEquipmentId))
+                            .map(pcsChannelDic -> {
+                                PcsStatusVo pcsStatusVo = new PcsStatusVo();
+                                pcsStatusVo.setName(pcsChannelDic.getName());
+                                pcsStatusVo.setEquipmentId(pcsChannelDic.getEquipmentId());
+                                pcsStatusVo.setActivePower(pcsChannelDic.getActivePower());
+                                pcsStatusVo.setChargeDischargeStatusMsg(getChargeDischageStatus(pcsChannelDic.getChargeDischargeStatus()));
+                                pcsStatusVo.setReactivePower(pcsChannelDic.getReactivePower());
+                                pcsStatusVo.setExchangeVol(getExchangeVol(pcsChannelDic));
+                                pcsStatusVo.setExchangeCurrent(getExchangeCurrent(pcsChannelDic));
+                                pcsStatusVo.setExchangeRate(getExchangeRate(pcsChannelDic));
+                                pcsStatusVo.setPower(keepDecimalTwoPlaces(pcsChannelDic.getDCPower()));
+                                pcsStatusVo.setCurrent(keepDecimalTwoPlaces(pcsChannelDic.getDCCurrent()));
+                                pcsStatusVo.setVoltage(keepDecimalTwoPlaces(pcsChannelDic.getDCVoltage()));
+                                pcsStatusVo.setRunningStatusMsg(pcsChannelDic.getRunningStatus() ? RUNNING_STATUS_MSG_START : RUNNING_STATUS_MSG_DOWN);
+                                pcsStatusVo.setSoc(pcsChannelDic.getSoc());
+                                return pcsStatusVo;
+                            }).collect(Collectors.toList());
+                    deviceInfoVo.setPcsStatusVoList(pcsStatusVos);
+                }
+            }
+        }
+    }
+
+    private void getDeviceIncome(DeviceInfoVo deviceInfoVo) {
+        Iterable<DBObject> incomeIterable = incomeEntityDao.aggregate().match(incomeEntityDao.query().is("deviceName", deviceInfoVo.getDeviceName()))
+                .group("{_id:null,count:{$sum:{$toDouble:'$income'}}}").limit(1).results();
+        if (incomeIterable != null) {
+            for (DBObject object : incomeIterable) {
+                Double count = (Double) object.get("count");
+                BigDecimal incomeBigDecimal = BigDecimal.valueOf(count).setScale(2, BigDecimal.ROUND_HALF_UP);
+                deviceInfoVo.setIncome(incomeBigDecimal.toString());
+            }
+        }
+    }
+
+    private void getDeviceRunstatusMsg(DeviceInfoVo deviceInfoVo) {
+        Iterable<DBObject> bamsDataIterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is(DEVICE_NAME, deviceInfoVo.getDeviceName()))
+                .sort("{generationDataTime:-1}").limit(1).results();
+        Date date = new Date();
+        if (bamsDataIterable != null) {
+            for (DBObject dbObject : bamsDataIterable) {
+                BamsDataDicBA bamsDataDicBA = MapperUtil.fromDBObject(BamsDataDicBA.class, dbObject);
+                Date addDateMinutes = DateUtils.addDateMinutes(bamsDataDicBA.getGenerationDataTime(), 30);
+                if (!addDateMinutes.before(date)) {
+                    deviceInfoVo.setDeviceStatus("正常运行");
+                } else {
+                    deviceInfoVo.setDeviceStatus("停机");
+                }
+            }
+        }
+    }
+
+    private String getChargeDischageStatus(Short chargeDischargeStatus) {
+        switch (chargeDischargeStatus) {
+            case 0:
+                return "待机";
+            case 1:
+                return "充电";
+            case 2:
+                return "放电";
+            default:
+                return "未知数据";
+        }
+    }
+
+    private String getExchangeRate(PcsChannelDic pcsChannelDic) {
+        return keepDecimalTwoPlaces(pcsChannelDic.getARate()) + SEPARATOR_OF_MAP +
+                keepDecimalTwoPlaces(pcsChannelDic.getBRate()) + SEPARATOR_OF_MAP +
+                keepDecimalTwoPlaces(pcsChannelDic.getCRate());
+    }
+
+    private String getExchangeCurrent(PcsChannelDic pcsChannelDic) {
+        return keepDecimalTwoPlaces(pcsChannelDic.getACurrent()) + SEPARATOR_OF_MAP +
+                keepDecimalTwoPlaces(pcsChannelDic.getBCurrent()) + SEPARATOR_OF_MAP +
+                keepDecimalTwoPlaces(pcsChannelDic.getCCurrent());
+    }
+
+    private String getExchangeVol(PcsChannelDic pcsChannelDic) {
+        return keepDecimalTwoPlaces(pcsChannelDic.getAVoltage()) + SEPARATOR_OF_MAP +
+                keepDecimalTwoPlaces(pcsChannelDic.getBVoltage()) + SEPARATOR_OF_MAP + keepDecimalTwoPlaces(pcsChannelDic.getCVoltage());
+    }
+
+    private String keepDecimalTwoPlaces(String value) {
+        return BigDecimal.valueOf(Double.valueOf(value)).setScale(2, BigDecimal.ROUND_DOWN).toString();
     }
 
     public Map<Integer, List<TimeOfPowerBo>> selectPowerOfTypeTime(Device device) {
@@ -560,49 +708,47 @@ public class DeviceService {
     }
 
     public ResHelper<Void> modifyDevicePowerInfo(ModifyDevicePowerBo modifyDevicePowerBo) {
-        if (modifyDevicePowerBo != null) {
-            Map<Integer, List<TimeOfPowerBo>> powerOfTime = modifyDevicePowerBo.getPowerOfTime();
-            if (!CollectionUtils.isEmpty(powerOfTime) && !powerOfTime.isEmpty()) {
-                BuguQuery<Device> deviceBuguQuery = deviceDao.query().is(DEVICE_NAME, modifyDevicePowerBo.getDeviceName());
-                if (!deviceBuguQuery.exists()) {
-                    return ResHelper.error("设备不存在");
-                }
-                List<TimeOfPowerBo> timeOfPowerBos = new ArrayList<>();
-                for (Map.Entry<Integer, List<TimeOfPowerBo>> entry : powerOfTime.entrySet()) {
-                    List<TimeOfPowerBo> powerBos = entry.getValue();
-                    for (TimeOfPowerBo timeOfPowerBo : powerBos) {
-                        if (timeOfPowerBo.getRunMode() != entry.getKey()) {
-                            return ResHelper.pamIll();
-                        }
-                        if (timeOfPowerBo.getRunMode() == null || timeOfPowerBo.getType() == null) {
-                            return ResHelper.pamIll();
-                        }
-                        //充电类型 为0  充电类型为1
-                        if (timeOfPowerBo.getType() == 0 || timeOfPowerBo.getType() == 1) {
-                            if (timeOfPowerBo != null && !StringUtils.isEmpty(timeOfPowerBo.getPower()) && !StringUtils.isEmpty(timeOfPowerBo.getTime())) {
-                                String time = timeOfPowerBo.getTime();
-                                String[] strs = time.split(",");
-                                for (String str : strs) {
-                                    String[] strings = str.split("-");
-                                    for (String st : strings) {
-                                        if (!st.matches(CHECK_TIME_FORMAT)) {
-                                            return ResHelper.pamIll();
-                                        }
+        Map<Integer, List<TimeOfPowerBo>> powerOfTime = modifyDevicePowerBo.getPowerOfTime();
+        if (!CollectionUtils.isEmpty(powerOfTime) && !powerOfTime.isEmpty()) {
+            BuguQuery<Device> deviceBuguQuery = deviceDao.query().is(DEVICE_NAME, modifyDevicePowerBo.getDeviceName());
+            if (!deviceBuguQuery.exists()) {
+                return ResHelper.error("设备不存在");
+            }
+            List<TimeOfPowerBo> timeOfPowerBos = new ArrayList<>();
+            for (Map.Entry<Integer, List<TimeOfPowerBo>> entry : powerOfTime.entrySet()) {
+                List<TimeOfPowerBo> powerBos = entry.getValue();
+                for (TimeOfPowerBo timeOfPowerBo : powerBos) {
+                    if (timeOfPowerBo.getRunMode() != entry.getKey()) {
+                        return ResHelper.pamIll();
+                    }
+                    if (timeOfPowerBo.getRunMode() == null || timeOfPowerBo.getType() == null) {
+                        return ResHelper.pamIll();
+                    }
+                    //充电类型 为0  充电类型为1
+                    if (timeOfPowerBo.getType() == 0 || timeOfPowerBo.getType() == 1) {
+                        if (timeOfPowerBo != null && !StringUtils.isEmpty(timeOfPowerBo.getPower()) && !StringUtils.isEmpty(timeOfPowerBo.getTime())) {
+                            String time = timeOfPowerBo.getTime();
+                            String[] strs = time.split(",");
+                            for (String str : strs) {
+                                String[] strings = str.split("-");
+                                for (String st : strings) {
+                                    if (!st.matches(CHECK_TIME_FORMAT)) {
+                                        return ResHelper.pamIll();
                                     }
                                 }
-                            } else {
-                                return ResHelper.pamIll();
                             }
                         } else {
                             return ResHelper.pamIll();
                         }
+                    } else {
+                        return ResHelper.pamIll();
                     }
-                    timeOfPowerBos.addAll(entry.getValue());
                 }
-                if (!CollectionUtils.isEmpty(timeOfPowerBos) && !timeOfPowerBos.isEmpty()) {
-                    deviceDao.update().set("timeOfPower", timeOfPowerBos).execute(deviceBuguQuery);
-                    return ResHelper.success("修改成功");
-                }
+                timeOfPowerBos.addAll(entry.getValue());
+            }
+            if (!CollectionUtils.isEmpty(timeOfPowerBos) && !timeOfPowerBos.isEmpty()) {
+                deviceDao.update().set("timeOfPower", timeOfPowerBos).execute(deviceBuguQuery);
+                return ResHelper.success("修改成功");
             }
         }
         return ResHelper.pamIll();
@@ -618,5 +764,28 @@ public class DeviceService {
             return listMap;
         }
         return null;
+    }
+
+    public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> queryDeviceWithoutBindByPage(Map<String, Object> params) {
+        BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
+        if (!queryOfParams(deviceBuguPageQuery, params)) {
+            return ResHelper.pamIll();
+        }
+        deviceBuguPageQuery.is("bindStation", false);
+        deviceBuguPageQuery.sortDesc("accessTime");
+        BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
+        List<Device> deviceList = devicePage.getDatas();
+        List<DeviceInfoVo> deviceInfoVos = new ArrayList<>();
+        for (Device device : deviceList) {
+            DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
+            BeanUtils.copyProperties(device, deviceInfoVo);
+            deviceInfoVo.setAreaCity(device.getProvince() + "-" + device.getCity());
+            deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(device.getApplicationScenarios()));
+            deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
+            deviceInfoVos.add(deviceInfoVo);
+        }
+        BuguPageQuery.Page<DeviceInfoVo> deviceInfoVoPage = new BuguPageQuery.Page<>(devicePage.getPage(), devicePage.getPageSize(),
+                devicePage.getTotalRecord(), deviceInfoVos);
+        return ResHelper.success("", deviceInfoVoPage);
     }
 }

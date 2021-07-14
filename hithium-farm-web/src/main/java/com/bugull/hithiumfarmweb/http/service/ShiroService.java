@@ -29,6 +29,14 @@ public class ShiroService {
     @Lazy
     private RoleEntityDao roleEntityDao;
 
+    public Set<String> getPermissionOfUser(SysUser sysUser) {
+        Set<String> permsSet = new HashSet<>();
+        if (!StringUtils.isEmpty(sysUser.getPerms())) {
+            permsSet.addAll(Arrays.asList(sysUser.getPerms().split(",")));
+        }
+        return permsSet;
+    }
+
     public Set<String> getPermissions(SysUser sysUser) {
         /**
          * 管理员
@@ -63,7 +71,7 @@ public class ShiroService {
 
         }
         Set<String> permsSet = new HashSet<>();
-        if (!CollectionUtils.isEmpty(permsSet) && !menuEntityList.isEmpty()) {
+        if (!CollectionUtils.isEmpty(menuEntityList) && !menuEntityList.isEmpty()) {
             for (MenuEntity perms : menuEntityList) {
                 if (StringUtils.isBlank(perms.getPerms())) {
                     continue;

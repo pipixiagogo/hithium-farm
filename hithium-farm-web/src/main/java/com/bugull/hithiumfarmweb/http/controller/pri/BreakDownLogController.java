@@ -49,7 +49,7 @@ public class BreakDownLogController extends AbstractController {
             @ApiImplicitParam(name = "city", value = "市区", required = false, paramType = "query", dataType = "String", dataTypeClass = String.class)
     })
     public ResHelper<BuguPageQuery.Page<BreakDownLogVo>> queryBreakDownlog(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return breakDownLogService.query(params);
+        return breakDownLogService.query(params,getUser());
     }
 
     @ApiOperation(value = "告警日志导出")
@@ -60,6 +60,7 @@ public class BreakDownLogController extends AbstractController {
             @ApiImplicitParam(name = "country", value = "国家", required = false, example = "china 中国 ", paramType = "query", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "city", value = "市区", required = false, paramType = "query", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "true", name = "status", required = false, paramType = "query", dataType = "boolean", value = "false 消除 true 发生", dataTypeClass = Boolean.class),
+            @ApiImplicitParam(name = "deviceName",required = false,paramType = "query",value = "设备名称",dataTypeClass = String.class)
     })
     public void exportBreakDwonlog(HttpServletRequest request, HttpServletResponse response,
                                    @ApiIgnore @RequestParam(value = "time", required = false) String time,
@@ -67,7 +68,8 @@ public class BreakDownLogController extends AbstractController {
                                    @ApiIgnore @RequestParam(value = "province", required = false) String province,
                                    @ApiIgnore @RequestParam(value = "country", required = false) String country,
                                    @ApiIgnore @RequestParam(value = "city", required = false) String city,
-                                   @ApiIgnore @RequestParam(value = "status",required = false)Boolean status) throws IOException {
+                                   @ApiIgnore @RequestParam(value = "status",required = false)Boolean status,
+                                   @ApiIgnore @RequestParam(value = "deviceName",required = false)String deviceName) throws IOException {
         OutputStream outputStream = null;
         try {
             breakDownLogService.verify(time,province,city);
@@ -79,7 +81,7 @@ public class BreakDownLogController extends AbstractController {
             response.setCharacterEncoding("utf-8");
             fileName = URLEncoder.encode(fileName, "UTF-8").replaceAll("\\+", "%20");
             response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
-            breakDownLogService.exportBreakDownlog(time,province,city,status,outputStream);
+            breakDownLogService.exportBreakDownlog(time,province,city,status,outputStream,getUser(),deviceName );
         } catch (Exception e) {
             response.reset();
             response.setStatus(HttpStatus.NOT_ACCEPTABLE.value());
