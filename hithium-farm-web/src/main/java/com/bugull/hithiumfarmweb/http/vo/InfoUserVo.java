@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.vo;
 
 import com.bugull.hithiumfarmweb.http.bo.RoleEntityOfUserBo;
+import com.bugull.hithiumfarmweb.http.entity.EssStation;
 import com.bugull.hithiumfarmweb.http.entity.RoleEntity;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
@@ -33,8 +34,11 @@ public class InfoUserVo {
     @ApiModelProperty(name = "userExpireTime", value = "用户过期时间")
     private Date userExpireTime;
 
-    @ApiModelProperty(name = "deviceNameList", value = "用户绑定设备列表")
-    private List<String> deviceNameList;
+    @ApiModelProperty(name = "essStation",value = "用户绑定电站列表")
+    private List<EssStation> essStation;
+
+    @ApiModelProperty(name = "userType",value = "用户类型  内部0 外部1")
+    private Integer userType;
 
 
 }

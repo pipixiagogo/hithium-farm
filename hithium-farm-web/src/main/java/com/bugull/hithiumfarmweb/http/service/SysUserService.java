@@ -3,13 +3,11 @@ package com.bugull.hithiumfarmweb.http.service;
 
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.common.Const;
-import com.bugull.hithiumfarmweb.common.exception.ExcelExportWithoutDataException;
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.bo.LoginFormBo;
 import com.bugull.hithiumfarmweb.http.bo.PasswordForm;
 import com.bugull.hithiumfarmweb.http.bo.RoleEntityOfUserBo;
 import com.bugull.hithiumfarmweb.http.bo.UpdateUserBo;
-import com.bugull.hithiumfarmweb.http.dao.CaptchaDao;
 import com.bugull.hithiumfarmweb.http.dao.EssStationDao;
 import com.bugull.hithiumfarmweb.http.dao.RoleEntityDao;
 import com.bugull.hithiumfarmweb.http.dao.SysUserDao;
@@ -22,7 +20,6 @@ import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.PatternUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
-import com.bugull.mongo.BuguQuery;
 import com.bugull.mongo.BuguUpdater;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
@@ -30,7 +27,6 @@ import org.apache.shiro.crypto.hash.Sha256Hash;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -97,7 +93,9 @@ public class SysUserService {
             } else {
                 return ResHelper.pamIll();
             }
-
+            if (sysUser.getUserType() == null) {
+                return ResHelper.pamIll();
+            }
             sysUser.setCreateTime(new Date());
             //sha256加密
             String salt = RandomStringUtils.randomAlphanumeric(20);
@@ -116,6 +114,10 @@ public class SysUserService {
         InfoUserVo infoUserVo = new InfoUserVo();
         if (sysUser != null) {
             BeanUtils.copyProperties(sysUser, infoUserVo);
+            /**
+             * TODO 设置电站信息 看需求是否需要
+             */
+//            infoUserVo.setEssStation(essStationDao.query().in("_id", sysUser.getStationList()).results());
         }
         return infoUserVo;
     }
@@ -179,7 +181,6 @@ public class SysUserService {
                     if (sysUserDao.query().is("userName", user.getMobile()).notEquals("_id", String.valueOf(user.getId())).exists()) {
                         return ResHelper.error("该手机号已存在");
                     }
-
                     update.set("mobile", user.getMobile());
                 }
                 if (!StringUtils.isEmpty(user.getUserExpireTimeStr())) {
@@ -222,6 +223,10 @@ public class SysUserService {
                 if (!StringUtils.isEmpty(user.getRemarks())) {
                     update.set("remarks", user.getRemarks());
                 }
+                if (user.getUserType() == null) {
+                    return ResHelper.pamIll();
+                }
+                update.set("userType", user.getUserType());
                 update.execute(sysUserDao.query().is("_id", String.valueOf(user.getId())));
                 return ResHelper.success("修改用户成功");
             } else {
@@ -249,10 +254,10 @@ public class SysUserService {
         //删除验证码 在生成验证码时候执行
 //        captchaDao.remove(captchaDao.query().is("uuid", loginFormBo.getUuid()));
 
-        return ResHelper.success("登录成功", createToken(sysUser.getId()));
+        return ResHelper.success("登录成功", createToken(sysUser));
     }
 
-    public LoginVo createToken(String id) {
+    public LoginVo createToken(SysUser sysUser) {
         LoginVo loginVo = new LoginVo();
         //生成一个token
         String token = TokenGenerator.generateValue();
@@ -270,11 +275,13 @@ public class SysUserService {
                 .set("createTokenTime", now)
                 .set("refreshToken", refreshToken)
                 .set("refreshTokenExpireTime", refreshTokenExpireTime)
-                .execute(sysUserDao.query().is("_id", id));
+                .execute(sysUserDao.query().is("_id", sysUser.getId()));
         loginVo.setToken(token);
         loginVo.setTokenExpireTime(expireTime);
         loginVo.setRefreshToken(refreshToken);
         loginVo.setRefreshTokenExpireTime(refreshTokenExpireTime);
+        loginVo.setId(sysUser.getId());
+        loginVo.setUserType(sysUser.getUserType());
         return loginVo;
     }
 
@@ -330,17 +337,17 @@ public class SysUserService {
         if (StringUtils.isEmpty(refreshToken)) {
             return ResHelper.pamIll();
         }
-        SysUser result = sysUserDao.query().is("refreshToken", refreshToken).result();
-        if (result != null) {
-            if (result.getRefreshToken().equals(refreshToken) && !result.getRefreshTokenExpireTime().before(new Date())) {
-                return ResHelper.success("刷新token成功", this.createToken(result.getId()));
+        SysUser sysUser = sysUserDao.query().is("refreshToken", refreshToken).result();
+        if (sysUser != null) {
+            if (sysUser.getRefreshToken().equals(refreshToken) && !sysUser.getRefreshTokenExpireTime().before(new Date())) {
+                return ResHelper.success("刷新token成功", this.createToken(sysUser));
             }
         }
         return ResHelper.error("刷新token过期,请重新登录");
     }
 
     public ResHelper<Void> logout(SysUser sysUser) {
-        this.createToken(sysUser.getId());
+        this.createToken(sysUser);
         return ResHelper.success("登出成功");
     }
 

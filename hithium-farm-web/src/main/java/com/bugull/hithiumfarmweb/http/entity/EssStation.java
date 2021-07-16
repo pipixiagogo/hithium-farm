@@ -20,5 +20,7 @@ public class EssStation extends SimpleEntity {
     private String province;
     @ApiModelProperty(name ="city",value = "电站市区")
     private String city;
+    @ApiModelProperty(name ="numberOfDevice",value = "设备数量")
+    private Integer numberOfDevice;
 
 }

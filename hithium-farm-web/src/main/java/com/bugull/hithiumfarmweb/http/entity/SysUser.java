@@ -82,4 +82,6 @@ public class SysUser implements BuguEntity {
     @ApiModelProperty(hidden = true)
     private String perms;
 
+    @ApiModelProperty(name = "userType",value = "用户类型 内部用户 0  外部用户 1")
+    private Integer userType;
 }

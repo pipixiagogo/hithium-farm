@@ -9,6 +9,7 @@ import com.bugull.hithiumfarmweb.http.service.StatisticsService;
 import com.bugull.hithiumfarmweb.http.vo.*;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiModelProperty;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import springfox.documentation.annotations.ApiIgnore;
 
 import javax.annotation.Resource;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -35,7 +37,7 @@ public class StatisticsController extends AbstractController {
     private EssStationService essStationService;
 
     @PostMapping(value = "/netInNum")
-    @ApiOperation(value = "统计总功率")
+    @ApiOperation(value = "统计总功率 根据年份、类型 月份/季度")
     @ApiImplicitParam(name = "areaNetInNumBo", value = "地区实体类", required = true, paramType = "body", dataTypeClass = AreaNetInNumBo.class, dataType = "AreaNetInNumBo")
     public ResHelper<List<StatisticBo>> statisticNetInNum(@RequestBody AreaNetInNumBo areaNetInNumBo) {
         if (areaNetInNumBo == null || StringUtils.isEmpty(areaNetInNumBo.getType()) || areaNetInNumBo.getYear() == null) {
@@ -51,7 +53,7 @@ public class StatisticsController extends AbstractController {
     }
 
     @PostMapping(value = "/capacityNum")
-    @ApiOperation(value = "储能充放电量统计")
+    @ApiOperation(value = "储能站充放电量统计")
     @ApiImplicitParam(name = "areaInfoBo", value = "地区实体类", required = true, paramType = "body", dataTypeClass = AreaInfoBo.class, dataType = "AreaInfoBo")
     public ResHelper<CapacityNumVo> statisticCapacityNum(@RequestBody AreaInfoBo areaInfoBo) {
         return statisticsService.statisticCapacityNum(areaInfoBo, getUser());
@@ -142,12 +144,28 @@ public class StatisticsController extends AbstractController {
         return statisticsService.deviceOfIncomeStatistic(deviceName);
     }
 
-    @GetMapping(value = "/capacityNumOfDate")
+    @PostMapping(value = "/capacityNumOfDate")
     @ApiOperation(value = "按时间 最近的12小时、天数 7天 、月份半年或者12个月 获取储能充放电统计")
-    public ResHelper<Map<String, Map<String,CapacityNumOfDateVo>>> capacityNumOfDate(){
-        return statisticsService.capacityNumOfDate(getUser());
+    @ApiImplicitParam(name = "areaInfoBo", value = "地区实体类", readOnly = true, paramType = "body", dataTypeClass = AreaInfoBo.class, dataType = "AreaInfoBo")
+//    Map<String, Map<String,CapacityNumOfDateVo>>
+    public ResHelper<Map<String, List<CapacityVo>>> capacityNumOfDate(@RequestBody AreaInfoBo areaInfoBo){
+        return statisticsService.capacityNumOfDate(getUser(),areaInfoBo);
     }
 
+    @PostMapping(value = "/capacityNumOfStation")
+    @ApiOperation(value = "电站项目下的储能站充放电量统计")
+    @ApiImplicitParam(name = "stationId", value = "电站id", paramType = "query", dataType = "String", dataTypeClass = String.class)
+    public ResHelper<ChargeCapacityStationVo> capacityNumOfStation(@ApiIgnore @RequestParam(value = "stationId") String stationId){
+        if(StringUtils.isEmpty(stationId)){
+            return ResHelper.pamIll();
+        }
+        if(!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()){
+            if(!getUser().getStationList().contains(stationId)){
+               return ResHelper.error(NO_QUERY_PERMISSION);
+            }
+        }
+        return statisticsService.capacityNumOfStation(stationId);
+    }
 
 
 }

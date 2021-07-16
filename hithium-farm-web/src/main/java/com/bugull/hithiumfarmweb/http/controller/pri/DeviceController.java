@@ -21,6 +21,7 @@ import springfox.documentation.annotations.ApiIgnore;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -115,14 +116,14 @@ public class DeviceController extends AbstractController {
                     }
                 }
                 if (!flag) {
-                    return ResHelper.success("");
+                    return ResHelper.success(NO_QUERY_PERMISSION);
                 }
             }
         }
         return ResHelper.success("", deviceService.query(deviceName));
     }
 
-    @GetMapping(value = "/queryDeivcesByPage")
+    @GetMapping(value = "/queryDevicesByPage")
     @ApiOperation(value = "设备列表 进行分页", httpMethod = "GET")
     @ApiImplicitParams({
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
@@ -130,7 +131,7 @@ public class DeviceController extends AbstractController {
             @ApiImplicitParam(name = "name", required = false, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class)
     })
     public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDeivcesByPage(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return deviceService.queryDeivcesByPage(params, getUser());
+        return deviceService.queryDevicesByPage(params, getUser());
     }
     @GetMapping(value = "/queryDeviceWithoutBindByPage")
     @ApiOperation(value = "未绑定设备列表 带分页 ", httpMethod = "GET")
@@ -157,12 +158,16 @@ public class DeviceController extends AbstractController {
         return deviceService.deviceAreaList(params, getUser());
     }
 
+    /**
+     * @param modifyDeviceBo
+     * @return
+     */
     @PostMapping(value = "/modifyDeviceInfo")
     @ApiOperation(value = "设置设备时间段电量单价", httpMethod = "POST")
     @ApiImplicitParam(name = "modifyDeviceBo", value = "设备修改实体类", required = true, paramType = "body", dataTypeClass = ModifyDeviceBo.class, dataType = "ModifyDeviceBo")
     public ResHelper<Void> modifyDeviceInfo(@RequestBody ModifyDeviceBo modifyDeviceBo) {
         if (modifyDeviceBo != null) {
-            if (!StringUtils.isEmpty(modifyDeviceBo.getDeviceName())) {
+            if (!StringUtils.isEmpty(modifyDeviceBo.getDeviceNames())) {
                 return deviceService.modifyDeviceInfo(modifyDeviceBo, getUser());
             }
         }
@@ -250,12 +255,20 @@ public class DeviceController extends AbstractController {
         return ResHelper.success("", deviceService.queryDeviceName(deviceName));
     }
 
+    /**
+     * @param modifyDevicePowerBo
+     * @return
+     */
     @PostMapping(value = "/modifyDevicePowerInfo")
     @ApiOperation(value = "设置设备时间段功率", httpMethod = "POST")
     @ApiImplicitParam(name = "modifyDevicePowerBo", value = "设备功率修改实体类", required = true, paramType = "body", dataTypeClass = ModifyDevicePowerBo.class, dataType = "ModifyDevicePowerBo")
     public ResHelper<Void> modifyDevicePowerInfo(@RequestBody ModifyDevicePowerBo modifyDevicePowerBo) {
         if (modifyDevicePowerBo != null) {
-            if (StringUtils.isEmpty(modifyDevicePowerBo.getDeviceName())) {
+            if (StringUtils.isEmpty(modifyDevicePowerBo.getDeviceNames())) {
+                return ResHelper.pamIll();
+            }
+            String[] arrayDeviceName = modifyDevicePowerBo.getDeviceNames().split(",");
+            if(arrayDeviceName == null || arrayDeviceName.length ==0){
                 return ResHelper.pamIll();
             }
             if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
@@ -264,7 +277,7 @@ public class DeviceController extends AbstractController {
                     boolean flag = false;
                     for (EssStation essStation : essStationList) {
                         if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                            if (essStation.getDeviceNameList().contains(modifyDevicePowerBo.getDeviceName())) {
+                            if (essStation.getDeviceNameList().containsAll(Arrays.asList(arrayDeviceName))) {
                                 flag = true;
                                 break;
                             }
@@ -275,7 +288,7 @@ public class DeviceController extends AbstractController {
                     }
                 }
             }
-            return deviceService.modifyDevicePowerInfo(modifyDevicePowerBo);
+            return deviceService.modifyDevicePowerInfo(modifyDevicePowerBo,Arrays.asList(arrayDeviceName));
         }
         return ResHelper.pamIll();
     }

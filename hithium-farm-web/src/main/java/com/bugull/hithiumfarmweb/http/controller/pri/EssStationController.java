@@ -2,12 +2,11 @@ package com.bugull.hithiumfarmweb.http.controller.pri;
 
 import com.bugull.hithiumfarmweb.annotation.SysLog;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
-import com.bugull.hithiumfarmweb.common.validator.ValidatorUtils;
-import com.bugull.hithiumfarmweb.common.validator.group.AddGroup;
 import com.bugull.hithiumfarmweb.http.entity.EssStation;
+import com.bugull.hithiumfarmweb.http.entity.EssStationWithDeviceVo;
 import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import com.bugull.hithiumfarmweb.http.service.EssStationService;
-import com.bugull.hithiumfarmweb.http.vo.InfoUserVo;
+import com.bugull.hithiumfarmweb.http.vo.EssStationVo;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
@@ -54,16 +53,32 @@ public class EssStationController {
             @ApiImplicitParam(example = "1", name = "page", value = "当前页码", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(name = "stationName", required = false, paramType = "query", value = "电站名称", dataType = "String", dataTypeClass = String.class)})
-    public ResHelper<BuguPageQuery.Page<EssStation>> selectStation(@ApiIgnore @RequestParam Map<String, Object> params){
+    public ResHelper<BuguPageQuery.Page<EssStationVo>> selectStation(@ApiIgnore @RequestParam Map<String, Object> params) {
         return essStationService.selectStation(params);
     }
+
+    /**
+     * @param stationId
+     * @return
+     */
+    @RequiresPermissions(value = "sys:user")
+    @GetMapping(value = "/info/{stationId}")
+    @ApiOperation(value = "根据电站ID查询电站信息", response = ResHelper.class)
+    @ApiImplicitParam(name = "stationId", value = "电站ID", paramType = "path", example = "60ee8c8275da123544dc2b54", dataType = "string", dataTypeClass = String.class)
+    public ResHelper<EssStationWithDeviceVo> infoUserId(@PathVariable String stationId) {
+        if (StringUtils.isEmpty(stationId)) {
+            return ResHelper.pamIll();
+        }
+        return ResHelper.success("", essStationService.infoStationById(stationId));
+    }
+
 
     @RequiresPermissions(value = "sys:user")
     @SysLog(value = "删除电站信息")
     @PostMapping(value = "/deleteStation")
     @ApiOperation(value = "删除电站信息", httpMethod = "POST", response = ResHelper.class)
     @ApiImplicitParam(name = "stationIds", value = "电站ID数组", allowMultiple = true, dataType = "string", required = true)
-    public ResHelper<Void> deleteStation(@RequestBody String [] stationIds) {
+    public ResHelper<Void> deleteStation(@RequestBody String[] stationIds) {
         List<String> stations = new ArrayList<>();
         for (String stationId : stationIds) {
             if (!StringUtils.isEmpty(stationId)) {

@@ -15,22 +15,22 @@ import com.bugull.mongo.utils.StringUtil;
 import com.bugull.mongo.utils.ThreadUtil;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
+import io.swagger.models.auth.In;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.bugull.hithiumfarmweb.common.Const.*;
-import static com.bugull.hithiumfarmweb.utils.DateUtils.DATE_PATTERN_HH;
 
 @Service
 public class StatisticsService {
@@ -47,6 +47,8 @@ public class StatisticsService {
     private IncomeEntityDao incomeEntityDao;
     @Resource
     private EssStationDao essStationDao;
+    @Resource
+    private BamsDischargeCapacityDao bamsDischargeCapacityDao;
     public static final String INCOME_RECORD_PREFIX = "DEIVCE_INCOME_RECORED_";
     protected static final Map<Integer, String> QUARTER_NAME = new HashMap<>();
 
@@ -87,13 +89,13 @@ public class StatisticsService {
         }
         if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
             List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
-            if(!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()){
-                List<String> deviceNames= new ArrayList<>();
-                for(EssStation essStation:essStationList){
+            if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+                List<String> deviceNames = new ArrayList<>();
+                for (EssStation essStation : essStationList) {
                     List<String> deviceNameList = essStation.getDeviceNameList();
                     deviceNames.addAll(deviceNameList);
                 }
-                if(!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()){
+                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                     query.in(DEVICE_NAME, deviceNames);
                 }
             }
@@ -205,12 +207,12 @@ public class StatisticsService {
             }
             if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
                 List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
-                List<String> deviceNames= new ArrayList<>();
-                for(EssStation essStation:essStationList){
+                List<String> deviceNames = new ArrayList<>();
+                for (EssStation essStation : essStationList) {
                     List<String> deviceNameList = essStation.getDeviceNameList();
                     deviceNames.addAll(deviceNameList);
                 }
-                if(!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()){
+                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                     query.in(DEVICE_NAME, deviceNames);
                 }
             }
@@ -232,6 +234,8 @@ public class StatisticsService {
                 capacityNumBo.setDischargeCapacitySum(bigDecimal.toString());
             }
         }
+        BigDecimal totalChargeSum = new BigDecimal(capacityNumBo.getChargeCapacitySum()).add(new BigDecimal(capacityNumBo.getWindEnergyChargeSum())).add(new BigDecimal(capacityNumBo.getPhotovoltaicChargeSum())).setScale(2, BigDecimal.ROUND_HALF_UP);
+        capacityNumBo.setTotalChargeSum(totalChargeSum.toString());
         return ResHelper.success("", capacityNumBo);
     }
 
@@ -257,12 +261,12 @@ public class StatisticsService {
             }
             if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
                 List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
-                List<String> deviceNames= new ArrayList<>();
-                for(EssStation essStation:essStationList){
+                List<String> deviceNames = new ArrayList<>();
+                for (EssStation essStation : essStationList) {
                     List<String> deviceNameList = essStation.getDeviceNameList();
                     deviceNames.addAll(deviceNameList);
                 }
-                if(!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()){
+                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                     query.in(DEVICE_NAME, deviceNames);
                 }
             }
@@ -346,12 +350,12 @@ public class StatisticsService {
             }
             if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
                 List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
-                List<String> deviceNames= new ArrayList<>();
-                for(EssStation essStation:essStationList){
+                List<String> deviceNames = new ArrayList<>();
+                for (EssStation essStation : essStationList) {
                     List<String> deviceNameList = essStation.getDeviceNameList();
                     deviceNames.addAll(deviceNameList);
                 }
-                if(!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()){
+                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                     deviceBuguQuery.in(DEVICE_NAME, deviceNames);
                 }
             }
@@ -403,12 +407,12 @@ public class StatisticsService {
             }
             if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
                 List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
-                List<String> deviceNames= new ArrayList<>();
-                for(EssStation essStation:essStationList){
+                List<String> deviceNames = new ArrayList<>();
+                for (EssStation essStation : essStationList) {
                     List<String> deviceNameList = essStation.getDeviceNameList();
                     deviceNames.addAll(deviceNameList);
                 }
-                if(!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()){
+                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                     query.in(DEVICE_NAME, deviceNames);
                 }
             }
@@ -531,45 +535,244 @@ public class StatisticsService {
         return ResHelper.success("", map);
     }
 
-    public ResHelper<Map<String, Map<String, CapacityNumOfDateVo>>> capacityNumOfDate(SysUser user) {
-        BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
-
-        Date startTimeOfDay = DateUtils.getStartTime(new Date());
-        ArrayList<Date> dates = new ArrayList<>();
-        Date dateOfYesterday = DateUtils.addDateDays(startTimeOfDay, -1);
-        Date startTimeOfYesterday = DateUtils.getStartTime(dateOfYesterday);
-        Date endTimeOfYesterday = DateUtils.getEndTime(dateOfYesterday);
-        dates.add(startTimeOfYesterday);
-        dates.add(endTimeOfYesterday);
-        for (int i = 0; i < 24; i++) {
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(startTimeOfDay);
-            cal.add(Calendar.HOUR, 1);
-            cal.set(Calendar.MINUTE, 0);
-            cal.set(Calendar.SECOND, 0);
-            cal.set(Calendar.MILLISECOND, 0);
-            startTimeOfDay = cal.getTime();
-            dates.add(startTimeOfDay);
+    //
+    public ResHelper<Map<String, List<CapacityVo>>> capacityNumOfDate(SysUser user, AreaInfoBo areaInfoBo) {
+        BuguQuery<Device> query = deviceDao.query();
+        if (areaInfoBo != null) {
+            if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
+                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
+                    return ResHelper.pamIll();
+                }
+                if (!StringUtils.isEmpty(areaInfoBo.getCity()) && !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
+                    return ResHelper.pamIll();
+                }
+                query.is(PROVINCE, areaInfoBo.getProvince());
+            }
+            if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
+                if (!propertiesConfig.getCitys().containsKey(areaInfoBo.getCity())
+                        || !propertiesConfig.getCitys().get(areaInfoBo.getCity()).equals(areaInfoBo.getProvince())) {
+                    return ResHelper.pamIll();
+                }
+                query.is("city", areaInfoBo.getCity());
+            }
+            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+                List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
+                List<String> deviceNames = new ArrayList<>();
+                for (EssStation essStation : essStationList) {
+                    List<String> deviceNameList = essStation.getDeviceNameList();
+                    deviceNames.addAll(deviceNameList);
+                }
+                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                    query.in(DEVICE_NAME, deviceNames);
+                }
+            }
         }
-        return null;
+        List<String> deviceNameList = query.results().stream().map(device -> device.getDeviceName()).collect(Collectors.toList());
+        BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
+        BuguAggregation<BamsDischargeCapacity> aggregate = bamsDischargeCapacityDao.aggregate();
+        if (!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()) {
+            bamsDataDicBABuguQuery.in(DEVICE_NAME, deviceNameList);
+            aggregate.match(bamsDataDicBABuguQuery);
+        }
+        ExecutorService executorService = Executors.newFixedThreadPool(3);
+        CountDownLatch countDownLatch = new CountDownLatch(3);
+        CapacityOfDevice capacityOfDevice1 = new CapacityOfDevice(countDownLatch, DISCHARGECAPACITY_HOUR, deviceNameList, 24, "HOUR");
+        executorService.execute(capacityOfDevice1);
+        CapacityOfDevice capacityOfDevice2 = new CapacityOfDevice(countDownLatch, DISCHARGECAPACITY_DAY, deviceNameList, 7, DAY);
+        executorService.execute(capacityOfDevice2);
+        CapacityOfDevice capacityOfDevice3 = new CapacityOfDevice(countDownLatch, DISCHARGECAPACITY_MONTH, deviceNameList, 12, MONTH);
+        executorService.execute(capacityOfDevice3);
+        try {
+            countDownLatch.await(120L, TimeUnit.SECONDS);
+            ThreadUtil.safeClose(executorService);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        Map<String, List<CapacityVo>> map = new HashMap<>();
+        map.put("HOUR", capacityOfDevice1.getCapacityVos());
+        map.put("DAY", capacityOfDevice2.getCapacityVos());
+        map.put("MONTH", capacityOfDevice3.getCapacityVos());
+        return ResHelper.success("", map);
+    }
 
-//        Iterable<DBObject> chargeIterable = deviceDao.aggregate().match(query).group("{_id:null,count:{$sum:{$toDouble:'$chargeCapacitySum'}}}").limit(1).results();
-//        Iterable<DBObject> dischargeIterable = deviceDao.aggregate().match(query).group("{_id:null,count:{$sum:{$toDouble:'$dischargeCapacitySum'}}}").limit(1).results();
-//        CapacityNumVo capacityNumBo = new CapacityNumVo();
-//        if (chargeIterable != null) {
-//            for (DBObject object : chargeIterable) {
-//                Double sum = Double.valueOf(object.get("count").toString());
-//                BigDecimal bigDecimal = BigDecimal.valueOf(sum).setScale(2, BigDecimal.ROUND_HALF_UP);
-//                capacityNumBo.setChargeCapacitySum(bigDecimal.toString());
-//            }
-//        }
-//        if (dischargeIterable != null) {
-//            for (DBObject object : dischargeIterable) {
-//                Double sum = Double.valueOf(object.get("count").toString());
-//                BigDecimal bigDecimal = BigDecimal.valueOf(sum).setScale(2, BigDecimal.ROUND_HALF_UP);
-//                capacityNumBo.setDischargeCapacitySum(bigDecimal.toString());
-//            }
-//        }
+    public ResHelper<ChargeCapacityStationVo> capacityNumOfStation(String stationId) {
+        ChargeCapacityStationVo chargeCapacityStationVo = new ChargeCapacityStationVo();
+        EssStation essStation = essStationDao.query().is("_id", stationId).result();
+        if(essStation != null){
+            if(!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()){
+                List<Device> deviceList = deviceDao.query().in(DEVICE_NAME, essStation.getDeviceNameList()).results();
+                List<BigDecimal> chargeCapacitySumList = deviceList.stream().map(device -> new BigDecimal(device.getChargeCapacitySum())).collect(Collectors.toList());
+                BigDecimal chargeCapacityDecimal = chargeCapacitySumList.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+                List<BigDecimal> disChargeCapacitySumList = deviceList.stream().map(device -> new BigDecimal(device.getDischargeCapacitySum())).collect(Collectors.toList());
+                BigDecimal disChargeCapacityDecimal = disChargeCapacitySumList.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+                chargeCapacityStationVo.setChargeCapacity(chargeCapacityDecimal.toString());
+                chargeCapacityStationVo.setDisChargeCapacity(disChargeCapacityDecimal.toString());
+                chargeCapacityStationVo.setStationName(essStation.getStationName());
+                return ResHelper.success("",chargeCapacityStationVo);
+            }
+            return ResHelper.error("该电站未绑定设备");
+        }
+        return ResHelper.error("该电站不存在");
+
+    }
+
+
+    class CapacityOfDevice implements Runnable {
+        private CountDownLatch countDownLatch;
+        private String groupMsg;
+        private Integer limit;
+        private String type;
+        private Map<String, CapacityVo> initData;
+        private List<String> deviceNameList;
+        private List<CapacityVo> capacityVos;
+
+        public CapacityOfDevice(CountDownLatch countDownLatch, String groupMsg, List<String> deviceNameList, Integer limit, String type) {
+            this.countDownLatch = countDownLatch;
+            this.limit = limit;
+            this.groupMsg = groupMsg;
+            this.type = type;
+            this.deviceNameList = deviceNameList;
+        }
+
+        public List<CapacityVo> getCapacityVos() {
+            return capacityVos;
+        }
+
+
+        private void initHoursMapData() {
+            this.initData = new TreeMap<>();
+            for (int i = 0; i < limit; i++) {
+                String key = i > 9 ? String.valueOf(i) : "0" + i;
+                initData.put(key, new CapacityVo(key, 0D));
+            }
+            BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
+            BuguAggregation<BamsDischargeCapacity> aggregate = bamsDischargeCapacityDao.aggregate();
+            if (!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()) {
+                bamsDataDicBABuguQuery.in(DEVICE_NAME, deviceNameList);
+                aggregate.match(bamsDataDicBABuguQuery);
+            }
+            Iterable<DBObject> iterable =
+                    aggregate.match(bamsDischargeCapacityDao.query()
+                            .greaterThanEquals("generationDataTime", DateUtils.getStartTime(new Date())).lessThanEquals("generationDataTime", DateUtils.getEndTime(new Date()))).group(groupMsg)
+                            .sort("{generationDataTime:-1}").limit(limit)
+                            .results();
+            if (iterable != null) {
+                for (DBObject object : iterable) {
+                    String[] id = object.get("_id").toString().split(" ");
+                    CapacityVo capacityVo = initData.get(id[1]);
+                    if (capacityVo != null) {
+                        capacityVo.setNumber(Double.valueOf(object.get("count").toString()));
+                    }
+                }
+            }
+            List<CapacityVo> capacityVos = new ArrayList<>(initData.values());
+            Collections.sort(capacityVos, new Comparator<CapacityVo>() {
+                @Override
+                public int compare(CapacityVo o1, CapacityVo o2) {
+                    return Integer.parseInt(o1.getDate()) - Integer.parseInt(o2.getDate());
+                }
+            });
+            this.capacityVos = capacityVos;
+        }
+
+        @Override
+        public void run() {
+            try {
+                if (type.equals("HOUR")) {
+                    initHoursMapData();
+                } else if (type.equals("DAY")) {
+                    initDayMapData();
+                } else {
+                    initMonthMapData();
+                }
+            } finally {
+                countDownLatch.countDown();
+            }
+        }
+
+        private void initMonthMapData() {
+            this.initData = new HashMap<>();
+            for (int i = 1; i <= limit; i++) {
+                String key = i > 9 ? String.valueOf(i) : "0" + i;
+                initData.put(key, new CapacityVo(key, 0D));
+            }
+            BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
+            BuguAggregation<BamsDischargeCapacity> aggregate = bamsDischargeCapacityDao.aggregate();
+            if (!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()) {
+                bamsDataDicBABuguQuery.in(DEVICE_NAME, deviceNameList);
+                aggregate.match(bamsDataDicBABuguQuery);
+            }
+            Iterable<DBObject> iterable = aggregate
+                    .match(bamsDischargeCapacityDao.query().greaterThanEquals("generationDataTime", DateUtils.getCurrentYearStartTime())
+                            .lessThanEquals("generationDataTime", DateUtils.getCurrentYearEndTime())).group(groupMsg)
+                    .sort("{generationDataTime:-1}").limit(limit)
+                    .results();
+            if (iterable != null) {
+                for (DBObject object : iterable) {
+                    String[] idSplit = object.get("_id").toString().split("-");
+                    CapacityVo capacityVo = initData.get(idSplit[1]);
+                    if (capacityVo != null) {
+                        capacityVo.setNumber(Double.valueOf(object.get("count").toString()));
+                    }
+                }
+            }
+            List<CapacityVo> capacityVos = new ArrayList<>(initData.values());
+            Collections.sort(capacityVos, new Comparator<CapacityVo>() {
+                @Override
+                public int compare(CapacityVo o1, CapacityVo o2) {
+                    return Integer.parseInt(o1.getDate()) - Integer.parseInt(o2.getDate());
+                }
+            });
+            this.capacityVos = capacityVos;
+        }
+
+        private void initDayMapData() {
+            this.initData = new HashMap<>();
+            Date dayOfSevenAgo = null;
+            for (int i = 0; i < limit; i++) {
+                Date startTimeOfDay = DateUtils.getStartTime(new Date());
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(startTimeOfDay);
+                cal.add(Calendar.DAY_OF_YEAR, -i);
+                startTimeOfDay = cal.getTime();
+                dayOfSevenAgo = cal.getTime();
+                String key = DateUtils.dateToStrMMDD(startTimeOfDay);
+                initData.put(key, new CapacityVo(key, 0D));
+            }
+            BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
+            BuguAggregation<BamsDischargeCapacity> aggregate = bamsDischargeCapacityDao.aggregate();
+            if (!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()) {
+                bamsDataDicBABuguQuery.in(DEVICE_NAME, deviceNameList);
+                aggregate.match(bamsDataDicBABuguQuery);
+            }
+            Iterable<DBObject> iterable = aggregate
+                    .match(bamsDischargeCapacityDao.query().greaterThanEquals("generationDataTime", dayOfSevenAgo).lessThanEquals("generationDataTime", DateUtils.getEndTime(new Date()))).group(groupMsg)
+                    .sort("{generationDataTime:-1}").limit(limit)
+                    .results();
+            Map<String, CapacityVo> dbOfResultOfHour = new HashMap<>();
+            if (iterable != null) {
+                for (DBObject object : iterable) {
+                    String[] id = object.get("_id").toString().split(" ");
+                    CapacityVo capacityVo = initData.get(id[1]);
+                    if (capacityVo != null) {
+                        capacityVo.setNumber(Double.valueOf(object.get("count").toString()));
+                    }
+                }
+            }
+            List<CapacityVo> capacityVos = new ArrayList<>(initData.values());
+            Collections.sort(capacityVos, new Comparator<CapacityVo>() {
+                @Override
+                public int compare(CapacityVo o1, CapacityVo o2) {
+                    String[] splitOne = o1.getDate().split("-");
+                    String[] splitTwo = o2.getDate().split("-");
+                    if (splitOne[0].equals(splitTwo[0])) {
+                        return Integer.parseInt(splitOne[1]) - Integer.parseInt(splitTwo[1]);
+                    }
+                    return Integer.parseInt(splitOne[0]) - Integer.parseInt(splitTwo[0]);
+                }
+            });
+            this.capacityVos = capacityVos;
+        }
     }
 
 
@@ -701,12 +904,12 @@ public class StatisticsService {
                 }
                 if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
                     List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
-                    List<String> deviceNames= new ArrayList<>();
-                    for(EssStation essStation:essStationList){
+                    List<String> deviceNames = new ArrayList<>();
+                    for (EssStation essStation : essStationList) {
                         List<String> deviceNameList = essStation.getDeviceNameList();
                         deviceNames.addAll(deviceNameList);
                     }
-                    if(!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()){
+                    if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                         incomeEntityBuguQuery.in(DEVICE_NAME, deviceNames);
                     }
                 }
@@ -772,12 +975,12 @@ public class StatisticsService {
             }
             if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
                 List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
-                List<String> deviceNames= new ArrayList<>();
-                for(EssStation essStation:essStationList){
+                List<String> deviceNames = new ArrayList<>();
+                for (EssStation essStation : essStationList) {
                     List<String> deviceNameList = essStation.getDeviceNameList();
                     deviceNames.addAll(deviceNameList);
                 }
-                if(!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()){
+                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                     incomeEntityBuguQuery.in(DEVICE_NAME, deviceNames);
                 }
             }

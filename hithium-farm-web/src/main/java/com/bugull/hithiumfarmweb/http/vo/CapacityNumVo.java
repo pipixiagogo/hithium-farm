@@ -17,4 +17,13 @@ public class CapacityNumVo {
      */
     @ApiModelProperty(value = "放电电量累加值")
     private String dischargeCapacitySum = "0";
+    @ApiModelProperty(value = "总充电量")
+    private String totalChargeSum = "0";
+
+    @ApiModelProperty(value = "风能充电量")
+    private String windEnergyChargeSum = "0";
+
+    @ApiModelProperty(value = "光伏充电量")
+    private String photovoltaicChargeSum = "0";
+
 }

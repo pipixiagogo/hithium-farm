@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.vo;
 
 import io.swagger.annotations.ApiModelProperty;
+import io.swagger.models.auth.In;
 import lombok.Data;
 
 import java.util.Date;
@@ -18,4 +19,10 @@ public class LoginVo {
 
     @ApiModelProperty(value = "refreshToken过期时间")
     private Date refreshTokenExpireTime;
+
+    @ApiModelProperty(value = "id")
+    private String id;
+
+    @ApiModelProperty(value = "用户类型  内部 0 外部 1")
+    private Integer userType;
 }

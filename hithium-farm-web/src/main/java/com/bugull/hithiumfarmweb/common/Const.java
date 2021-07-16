@@ -39,6 +39,10 @@ public class Const {
     public static final String INCOMEOFMONTH="{_id:{$substrCP:['$incomeOfDay',0,7]},count:{$sum:{$toDouble:'$income'}}}";
     public static final String INCOMEOFYEAR="{_id:{$substrCP:['$incomeOfDay',0,4]},count:{$sum:{$toDouble:'$income'}}}";
 
+    public static final String DISCHARGECAPACITY_HOUR="{_id:{$dateToString:{format:'%Y-%m-%d %H',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}";
+    public static final String DISCHARGECAPACITY_DAY="{_id:{$dateToString:{format:'%Y %m-%d',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}";
+    public static final String DISCHARGECAPACITY_MONTH="{_id:{$dateToString:{format:'%Y-%m',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}";
+
     public static final String START_TIME="00:00-";
     public static final String END_TIME="-24:00";
 

@@ -231,6 +231,7 @@ public class BreakDownLogService {
                 }
                 deviceNames.addAll(essStation.getDeviceNameList());
             }
+
             if (!flag) {
                 throw new ExcelExportWithoutDataException("该日期暂无数据");
             } else {

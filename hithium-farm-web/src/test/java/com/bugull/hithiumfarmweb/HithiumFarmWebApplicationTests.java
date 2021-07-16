@@ -9,6 +9,7 @@ import com.bugull.hithiumfarmweb.common.BuguPageDao;
 import com.bugull.hithiumfarmweb.common.Const;
 import com.bugull.hithiumfarmweb.config.CustomThreadFactory;
 import com.bugull.hithiumfarmweb.dao.TestExpireIndexDao;
+import com.bugull.hithiumfarmweb.entity.CaEntity;
 import com.bugull.hithiumfarmweb.entity.TestExpireIndex;
 import com.bugull.hithiumfarmweb.enumerate.DataType;
 import com.bugull.hithiumfarmweb.http.bo.StatisticBo;
@@ -16,6 +17,7 @@ import com.bugull.hithiumfarmweb.http.bo.TimeOfPriceBo;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
 import com.bugull.hithiumfarmweb.http.service.RealTimeDataService;
+import com.bugull.hithiumfarmweb.http.vo.CapacityVo;
 import com.bugull.hithiumfarmweb.http.vo.IncomeStatisticOfDayVo;
 import com.bugull.hithiumfarmweb.http.vo.IncomeStatisticVo;
 import com.bugull.hithiumfarmweb.http.vo.PriceOfPercenVo;
@@ -74,10 +76,72 @@ public class HithiumFarmWebApplicationTests {
 //        String s = null;
 //        System.out.println(StringUtils.isEmpty(s));
 
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.145").setPort(27017).setUsername("ess").setPassword("ess").setDatabase("ess").connect();
-        DeviceDao deviceDao = new DeviceDao();
-        deviceDao.update().set("bindStation",false).execute(deviceDao.query());
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.145").setPort(27017).setUsername("ess").setPassword("ess").setDatabase("ess").connect();
+        List<String> list1 = new ArrayList<String>();
+        list1.add("1");
+        list1.add("2");
+        list1.add("3");
+        list1.add("5");
+        list1.add("6");
+
+        List<String> list2 = new ArrayList<String>();
+        list2.add("2");
+        list2.add("3");
+        list2.add("7");
+        list2.add("8");
+
+        // 交集
+        List<String> intersection = list1.stream().filter(item -> list2.contains(item)).collect(Collectors.toList());
+        System.out.println("---交集 intersection---");
+        intersection.parallelStream().forEach(System.out::println);
+
+        // 差集 (list1 - list2)
+        List<String> reduce1 = list1.stream().filter(item -> !list2.contains(item)).collect(Collectors.toList());
+        System.out.println("---差集 reduce1 (list1 - list2)---");
+        reduce1.parallelStream().forEach(System.out::println);
+
+        // 差集 (list2 - list1)
+        List<String> reduce2 = list2.stream().filter(item -> !list1.contains(item)).collect(Collectors.toList());
+        System.out.println("---差集 reduce2 (list2 - list1)---");
+        reduce2.parallelStream().forEach(System.out::println);
+
+        // 并集
+        List<String> listAll = list1.parallelStream().collect(Collectors.toList());
+        List<String> listAll2 = list2.parallelStream().collect(Collectors.toList());
+        listAll.addAll(listAll2);
+        System.out.println("---并集 listAll---");
+        listAll.parallelStream().forEachOrdered(System.out::println);
+
+        // 去重并集
+        List<String> listAllDistinct = listAll.stream().distinct().collect(Collectors.toList());
+        System.out.println("---得到去重并集 listAllDistinct---");
+        listAllDistinct.parallelStream().forEachOrdered(System.out::println);
+
+        System.out.println("---原来的List1---");
+        list1.parallelStream().forEachOrdered(System.out::println);
+        System.out.println("---原来的List2---");
+        list2.parallelStream().forEachOrdered(System.out::println);
+//        List<Integer> a = new ArrayList<>(32);
+//
+//        a.add(1);
+//
+//        a.add(2);
+//
+//        a.add(3);
+//
+//        List<Integer> b = new ArrayList<>(32);
+//
+//        b.add(2);
+//
+//        b.add(3);
+//
+//        b.add(4);
+//
+//        a.addAll(b);
+//        List<Integer> collect = a.stream().distinct().collect(Collectors.toList());
+//        System.out.println(collect);
+
     }
 
     @Test
@@ -99,24 +163,28 @@ public class HithiumFarmWebApplicationTests {
 //            dates.add(s1);
 //        }
 //        System.out.println(dates.size());
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.145");
-        conn2.setPort(27017);
-        conn2.setUsername("ess");
-        conn2.setPassword("ess");
-        conn2.setDatabase("ess");
-        conn2.connect();
-        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();
-        Iterable<DBObject> bamsDischargeCapacityIterable = bamsDischargeCapacityDao.aggregate().match(bamsDischargeCapacityDao.query()
-                .is("deviceName", "d06a4137967744efa6a24dd564480e0a")
-                .is("equipmentId", 14)).sort("{generationDataTime:-1}").limit(1).results();
-        BamsDischargeCapacity bamsDischargeCapacity=null;
-        if (bamsDischargeCapacityIterable != null) {
-            for (DBObject object : bamsDischargeCapacityIterable) {
-                bamsDischargeCapacity = MapperUtil.fromDBObject(BamsDischargeCapacity.class, object);
-            }
-        }
-        System.out.println(bamsDischargeCapacity);
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.145");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
+//        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();
+//        Iterable<DBObject> bamsDischargeCapacityIterable = bamsDischargeCapacityDao.aggregate().match(bamsDischargeCapacityDao.query()
+//                .is("deviceName", "d06a4137967744efa6a24dd564480e0a")
+//                .is("equipmentId", 14)).sort("{generationDataTime:-1}").limit(1).results();
+//        BamsDischargeCapacity bamsDischargeCapacity = null;
+//        if (bamsDischargeCapacityIterable != null) {
+//            for (DBObject object : bamsDischargeCapacityIterable) {
+//                bamsDischargeCapacity = MapperUtil.fromDBObject(BamsDischargeCapacity.class, object);
+//            }
+//        }
+//        System.out.println(bamsDischargeCapacity);
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+         System.out.println(format.format(DateUtils.getCurrentYearStartTime()));
+         System.out.println(format.format(DateUtils.getCurrentYearEndTime()));
+//         System.out.println(format.format(DateUtils.getYearEndTime(new Date())));
     }
 
     @Test
@@ -131,41 +199,79 @@ public class HithiumFarmWebApplicationTests {
 //        {_id:{ $dateToString: { format: '%Y-%m', date: '$accessTime' } }
 //         %H
 //        date:{$add:['$generationDataTime',28800000]}}
+
+
         Iterable<DBObject> iterable = bamsDischargeCapacityDao.aggregate()
-                        .group("{_id:{$dateToString:{format:'%Y-%m-%d %H',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}")
-                        .sort("{generationDataTime:-1}").limit(25)
-                        .results();
-        Map<String,Double> dbOfResultOfHour=new HashMap<>();
+                .group("{_id:{$dateToString:{format:'%Y-%m-%d %H',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}")
+                .sort("{generationDataTime:-1}").limit(25)
+                .results();
+        Map<String, CaEntity> dbOfResultOfHour = new HashMap<>();
         if (iterable != null) {
             for (DBObject object : iterable) {
-                dbOfResultOfHour.put((String) object.get("_id"),(Double) object.get("count"));
+                String id = (String) object.get("_id");
+                dbOfResultOfHour.put(id.split(" ")[1], new CaEntity(id.split(" ")[1],(Double) object.get("count")));
             }
         }
-        Date startTimeOfDay = DateUtils.getStartTime(new Date());
-        Map<String,Double> initHoursData=new HashMap<>();
-        initHoursData.put(DateUtils.dateToStrWithHH(startTimeOfDay),0D);
-        for (int i = 0; i < 24; i++) {
+        Map<String, CaEntity> initHoursData = new HashMap<>();
+        for (int i = 0; i < 26; i++) {
+            Date startTimeOfDay = DateUtils.getStartTime(new Date());
             Calendar cal = Calendar.getInstance();
             cal.setTime(startTimeOfDay);
-            cal.add(Calendar.HOUR, 1);
+            cal.add(Calendar.HOUR, i);
             startTimeOfDay = cal.getTime();
-            initHoursData.put(DateUtils.dateToStrWithHH(startTimeOfDay),0D);
+            initHoursData.put(DateUtils.dateToStrWithHH(startTimeOfDay).split(" ")[1], new CaEntity(DateUtils.dateToStrWithHH(startTimeOfDay).split(" ")[1],0D));
         }
-        Map<String, Double> map3 = Stream.of(initHoursData, dbOfResultOfHour)
+        Map<String, CaEntity> map3 = Stream.of(initHoursData, dbOfResultOfHour)
                 .flatMap(map -> map.entrySet().stream())
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         Map.Entry::getValue,
                         (v1, v2) -> v2));
-        Map<String, Double> stringDoubleMap = sortByKey(map3);
-        System.out.println(stringDoubleMap);
+        List<CaEntity> caEntities = new ArrayList<>(map3.values());
+        Collections.sort(caEntities, new Comparator<CaEntity>() {
+            @Override
+            public int compare(CaEntity o1, CaEntity o2) {
+                return Integer.parseInt(o1.getDate())-Integer.parseInt(o2.getDate());
+            }
+        });
+        System.out.println(caEntities);
+//        Map<String, Double> stringDoubleMap = sortByKey(map3);
+//        System.out.println(stringDoubleMap);
     }
+
     private Map<String, Double> sortByKey(Map<String, Double> map) {
         Map<String, Double> result = new LinkedHashMap<>(map.size());
         map.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .forEachOrdered(e -> result.put(e.getKey(), e.getValue()));
         return result;
+    }
+
+    @Test
+    public void testDay555(){
+        List<String>date = new ArrayList<>();
+        for (int i = 0; i < 50; i++) {
+            Date startTimeOfDay = DateUtils.getStartTime(new Date());
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(startTimeOfDay);
+            cal.add(Calendar.DAY_OF_YEAR, -i);
+            startTimeOfDay = cal.getTime();
+            String key = DateUtils.dateToStrMMDD(startTimeOfDay);
+            date.add(key);
+        }
+        System.out.println(date);
+        Collections.sort(date, new Comparator<String>() {
+            @Override
+            public int compare(String o1, String o2) {
+                String[] splitOne = o1.split("-");
+                String[] splitTwo = o2.split("-");
+                if (splitOne[0].equals(splitTwo[0])) {
+                    return Integer.parseInt(splitOne[1]) - Integer.parseInt(splitTwo[1]);
+                }
+                return Integer.parseInt(splitOne[0]) - Integer.parseInt(splitTwo[0]);
+            }
+        });
+        System.out.println(date);
     }
 
     @Test
@@ -241,6 +347,107 @@ public class HithiumFarmWebApplicationTests {
 //            }
 //        }
 
+    }
+
+    @Test
+    public void testDay222() {
+        Date startTimeOfDay = DateUtils.getStartTime(new Date());
+        Map<String, Double> map = new HashMap<>();
+        map.put(DateUtils.dateToStr(startTimeOfDay), 0D);
+        for (int i = 0; i < 7; i++) {
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(startTimeOfDay);
+            cal.add(Calendar.DAY_OF_YEAR, -1);
+            startTimeOfDay = cal.getTime();
+            map.put(DateUtils.dateToStr(startTimeOfDay), 0D);
+        }
+        System.out.println(map);
+    }
+
+    @Test
+    public void testDay3333() {
+
+        Map<String, Double> map = new HashMap<>();
+        for (int i = 0; i < 25; i++) {
+            Date startTimeOfDay = DateUtils.getStartTime(new Date());
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(startTimeOfDay);
+            cal.add(Calendar.DAY_OF_MONTH, i);
+            startTimeOfDay = cal.getTime();
+            map.put(DateUtils.dateToStrWithHH(startTimeOfDay), 0D);
+        }
+//        map.put(DateUtils.dateToStr(startTimeOfDay), 0D);
+        System.out.println(map.size());
+    }
+
+    public static Date getYearStartTime(Date date) {
+        Calendar calendar = Calendar.getInstance();// 获取当前日期
+        calendar.add(Calendar.DATE, 0);
+        calendar.add(Calendar.MONTH, 0);
+        calendar.set(Calendar.DAY_OF_YEAR, 1);
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        return calendar.getTime();
+    }
+
+    @Test
+    public void testMap() {
+        Map<String, Double> map = new HashMap<>();
+        for (int i = 0; i < 12; i++) {
+            Date yearStartTime = getYearStartTime(new Date());
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(yearStartTime);
+            cal.add(Calendar.MONTH, i);
+            yearStartTime = cal.getTime();
+            map.put(DateUtils.formatYYYYMM(yearStartTime), 0D);
+        }
+        System.out.println(map);
+
+    }
+
+    @Test
+    public void testHour() {
+//        Map<String,Double> initData = new HashMap<>();
+//        for (int i = 0; i < 25; i++) {
+//            Date startTimeOfDay = DateUtils.getStartTime(new Date());
+//            Calendar cal = Calendar.getInstance();
+//            cal.setTime(startTimeOfDay);
+//            cal.add(Calendar.HOUR, i);
+//            startTimeOfDay = cal.getTime();
+//            initData.put(DateUtils.dateToStrWithHH(startTimeOfDay), 0D);
+//        }
+        Map<String, Double> initData = new HashMap<>();
+        for (int i = 0; i < 7; i++) {
+            Date startTimeOfDay = DateUtils.getStartTime(new Date());
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(startTimeOfDay);
+            cal.add(Calendar.DAY_OF_YEAR, -i);
+            startTimeOfDay = cal.getTime();
+            initData.put(DateUtils.dateToStr(startTimeOfDay), 0D);
+        }
+        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+        conn2.setHost("192.168.241.145").setPort(27017).setUsername("ess").setPassword("ess").setDatabase("ess").connect();
+        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();
+        Iterable<DBObject> iterable = bamsDischargeCapacityDao.aggregate().group("{_id:{$dateToString:{format:'%Y-%m-%d',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}")
+                .sort("{generationDataTime:-1}").limit(7)
+                .results();
+        Map<String, Double> dbOfResultOfHour = new HashMap<>();
+        if (iterable != null) {
+            for (DBObject object : iterable) {
+                dbOfResultOfHour.put((String) object.get("_id"), Double.valueOf(object.get("count").toString()));
+            }
+        }
+        Map<String, Double> map3 = Stream.of(initData, dbOfResultOfHour)
+                .flatMap(map -> map.entrySet().stream())
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (v1, v2) -> v2));
+        System.out.println(map3);
+        Map<String, Double> map = sortByKey(map3);
+        System.out.println(map);
     }
 
 

@@ -35,4 +35,7 @@ public class UpdateUserBo {
     @ApiModelProperty(name = "stationList",value = "用户绑定设备列表")
     private List<String> stationList;
 
+    @ApiModelProperty(name = "userType",value = "用户类型 内部用户:0 外部用户:1")
+    private Integer userType;
+
 }

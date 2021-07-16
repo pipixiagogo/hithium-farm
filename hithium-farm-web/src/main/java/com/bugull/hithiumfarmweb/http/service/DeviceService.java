@@ -352,7 +352,7 @@ public class DeviceService {
         return ResHelper.pamIll();
     }
 
-    private String getApplicationScenariosItemMsg(Integer applicationScenariosItem) {
+    protected String getApplicationScenariosItemMsg(Integer applicationScenariosItem) {
         switch (applicationScenariosItem) {
             case 1:
                 return "防逆流控制";
@@ -375,7 +375,7 @@ public class DeviceService {
         }
     }
 
-    private String getApplicationScenariosMsg(Integer applicationScenarios) {
+    protected String getApplicationScenariosMsg(Integer applicationScenarios) {
         switch (applicationScenarios) {
             case 0:
                 return "调峰";
@@ -404,7 +404,7 @@ public class DeviceService {
         return true;
     }
 
-    public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDeivcesByPage(Map<String, Object> params, SysUser user) {
+    public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDevicesByPage(Map<String, Object> params, SysUser user) {
         BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
         if (!queryOfParams(deviceBuguPageQuery, params)) {
             return ResHelper.pamIll();
@@ -434,18 +434,18 @@ public class DeviceService {
         List<TimeOfPriceBo> priceOfTime = modifyDeviceBo.getPriceOfTime();
         if (!priceOfTime.isEmpty()) {
             List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+            String[] arrayDeviceNames = modifyDeviceBo.getDeviceNames().split(",");
+            if (arrayDeviceNames == null || arrayDeviceNames.length == 0) {
+                return ResHelper.pamIll();
+            }
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                if (!deviceNames.contains(modifyDeviceBo.getDeviceName())) {
+                if (!deviceNames.containsAll(Arrays.asList(arrayDeviceNames))) {
                     return ResHelper.error(NO_MODIFY_PERMISSION);
                 }
             }
             /**
              * 格式校验map
              */
-            BuguQuery<Device> query = deviceDao.query().is(DEVICE_NAME, modifyDeviceBo.getDeviceName());
-            if (!query.exists()) {
-                return ResHelper.error("设备不存在");
-            }
             List<String> list = new ArrayList<>();
             for (TimeOfPriceBo timeOfPriceBo : priceOfTime) {
                 if (timeOfPriceBo != null && !StringUtils.isEmpty(timeOfPriceBo.getPrice()) && !StringUtils.isEmpty(timeOfPriceBo.getTime())) {
@@ -478,6 +478,13 @@ public class DeviceService {
                     Integer startTimeintMin = Integer.valueOf(startTime.split(":")[1]);
                     if (endTimeintHour > startTimeintHour) {
                         sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
+                    } else if (endTimeintHour == startTimeintHour) {
+                        if (endTimeintMin > startTimeintMin) {
+                            sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
+                        } else {
+                            endTimeintHour = endTimeintHour + 24;
+                            sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
+                        }
                     } else {
                         endTimeintHour = endTimeintHour + 24;
                         sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
@@ -489,6 +496,13 @@ public class DeviceService {
             } catch (Exception e) {
                 return ResHelper.pamIll();
             }
+            for (String deviceName : deviceNames) {
+                if (!deviceDao.query().is(DEVICE_NAME, deviceName).exists()) {
+                    return ResHelper.error("设备不存在");
+                }
+            }
+            BuguQuery<Device> query = deviceDao.query().in(DEVICE_NAME, deviceNames);
+
             deviceDao.update().set("priceOfTime", priceOfTime).execute(query);
             return ResHelper.success("修改成功");
         }
@@ -707,13 +721,10 @@ public class DeviceService {
         return null;
     }
 
-    public ResHelper<Void> modifyDevicePowerInfo(ModifyDevicePowerBo modifyDevicePowerBo) {
+    public ResHelper<Void> modifyDevicePowerInfo(ModifyDevicePowerBo modifyDevicePowerBo, List<String> deviceNames) {
         Map<Integer, List<TimeOfPowerBo>> powerOfTime = modifyDevicePowerBo.getPowerOfTime();
         if (!CollectionUtils.isEmpty(powerOfTime) && !powerOfTime.isEmpty()) {
-            BuguQuery<Device> deviceBuguQuery = deviceDao.query().is(DEVICE_NAME, modifyDevicePowerBo.getDeviceName());
-            if (!deviceBuguQuery.exists()) {
-                return ResHelper.error("设备不存在");
-            }
+
             List<TimeOfPowerBo> timeOfPowerBos = new ArrayList<>();
             for (Map.Entry<Integer, List<TimeOfPowerBo>> entry : powerOfTime.entrySet()) {
                 List<TimeOfPowerBo> powerBos = entry.getValue();
@@ -746,10 +757,16 @@ public class DeviceService {
                 }
                 timeOfPowerBos.addAll(entry.getValue());
             }
+            for(String deviceName:deviceNames){
+                if (!deviceDao.query().is(DEVICE_NAME,deviceName).exists()) {
+                    return ResHelper.error("设备不存在");
+                }
+            }
+            BuguQuery<Device> deviceBuguQuery = deviceDao.query().in(DEVICE_NAME, deviceNames);
             if (!CollectionUtils.isEmpty(timeOfPowerBos) && !timeOfPowerBos.isEmpty()) {
                 deviceDao.update().set("timeOfPower", timeOfPowerBos).execute(deviceBuguQuery);
-                return ResHelper.success("修改成功");
             }
+            return ResHelper.success("修改成功");
         }
         return ResHelper.pamIll();
     }

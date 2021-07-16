@@ -14,4 +14,6 @@ public class StatisticBo {
     private String date;
     @ApiModelProperty(value = "总功率")
     private Double count = 0D;
+
+
 }
