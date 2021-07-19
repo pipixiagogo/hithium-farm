@@ -598,4 +598,17 @@ public class RealTimeDataService {
         return null;
     }
 
+    public boolean verificationDeviceName(String deviceName,SysUser sysUser) {
+        List<EssStation> essStationList = essStationService.getEssStationList(sysUser.getStationList());
+        if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+            for (EssStation essStation : essStationList) {
+                if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
+                    if (essStation.getDeviceNameList().contains(deviceName)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
 }

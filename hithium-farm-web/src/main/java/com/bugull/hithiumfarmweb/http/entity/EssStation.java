@@ -22,5 +22,9 @@ public class EssStation extends SimpleEntity {
     private String city;
     @ApiModelProperty(name ="numberOfDevice",value = "设备数量")
     private Integer numberOfDevice;
+    /**
+     * 电站背景图片   电站的图片url、储能站电气图url 地址
+     */
+
 
 }

@@ -28,7 +28,6 @@ import java.util.Map;
 
 /**
  * 用户模块
- * TODO 添加相应的权限 除admin外都无法修改 !!! 直接采用设备跟账号绑定    用户权限跟账号绑定  !!!
  */
 @RestController
 @RequestMapping(value = "/user")

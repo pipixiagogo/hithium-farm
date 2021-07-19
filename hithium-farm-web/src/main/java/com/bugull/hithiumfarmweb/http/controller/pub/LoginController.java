@@ -8,25 +8,31 @@ import com.bugull.hithiumfarmweb.http.service.CaptchaService;
 import com.bugull.hithiumfarmweb.http.service.SysUserService;
 import com.bugull.hithiumfarmweb.http.vo.LoginVo;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
+import com.bugull.mongo.fs.HttpFileGetter;
+import com.bugull.mongo.fs.ImageUploader;
+import com.bugull.mongo.fs.Watermark;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.io.IOUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.imageio.ImageIO;
 import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.Date;
 import java.util.List;
 
 /**
  * 登录模块
  */
 @RestController
-public class LoginController{
+public class LoginController {
 
     @Resource
     private CaptchaService captchaService;
@@ -38,7 +44,7 @@ public class LoginController{
     @ApiOperation("获取验证码")
     @GetMapping("/captcha.jpg")
     @ApiImplicitParam(name = "uuid", value = "UUID随机码 保证每次请求唯一", required = false)
-    public void captcha(HttpServletResponse response, @RequestParam(name = "uuid",required = false) String uuid ) throws IOException {
+    public void captcha(HttpServletResponse response, @RequestParam(name = "uuid", required = false) String uuid) throws IOException {
 
         response.setHeader("Cache-Control", "no-store, no-cache");
         response.setContentType("image/jpeg");
@@ -54,8 +60,8 @@ public class LoginController{
     @ApiImplicitParam(name = "loginFormBo", value = "登录接口", required = true, paramType = "body", dataTypeClass = LoginFormBo.class, dataType = "LoginFormBo")
     public ResHelper<LoginVo> login(@RequestBody LoginFormBo loginFormBo) {
         ValidatorUtils.validateEntity(loginFormBo, UpdateGroup.class);
-        String  msg = captchaService.validaCaptcha(loginFormBo);
-        if(!StringUtils.isEmpty(msg)){
+        String msg = captchaService.validaCaptcha(loginFormBo);
+        if (!StringUtils.isEmpty(msg)) {
             return ResHelper.error(msg);
         }
         return sysUserService.loginByPassword(loginFormBo);
@@ -71,6 +77,24 @@ public class LoginController{
         return sysUserService.refreshToken(refreshToken);
     }
 
+    /**
+     * TODO 上传图片
+     * @param file
+     * @return
+     * @throws Exception
+     */
+    @ApiOperation(value = "上传图片文件", response = ResHelper.class)
+    @PostMapping("/upload")
+    public ResHelper<Void> upload(@RequestParam("file") MultipartFile file) throws Exception {
+        if (file.isEmpty()) {
+            return ResHelper.error("上传文件不能为空");
+        }
+        ImageUploader imageUploader = new ImageUploader(file.getInputStream(), "测试");
+
+        imageUploader.save();
+
+        return ResHelper.success("上传成功 访问地址为:localhost:8090/getFile/" + imageUploader.getFilename());
+    }
 
 
 }

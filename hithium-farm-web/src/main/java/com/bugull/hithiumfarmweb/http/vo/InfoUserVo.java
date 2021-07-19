@@ -34,8 +34,8 @@ public class InfoUserVo {
     @ApiModelProperty(name = "userExpireTime", value = "用户过期时间")
     private Date userExpireTime;
 
-    @ApiModelProperty(name = "essStation",value = "用户绑定电站列表")
-    private List<EssStation> essStation;
+    @ApiModelProperty(name = "essStationList",value = "用户绑定电站列表信息")
+    private List<EssStation> essStationList;
 
     @ApiModelProperty(name = "userType",value = "用户类型  内部0 外部1")
     private Integer userType;

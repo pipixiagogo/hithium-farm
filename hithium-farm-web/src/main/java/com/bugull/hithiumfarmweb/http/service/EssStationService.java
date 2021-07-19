@@ -8,6 +8,7 @@ import com.bugull.hithiumfarmweb.http.dao.EssStationDao;
 import com.bugull.hithiumfarmweb.http.dao.SysUserDao;
 import com.bugull.hithiumfarmweb.http.entity.*;
 import com.bugull.hithiumfarmweb.http.vo.DeviceInfoVo;
+import com.bugull.hithiumfarmweb.http.vo.DeviceVo;
 import com.bugull.hithiumfarmweb.http.vo.EssStationVo;
 import com.bugull.hithiumfarmweb.http.vo.InfoUserVo;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
@@ -26,10 +27,7 @@ import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Resource;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.bugull.hithiumfarmweb.common.Const.DEVICE_NAME;
@@ -76,23 +74,29 @@ public class EssStationService {
     }
 
     public ResHelper<Void> save(EssStation essStation) {
-        if (StringUtils.isEmpty(essStation.getStationName())) {
-            return ResHelper.pamIll();
-        }
-        if (CollectionUtils.isEmpty(essStation.getDeviceNameList()) && essStation.getDeviceNameList().isEmpty()) {
-            return ResHelper.pamIll();
-        }
-        for (String deviceName : essStation.getDeviceNameList()) {
-            if (!deviceDao.query().is(DEVICE_NAME, deviceName).is("bindStation", false).exists()) {
+        try {
+            if (StringUtils.isEmpty(essStation.getStationName())) {
                 return ResHelper.pamIll();
             }
+            if (CollectionUtils.isEmpty(essStation.getDeviceNameList()) && essStation.getDeviceNameList().isEmpty()) {
+                return ResHelper.pamIll();
+            }
+            for (String deviceName : essStation.getDeviceNameList()) {
+                if (!deviceDao.query().is(DEVICE_NAME, deviceName).is("bindStation", false).exists()) {
+                    return ResHelper.pamIll();
+                }
+            }
+            Device device = deviceDao.query().is(DEVICE_NAME, essStation.getDeviceNameList().get(0)).result();
+            essStation.setProvince(device.getProvince());
+            essStation.setCity(device.getCity());
+            deviceDao.update().set("bindStation", true).execute(deviceDao.query().in(DEVICE_NAME, essStation.getDeviceNameList()));
+            essStationDao.insert(essStation);
+            return ResHelper.success("添加电站成功");
+        }catch (Exception e){
+            log.error("添加电站失败:{}",e);
+            return ResHelper.error("添加电站失败");
         }
-        Device device = deviceDao.query().is(DEVICE_NAME, essStation.getDeviceNameList().get(0)).result();
-        essStation.setProvince(device.getProvince());
-        essStation.setCity(device.getCity());
-        deviceDao.update().set("bindStation", true).execute(deviceDao.query().in(DEVICE_NAME, essStation.getDeviceNameList()));
-        essStationDao.insert(essStation);
-        return ResHelper.success("添加电站成功");
+
     }
 
     public ResHelper<Void> updateStation(EssStation essStation) {
@@ -147,8 +151,11 @@ public class EssStationService {
         }
     }
 
-    public ResHelper<BuguPageQuery.Page<EssStationVo>> selectStation(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<EssStationVo>> selectStation(Map<String, Object> params, SysUser user) {
         BuguPageQuery<EssStation> query = essStationDao.pageQuery();
+        if(!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()){
+            query.in("_id",user.getStationList());
+        }
         String stationName = (String) params.get("stationName");
         if (!StringUtils.isEmpty(stationName)) {
             query.regexCaseInsensitive("stationName", stationName);
@@ -163,6 +170,15 @@ public class EssStationService {
             EssStationVo essStationVo = new EssStationVo();
             BeanUtils.copyProperties(essStation, essStationVo);
             essStationVo.setAreaCity(essStation.getProvince() + "-" + essStation.getCity());
+            if(!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()){
+                List<Device> deviceList = deviceDao.query().in("deviceName", essStation.getDeviceNameList()).results();
+                List<DeviceVo> deviceVos = deviceList.stream().map(device -> {
+                    DeviceVo deviceVo = new DeviceVo();
+                    BeanUtils.copyProperties(device, deviceVo);
+                    return deviceVo;
+                }).collect(Collectors.toList());
+                essStationVo.setDeviceVoList(deviceVos);
+            }
             return essStationVo;
         }).collect(Collectors.toList());
         BuguPageQuery.Page<EssStationVo> essStationVoPage = new BuguPageQuery.Page<>(essStationPage.getPage(), essStationPage.getPageSize(), essStationPage.getTotalRecord(), essStationVos);
@@ -170,18 +186,24 @@ public class EssStationService {
     }
 
     public ResHelper<Void> deleteStation(List<String> stationIds) {
-        if (!CollectionUtils.isEmpty(stationIds) && !stationIds.isEmpty()) {
-            List<EssStation> essStations = essStationDao.query().in("_id", stationIds).results();
-            boolean stationList = sysUserDao.query().in("stationList", stationIds).exists();
-            if(stationList){
-                return ResHelper.error("请先解除用户与电站的绑定");
+        try {
+            if (!CollectionUtils.isEmpty(stationIds) && !stationIds.isEmpty()) {
+                List<EssStation> essStations = essStationDao.query().in("_id", stationIds).results();
+                boolean stationList = sysUserDao.query().in("stationList", stationIds).exists();
+                if (stationList) {
+                    return ResHelper.error("请先解除用户与电站的绑定");
+                }
+                for (EssStation essStation : essStations) {
+                    deviceDao.update().set("bindStation", false).execute(deviceDao.query().in(DEVICE_NAME, essStation.getDeviceNameList()));
+                }
+                essStationDao.remove(stationIds);
             }
-            for (EssStation essStation : essStations) {
-                deviceDao.update().set("bindStation", false).execute(deviceDao.query().in(DEVICE_NAME, essStation.getDeviceNameList()));
-            }
-            essStationDao.remove(stationIds);
+            return ResHelper.success("删除成功");
+        }catch (Exception e){
+            log.error("删除失败:{}",e);
+            return ResHelper.error("删除失败");
         }
-        return ResHelper.success("删除成功");
+
     }
 
     public EssStationWithDeviceVo infoStationById(String stationId) {
@@ -217,5 +239,9 @@ public class EssStationService {
             essStationVo.setDeviceList(deviceInfoVos);
         }
         return essStationVo;
+    }
+
+    public ResHelper<Map<String, Set<String>>> queryProvinces() {
+        return ResHelper.success("",propertiesConfig.getProToCitys());
     }
 }

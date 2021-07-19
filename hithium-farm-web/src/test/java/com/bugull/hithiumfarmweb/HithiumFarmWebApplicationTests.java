@@ -47,6 +47,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.integration.history.MessageHistory;
 import org.springframework.util.CollectionUtils;
+import org.springframework.web.multipart.MultipartFile;
 import redis.clients.jedis.Jedis;
 
 import java.io.*;
@@ -67,6 +68,11 @@ import static com.bugull.hithiumfarmweb.http.service.StatisticsService.INCOME_RE
 
 public class HithiumFarmWebApplicationTests {
 
+    @Test
+    public void testFileExist(){
+        File file = new File("D://d92b934a1b474ca8975de89fa748225.jpg");
+        System.out.println(file.exists());
+    }
     @Test
     public void contextLoads() {
 //        String salt = RandomStringUtils.randomAlphanumeric(20);
@@ -182,8 +188,8 @@ public class HithiumFarmWebApplicationTests {
 //        }
 //        System.out.println(bamsDischargeCapacity);
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-         System.out.println(format.format(DateUtils.getCurrentYearStartTime()));
-         System.out.println(format.format(DateUtils.getCurrentYearEndTime()));
+        System.out.println(format.format(DateUtils.getCurrentYearStartTime()));
+        System.out.println(format.format(DateUtils.getCurrentYearEndTime()));
 //         System.out.println(format.format(DateUtils.getYearEndTime(new Date())));
     }
 
@@ -193,48 +199,50 @@ public class HithiumFarmWebApplicationTests {
          * TODO 明天测试数据加验证
          */
         BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.145").setPort(27017).setUsername("ess").setPassword("ess").setDatabase("ess").connect();
-        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();
+        conn2.setHost("172.24.63.229").setPort(27017).setUsername("farm").setPassword("hithium.db.mongo").setDatabase("farm").connect();
+        DeviceDao deviceDao = new DeviceDao();
+        deviceDao.update().set("bindStation",false).execute(deviceDao.query());
+//        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();
 //        {_id:'$incomeOfDay',count:{$sum:{$toDouble:'$income'}}}
 //        {_id:{ $dateToString: { format: '%Y-%m', date: '$accessTime' } }
 //         %H
 //        date:{$add:['$generationDataTime',28800000]}}
 
 
-        Iterable<DBObject> iterable = bamsDischargeCapacityDao.aggregate()
-                .group("{_id:{$dateToString:{format:'%Y-%m-%d %H',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}")
-                .sort("{generationDataTime:-1}").limit(25)
-                .results();
-        Map<String, CaEntity> dbOfResultOfHour = new HashMap<>();
-        if (iterable != null) {
-            for (DBObject object : iterable) {
-                String id = (String) object.get("_id");
-                dbOfResultOfHour.put(id.split(" ")[1], new CaEntity(id.split(" ")[1],(Double) object.get("count")));
-            }
-        }
-        Map<String, CaEntity> initHoursData = new HashMap<>();
-        for (int i = 0; i < 26; i++) {
-            Date startTimeOfDay = DateUtils.getStartTime(new Date());
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(startTimeOfDay);
-            cal.add(Calendar.HOUR, i);
-            startTimeOfDay = cal.getTime();
-            initHoursData.put(DateUtils.dateToStrWithHH(startTimeOfDay).split(" ")[1], new CaEntity(DateUtils.dateToStrWithHH(startTimeOfDay).split(" ")[1],0D));
-        }
-        Map<String, CaEntity> map3 = Stream.of(initHoursData, dbOfResultOfHour)
-                .flatMap(map -> map.entrySet().stream())
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (v1, v2) -> v2));
-        List<CaEntity> caEntities = new ArrayList<>(map3.values());
-        Collections.sort(caEntities, new Comparator<CaEntity>() {
-            @Override
-            public int compare(CaEntity o1, CaEntity o2) {
-                return Integer.parseInt(o1.getDate())-Integer.parseInt(o2.getDate());
-            }
-        });
-        System.out.println(caEntities);
+//        Iterable<DBObject> iterable = bamsDischargeCapacityDao.aggregate()
+//                .group("{_id:{$dateToString:{format:'%Y-%m-%d %H',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}")
+//                .sort("{generationDataTime:-1}").limit(25)
+//                .results();
+//        Map<String, CaEntity> dbOfResultOfHour = new HashMap<>();
+//        if (iterable != null) {
+//            for (DBObject object : iterable) {
+//                String id = (String) object.get("_id");
+//                dbOfResultOfHour.put(id.split(" ")[1], new CaEntity(id.split(" ")[1], (Double) object.get("count")));
+//            }
+//        }
+//        Map<String, CaEntity> initHoursData = new HashMap<>();
+//        for (int i = 0; i < 26; i++) {
+//            Date startTimeOfDay = DateUtils.getStartTime(new Date());
+//            Calendar cal = Calendar.getInstance();
+//            cal.setTime(startTimeOfDay);
+//            cal.add(Calendar.HOUR, i);
+//            startTimeOfDay = cal.getTime();
+//            initHoursData.put(DateUtils.dateToStrWithHH(startTimeOfDay).split(" ")[1], new CaEntity(DateUtils.dateToStrWithHH(startTimeOfDay).split(" ")[1], 0D));
+//        }
+//        Map<String, CaEntity> map3 = Stream.of(initHoursData, dbOfResultOfHour)
+//                .flatMap(map -> map.entrySet().stream())
+//                .collect(Collectors.toMap(
+//                        Map.Entry::getKey,
+//                        Map.Entry::getValue,
+//                        (v1, v2) -> v2));
+//        List<CaEntity> caEntities = new ArrayList<>(map3.values());
+//        Collections.sort(caEntities, new Comparator<CaEntity>() {
+//            @Override
+//            public int compare(CaEntity o1, CaEntity o2) {
+//                return Integer.parseInt(o1.getDate()) - Integer.parseInt(o2.getDate());
+//            }
+//        });
+//        System.out.println(caEntities);
 //        Map<String, Double> stringDoubleMap = sortByKey(map3);
 //        System.out.println(stringDoubleMap);
     }
@@ -248,8 +256,8 @@ public class HithiumFarmWebApplicationTests {
     }
 
     @Test
-    public void testDay555(){
-        List<String>date = new ArrayList<>();
+    public void testDay555() {
+        List<String> date = new ArrayList<>();
         for (int i = 0; i < 50; i++) {
             Date startTimeOfDay = DateUtils.getStartTime(new Date());
             Calendar cal = Calendar.getInstance();
@@ -272,6 +280,26 @@ public class HithiumFarmWebApplicationTests {
             }
         });
         System.out.println(date);
+    }
+
+    public static String upload(MultipartFile file, String path, String fileLocation) {
+        String fileFinishName = null;
+        try {
+            // 如果目录不存在则创建
+            File uploadDir = new File(fileLocation);
+            if (!uploadDir.exists()) {
+                uploadDir.mkdir();
+            }
+            //获取源文件名称
+            String fileName = file.getOriginalFilename();
+            fileFinishName = UUID.randomUUID() + fileName.substring(fileName.lastIndexOf("."), fileName.length());
+            //上传文件到指定目录下
+            File uploadFile = new File(uploadDir + uploadDir.separator + fileFinishName);
+            file.transferTo(uploadFile);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return path + "/" + fileFinishName;
     }
 
     @Test
@@ -418,36 +446,36 @@ public class HithiumFarmWebApplicationTests {
 //            startTimeOfDay = cal.getTime();
 //            initData.put(DateUtils.dateToStrWithHH(startTimeOfDay), 0D);
 //        }
-        Map<String, Double> initData = new HashMap<>();
-        for (int i = 0; i < 7; i++) {
-            Date startTimeOfDay = DateUtils.getStartTime(new Date());
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(startTimeOfDay);
-            cal.add(Calendar.DAY_OF_YEAR, -i);
-            startTimeOfDay = cal.getTime();
-            initData.put(DateUtils.dateToStr(startTimeOfDay), 0D);
-        }
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("192.168.241.145").setPort(27017).setUsername("ess").setPassword("ess").setDatabase("ess").connect();
-        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();
-        Iterable<DBObject> iterable = bamsDischargeCapacityDao.aggregate().group("{_id:{$dateToString:{format:'%Y-%m-%d',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}")
-                .sort("{generationDataTime:-1}").limit(7)
-                .results();
-        Map<String, Double> dbOfResultOfHour = new HashMap<>();
-        if (iterable != null) {
-            for (DBObject object : iterable) {
-                dbOfResultOfHour.put((String) object.get("_id"), Double.valueOf(object.get("count").toString()));
-            }
-        }
-        Map<String, Double> map3 = Stream.of(initData, dbOfResultOfHour)
-                .flatMap(map -> map.entrySet().stream())
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (v1, v2) -> v2));
-        System.out.println(map3);
-        Map<String, Double> map = sortByKey(map3);
-        System.out.println(map);
+//        Map<String, Double> initData = new HashMap<>();
+//        for (int i = 0; i < 7; i++) {
+//            Date startTimeOfDay = DateUtils.getStartTime(new Date());
+//            Calendar cal = Calendar.getInstance();
+//            cal.setTime(startTimeOfDay);
+//            cal.add(Calendar.DAY_OF_YEAR, -i);
+//            startTimeOfDay = cal.getTime();
+//            initData.put(DateUtils.dateToStr(startTimeOfDay), 0D);
+//        }
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.145").setPort(27017).setUsername("ess").setPassword("ess").setDatabase("ess").connect();
+//        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();
+//        Iterable<DBObject> iterable = bamsDischargeCapacityDao.aggregate().group("{_id:{$dateToString:{format:'%Y-%m-%d',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}")
+//                .sort("{generationDataTime:-1}").limit(7)
+//                .results();
+//        Map<String, Double> dbOfResultOfHour = new HashMap<>();
+//        if (iterable != null) {
+//            for (DBObject object : iterable) {
+//                dbOfResultOfHour.put((String) object.get("_id"), Double.valueOf(object.get("count").toString()));
+//            }
+//        }
+//        Map<String, Double> map3 = Stream.of(initData, dbOfResultOfHour)
+//                .flatMap(map -> map.entrySet().stream())
+//                .collect(Collectors.toMap(
+//                        Map.Entry::getKey,
+//                        Map.Entry::getValue,
+//                        (v1, v2) -> v2));
+//        System.out.println(map3);
+//        Map<String, Double> map = sortByKey(map3);
+//        System.out.println(map);
     }
 
 

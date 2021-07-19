@@ -805,4 +805,14 @@ public class DeviceService {
                 devicePage.getTotalRecord(), deviceInfoVos);
         return ResHelper.success("", deviceInfoVoPage);
     }
+
+    public boolean verificationDeviceNameList(List<String> deviceNameList, SysUser user) {
+        List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+        if(!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()){
+            if(deviceNames.containsAll(deviceNameList)){
+                return true;
+            }
+        }
+        return false;
+    }
 }

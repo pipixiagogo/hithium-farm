@@ -155,7 +155,7 @@ public class StatisticsController extends AbstractController {
     @PostMapping(value = "/capacityNumOfStation")
     @ApiOperation(value = "电站项目下的储能站充放电量统计")
     @ApiImplicitParam(name = "stationId", value = "电站id", paramType = "query", dataType = "String", dataTypeClass = String.class)
-    public ResHelper<ChargeCapacityStationVo> capacityNumOfStation(@ApiIgnore @RequestParam(value = "stationId") String stationId){
+    public ResHelper<ChargeCapacityStationVo> capacityNumOfStation(@ApiIgnore @RequestParam(value = "stationId",required = false) String stationId){
         if(StringUtils.isEmpty(stationId)){
             return ResHelper.pamIll();
         }

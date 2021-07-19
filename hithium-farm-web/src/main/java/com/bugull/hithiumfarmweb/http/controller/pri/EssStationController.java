@@ -13,6 +13,7 @@ import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang.StringUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.hibernate.validator.constraints.CodePointLength;
 import org.springframework.web.bind.annotation.*;
 import springfox.documentation.annotations.ApiIgnore;
 
@@ -20,10 +21,11 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping(value = "/station")
-public class EssStationController {
+public class EssStationController extends AbstractController{
 
     @Resource
     private EssStationService essStationService;
@@ -54,7 +56,7 @@ public class EssStationController {
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(name = "stationName", required = false, paramType = "query", value = "电站名称", dataType = "String", dataTypeClass = String.class)})
     public ResHelper<BuguPageQuery.Page<EssStationVo>> selectStation(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return essStationService.selectStation(params);
+        return essStationService.selectStation(params,getUser());
     }
 
     /**
@@ -87,4 +89,13 @@ public class EssStationController {
         }
         return essStationService.deleteStation(stations);
     }
+
+    @RequiresPermissions(value = "sys:user")
+    @GetMapping(value = "/queryProvinces")
+    @ApiOperation(value = "查询所有中国省份信息",httpMethod = "GET",response = ResHelper.class)
+    public ResHelper<Map<String, Set<String>>>queryProvinces(){
+        return essStationService.queryProvinces();
+    }
+
+
 }

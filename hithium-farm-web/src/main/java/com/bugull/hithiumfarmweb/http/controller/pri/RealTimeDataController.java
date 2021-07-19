@@ -220,19 +220,8 @@ public class RealTimeDataController extends AbstractController {
     public ResHelper<List<BmsTempMsgBo>> bmsTempMsg(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                    boolean flag = false;
-                    for (EssStation essStation : essStationList) {
-                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                            if (essStation.getDeviceNameList().contains(deviceName)) {
-                                flag = true;
-                            }
-                        }
-                    }
-                    if (!flag) {
-                        return ResHelper.success("");
-                    }
+                if (!realTimeDataService.verificationDeviceName(deviceName,getUser())) {
+                    return ResHelper.success("");
                 }
             }
             return realTimeDataService.bmsTempMsg(deviceName);
@@ -250,19 +239,8 @@ public class RealTimeDataController extends AbstractController {
     public ResHelper<BamsLatestBo> bamsLatestData(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                    boolean flag = false;
-                    for (EssStation essStation : essStationList) {
-                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                            if (essStation.getDeviceNameList().contains(deviceName)) {
-                                flag = true;
-                            }
-                        }
-                    }
-                    if (!flag) {
-                        return ResHelper.success("");
-                    }
+                if (!realTimeDataService.verificationDeviceName(deviceName,getUser())) {
+                    return ResHelper.success("");
                 }
             }
             return realTimeDataService.bamsLatestData(deviceName);
@@ -280,20 +258,8 @@ public class RealTimeDataController extends AbstractController {
     public ResHelper<List<BcuDataBo>> bcuDataqueryByName(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                    boolean flag = false;
-                    for (EssStation essStation : essStationList) {
-                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                            if (essStation.getDeviceNameList().contains(deviceName)) {
-                                flag = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (!flag) {
-                        return ResHelper.success("");
-                    }
+                if (!realTimeDataService.verificationDeviceName(deviceName,getUser())) {
+                    return ResHelper.success("");
                 }
             }
             return realTimeDataService.bcuDataqueryByName(deviceName);
@@ -310,20 +276,8 @@ public class RealTimeDataController extends AbstractController {
     public ResHelper<List<BmsCellDataBo>> bmscellDataQuery(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                    boolean flag = false;
-                    for (EssStation essStation : essStationList) {
-                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                            if (essStation.getDeviceNameList().contains(deviceName)) {
-                                flag = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (!flag) {
-                        return ResHelper.success("");
-                    }
+                if (!realTimeDataService.verificationDeviceName(deviceName,getUser())) {
+                    return ResHelper.success("");
                 }
             }
             return realTimeDataService.bmscellDataQuery(deviceName);
@@ -339,20 +293,8 @@ public class RealTimeDataController extends AbstractController {
                                                      @ApiIgnore @RequestParam(value = "equipmentId", required = false) Integer equipmentId) {
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                    boolean flag = false;
-                    for (EssStation essStation : essStationList) {
-                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                            if (essStation.getDeviceNameList().contains(deviceName)) {
-                                flag = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (!flag) {
-                        return ResHelper.success("");
-                    }
+                if (!realTimeDataService.verificationDeviceName(deviceName,getUser())) {
+                    return ResHelper.success("");
                 }
             }
             return realTimeDataService.stationInformationQuery(deviceName, equipmentId);
@@ -384,20 +326,8 @@ public class RealTimeDataController extends AbstractController {
             }
             if (!StringUtils.isEmpty(deviceName)) {
                 if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-                    List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-                    if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                        boolean flag = false;
-                        for (EssStation essStation : essStationList) {
-                            if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                                if (essStation.getDeviceNameList().contains(deviceName)) {
-                                    flag = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (!flag) {
-                            throw new ExcelExportWithoutDataException("该日期暂无数据");
-                        }
+                    if (!realTimeDataService.verificationDeviceName(deviceName,getUser())) {
+                        throw new ExcelExportWithoutDataException("该日期暂无数据");
                     }
                 }
             }

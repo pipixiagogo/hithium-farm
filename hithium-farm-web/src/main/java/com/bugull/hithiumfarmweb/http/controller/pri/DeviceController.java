@@ -9,6 +9,7 @@ import com.bugull.hithiumfarmweb.http.entity.EssStation;
 import com.bugull.hithiumfarmweb.http.service.ConnetDeviceService;
 import com.bugull.hithiumfarmweb.http.service.DeviceService;
 import com.bugull.hithiumfarmweb.http.service.EssStationService;
+import com.bugull.hithiumfarmweb.http.service.RealTimeDataService;
 import com.bugull.hithiumfarmweb.http.vo.DeviceInfoVo;
 import com.bugull.hithiumfarmweb.http.vo.DeviceVo;
 import com.bugull.hithiumfarmweb.http.vo.ProvinceVo;
@@ -67,6 +68,8 @@ public class DeviceController extends AbstractController {
     private ConnetDeviceService connetDeviceService;
     @Resource
     private EssStationService essStationService;
+    @Resource
+    private RealTimeDataService realTimeDataService;
 
 
     /**
@@ -89,7 +92,7 @@ public class DeviceController extends AbstractController {
     @GetMapping(value = "/detailArea")
     @ApiOperation(value = "根据城市查询对应设备的详细经纬度", httpMethod = "GET", response = ResHelper.class)
     @ApiImplicitParam(name = "city", required = true, paramType = "query", value = "城市名称", dataType = "String", dataTypeClass = String.class)
-    public ResHelper<List<Device>> detailArea(@ApiIgnore @RequestParam(value = "city", required = true) String city) {
+    public ResHelper<List<Device>> detailArea(@ApiIgnore @RequestParam(value = "city", required = false) String city) {
         if (StringUtils.isEmpty(city)) {
             return ResHelper.pamIll();
         }
@@ -99,25 +102,13 @@ public class DeviceController extends AbstractController {
     @GetMapping(value = "/queryDevicesByDeviceName")
     @ApiOperation(value = "设备列表 需传入设备码", httpMethod = "GET")
     @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备码", dataType = "String", dataTypeClass = String.class)
-    public ResHelper<DeviceVo> queryDevice(@ApiIgnore @RequestParam(value = "deviceName") String deviceName) {
+    public ResHelper<DeviceVo> queryDevice(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
         if (StringUtils.isEmpty(deviceName)) {
             return ResHelper.pamIll();
         }
         if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-            List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-            if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                boolean flag = false;
-                for (EssStation essStation : essStationList) {
-                    if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                        if (essStation.getDeviceNameList().contains(deviceName)) {
-                            flag = true;
-                            break;
-                        }
-                    }
-                }
-                if (!flag) {
-                    return ResHelper.success(NO_QUERY_PERMISSION);
-                }
+            if (!realTimeDataService.verificationDeviceName(deviceName, getUser())) {
+                return ResHelper.success(NO_QUERY_PERMISSION);
             }
         }
         return ResHelper.success("", deviceService.query(deviceName));
@@ -133,6 +124,7 @@ public class DeviceController extends AbstractController {
     public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDeivcesByPage(@ApiIgnore @RequestParam Map<String, Object> params) {
         return deviceService.queryDevicesByPage(params, getUser());
     }
+
     @GetMapping(value = "/queryDeviceWithoutBindByPage")
     @ApiOperation(value = "未绑定设备列表 带分页 ", httpMethod = "GET")
     @ApiImplicitParams({
@@ -177,25 +169,13 @@ public class DeviceController extends AbstractController {
     @GetMapping(value = "/selectPriceOfTime")
     @ApiOperation(value = "查询设备时间段电量单价", httpMethod = "GET")
     @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备码", dataType = "String", dataTypeClass = String.class)
-    public ResHelper<List<TimeOfPriceBo>> selectPriceOfTime(@ApiIgnore @RequestParam(value = "deviceName") String deviceName) {
+    public ResHelper<List<TimeOfPriceBo>> selectPriceOfTime(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
         if (StringUtils.isEmpty(deviceName)) {
             return ResHelper.pamIll();
         }
         if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-            List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-            if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                boolean flag = false;
-                for (EssStation essStation : essStationList) {
-                    if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                        if (essStation.getDeviceNameList().contains(deviceName)) {
-                            flag = true;
-                            break;
-                        }
-                    }
-                }
-                if (!flag) {
-                    return ResHelper.error(NO_QUERY_PERMISSION);
-                }
+            if (!realTimeDataService.verificationDeviceName(deviceName, getUser())) {
+                return ResHelper.success(NO_QUERY_PERMISSION);
             }
         }
         return ResHelper.success("", deviceService.selectPriceOfTimeBydevice(deviceName));
@@ -204,25 +184,13 @@ public class DeviceController extends AbstractController {
     @GetMapping(value = "/selectPriceOfPercentage")
     @ApiOperation(value = "查询设备 时间段 单价和功率的分布百分比", httpMethod = "GET")
     @ApiImplicitParam(name = "deviceName", required = true, paramType = "query", value = "设备码", dataType = "String", dataTypeClass = String.class)
-    public ResHelper<Map<String, Object>> selectPriceOfPercentage(@ApiIgnore @RequestParam(value = "deviceName") String deviceName) {
+    public ResHelper<Map<String, Object>> selectPriceOfPercentage(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
         if (StringUtils.isEmpty(deviceName)) {
             return ResHelper.pamIll();
         }
         if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-            List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-            if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                boolean flag = false;
-                for (EssStation essStation : essStationList) {
-                    if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                        if (essStation.getDeviceNameList().contains(deviceName)) {
-                            flag = true;
-                            break;
-                        }
-                    }
-                }
-                if (!flag) {
-                    return ResHelper.error(NO_QUERY_PERMISSION);
-                }
+            if (!realTimeDataService.verificationDeviceName(deviceName, getUser())) {
+                return ResHelper.success(NO_QUERY_PERMISSION);
             }
         }
         return ResHelper.success("", deviceService.getPriceOfPercenAndTime(deviceName));
@@ -231,25 +199,13 @@ public class DeviceController extends AbstractController {
     @GetMapping(value = "/queryDeviceByName")
     @ApiOperation(value = "查询单台设备的收益以及充放电量、Pcs运行状态数据", httpMethod = "GET")
     @ApiImplicitParam(name = "deviceName", paramType = "query", value = "设备码", dataType = "String", dataTypeClass = String.class)
-    public ResHelper<DeviceInfoVo> selectDevice(@ApiIgnore @RequestParam(value = "deviceName") String deviceName) {
+    public ResHelper<DeviceInfoVo> selectDevice(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
         if (StringUtils.isEmpty(deviceName)) {
             return ResHelper.pamIll();
         }
         if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-            List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-            if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                boolean flag = false;
-                for (EssStation essStation : essStationList) {
-                    if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                        if (essStation.getDeviceNameList().contains(deviceName)) {
-                            flag = true;
-                            break;
-                        }
-                    }
-                }
-                if (!flag) {
-                    return ResHelper.error(NO_QUERY_PERMISSION);
-                }
+            if (!realTimeDataService.verificationDeviceName(deviceName, getUser())) {
+                return ResHelper.success(NO_QUERY_PERMISSION);
             }
         }
         return ResHelper.success("", deviceService.queryDeviceName(deviceName));
@@ -268,31 +224,18 @@ public class DeviceController extends AbstractController {
                 return ResHelper.pamIll();
             }
             String[] arrayDeviceName = modifyDevicePowerBo.getDeviceNames().split(",");
-            if(arrayDeviceName == null || arrayDeviceName.length ==0){
+            if (arrayDeviceName == null || arrayDeviceName.length == 0) {
                 return ResHelper.pamIll();
             }
             if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                    boolean flag = false;
-                    for (EssStation essStation : essStationList) {
-                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                            if (essStation.getDeviceNameList().containsAll(Arrays.asList(arrayDeviceName))) {
-                                flag = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (!flag) {
-                        return ResHelper.error(NO_MODIFY_PERMISSION);
-                    }
+                if(!deviceService.verificationDeviceNameList(Arrays.asList(arrayDeviceName),getUser())){
+                    return ResHelper.error(NO_MODIFY_PERMISSION);
                 }
             }
-            return deviceService.modifyDevicePowerInfo(modifyDevicePowerBo,Arrays.asList(arrayDeviceName));
+            return deviceService.modifyDevicePowerInfo(modifyDevicePowerBo, Arrays.asList(arrayDeviceName));
         }
         return ResHelper.pamIll();
     }
-
 
 
 }

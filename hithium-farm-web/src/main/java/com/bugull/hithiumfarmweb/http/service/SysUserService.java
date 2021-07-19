@@ -90,8 +90,6 @@ public class SysUserService {
                 } else {
                     return ResHelper.error("角色不存在");
                 }
-            } else {
-                return ResHelper.pamIll();
             }
             if (sysUser.getUserType() == null) {
                 return ResHelper.pamIll();
@@ -117,7 +115,7 @@ public class SysUserService {
             /**
              * TODO 设置电站信息 看需求是否需要
              */
-//            infoUserVo.setEssStation(essStationDao.query().in("_id", sysUser.getStationList()).results());
+            infoUserVo.setEssStationList(essStationDao.query().in("_id", sysUser.getStationList()).results());
         }
         return infoUserVo;
     }
@@ -158,6 +156,9 @@ public class SysUserService {
                     }
                 }
                 BeanUtils.copyProperties(user, infoUserVo);
+                if(!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()){
+                    infoUserVo.setEssStationList(essStationDao.query().in("_id",user.getStationList()).results());
+                }
                 return infoUserVo;
             }).collect(Collectors.toList());
         } else {
