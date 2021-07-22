@@ -9,6 +9,7 @@ com\bugull\hithiumfarmweb\http\oauth2\OAuth2Realm.class
 com\bugull\hithiumfarmweb\utils\ResHelper.class
 com\bugull\hithiumfarmweb\http\bo\ModifyDeviceBo.class
 com\bugull\hithiumfarmweb\http\excelConverter\PcsFaultConverter.class
+com\bugull\hithiumfarmweb\http\bo\DeviceImgBo.class
 com\bugull\hithiumfarmweb\common\BuguPageQuery.class
 com\bugull\hithiumfarmweb\http\dao\EssStationDao.class
 com\bugull\hithiumfarmweb\http\dao\AirConditionDataDicDao.class
@@ -29,6 +30,7 @@ com\bugull\hithiumfarmweb\http\vo\CapacityVo.class
 com\bugull\hithiumfarmweb\http\dao\BmsCellTempDataDicDao.class
 com\bugull\hithiumfarmweb\http\controller\pri\DeviceController.class
 com\bugull\hithiumfarmweb\http\service\EquipmentService.class
+com\bugull\hithiumfarmweb\http\entity\UploadEntity.class
 com\bugull\hithiumfarmweb\http\dao\BamsDischargeCapacityDao.class
 com\bugull\hithiumfarmweb\http\entity\UpsPowerDataDic.class
 com\bugull\hithiumfarmweb\http\bo\UpdateUserBo.class
@@ -93,6 +95,7 @@ com\bugull\hithiumfarmweb\http\vo\ProvinceVo.class
 com\bugull\hithiumfarmweb\http\entity\ExportRecord.class
 com\bugull\hithiumfarmweb\config\PropertiesConfig.class
 com\bugull\hithiumfarmweb\http\service\ConnetDeviceService.class
+com\bugull\hithiumfarmweb\utils\DateUtils$10.class
 com\bugull\hithiumfarmweb\http\service\RealTimeDataService.class
 com\bugull\hithiumfarmweb\common\BuguPageQuery$Page.class
 com\bugull\hithiumfarmweb\common\validator\group\AddGroup.class
@@ -148,6 +151,7 @@ com\bugull\hithiumfarmweb\http\bo\RoleEntityBo.class
 com\bugull\hithiumfarmweb\config\RedisConfig.class
 com\bugull\hithiumfarmweb\http\dao\BcuDataDicBCUDao.class
 com\bugull\hithiumfarmweb\common\validator\ValidatorUtils.class
+com\bugull\hithiumfarmweb\common\exception\MaxSizeLimitException.class
 com\bugull\hithiumfarmweb\http\excelConverter\PcsBatterTypeConverter.class
 com\bugull\hithiumfarmweb\enumerate\ProjectType.class
 com\bugull\hithiumfarmweb\http\entity\MenuEntity.class
@@ -176,6 +180,7 @@ com\bugull\hithiumfarmweb\http\excelConverter\PcsChargeDischargeConverter.class
 com\bugull\hithiumfarmweb\http\service\StatisticsService$IncomeStatisOfMongo.class
 com\bugull\hithiumfarmweb\http\vo\DeviceVo.class
 com\bugull\hithiumfarmweb\http\excelConverter\BcuDiStatusAlarmConverter.class
+com\bugull\hithiumfarmweb\http\dao\UploadEntityDao.class
 com\bugull\hithiumfarmweb\http\vo\AlarmNumVo.class
 com\bugull\hithiumfarmweb\http\entity\BamsDataDicBA.class
 com\bugull\hithiumfarmweb\http\dao\UpsPowerDataDicDao.class
@@ -196,6 +201,7 @@ com\bugull\hithiumfarmweb\http\vo\IncomeStatisticVo.class
 com\bugull\hithiumfarmweb\http\entity\IncomeEntity.class
 com\bugull\hithiumfarmweb\http\vo\SaveEnergyVo.class
 com\bugull\hithiumfarmweb\http\entity\Cabin.class
+com\bugull\hithiumfarmweb\http\bo\EssStationBo.class
 com\bugull\hithiumfarmweb\config\RedisPoolUtil.class
 com\bugull\hithiumfarmweb\http\bo\BamsLatestBo.class
 com\bugull\hithiumfarmweb\http\excelConverter\BcuDiStatusConverter.class

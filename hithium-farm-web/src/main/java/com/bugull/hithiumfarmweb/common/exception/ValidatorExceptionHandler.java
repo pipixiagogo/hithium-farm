@@ -11,12 +11,14 @@ package com.bugull.hithiumfarmweb.common.exception;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import org.apache.shiro.authz.AuthorizationException;
 import org.apache.shiro.authz.UnauthorizedException;
+import org.apache.tomcat.util.http.fileupload.FileUploadBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * 异常处理器
@@ -62,6 +64,7 @@ public class ValidatorExceptionHandler {
 		return ResHelper.error(HttpStatus.FORBIDDEN.value(),"没有权限，请联系管理员授权");
 	}
 //
+
 	@ExceptionHandler(Exception.class)
 	public ResHelper<Void> handleException(Exception e){
 		logger.error(e.getMessage(),e);

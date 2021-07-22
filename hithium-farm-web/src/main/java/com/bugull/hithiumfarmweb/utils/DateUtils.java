@@ -37,6 +37,8 @@ public class DateUtils {
     /** 时间格式(yyyy-MM-dd HH:mm:ss) */
     public final static String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 
+    public final static String DATE_TIME_NAME_IMG_PATTERN="yyyy-MM-dd-HH-mm-ss";
+
     public final static String DATE_TIME_PATTERN_MM = "yyyy-MM-??";
 
     public final static String DATE_TIME_PATTERN_YY = "yyyy-??-??";
@@ -69,6 +71,12 @@ public class DateUtils {
         @Override
         protected SimpleDateFormat initialValue() {
             return new SimpleDateFormat(DATE_TIME_PATTERN);
+        }
+    };
+    private static ThreadLocal<SimpleDateFormat> sdfDateWithImg = new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat(DATE_TIME_NAME_IMG_PATTERN);
         }
     };
     private static ThreadLocal<SimpleDateFormat> sdfWithYYYYMMHH = new ThreadLocal<SimpleDateFormat>() {
@@ -122,6 +130,11 @@ public class DateUtils {
     public static Date strToDate(String dateDateStr) throws ParseException {
         SimpleDateFormat formatter = sdfDate.get();
         return formatter.parse(dateDateStr);
+    }
+
+    public static String strToDateWithDATE_TIME_PATTERN(Date date) throws ParseException {
+        SimpleDateFormat formatter = sdfDateWithImg.get();
+        return formatter.format(date);
     }
 
     public static String dateToStr(Date dateDate) {

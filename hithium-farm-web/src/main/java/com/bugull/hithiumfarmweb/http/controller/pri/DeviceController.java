@@ -5,10 +5,8 @@ import com.bugull.hithiumfarmweb.common.validator.ValidatorUtils;
 import com.bugull.hithiumfarmweb.common.validator.group.AddGroup;
 import com.bugull.hithiumfarmweb.http.bo.*;
 import com.bugull.hithiumfarmweb.http.entity.Device;
-import com.bugull.hithiumfarmweb.http.entity.EssStation;
 import com.bugull.hithiumfarmweb.http.service.ConnetDeviceService;
 import com.bugull.hithiumfarmweb.http.service.DeviceService;
-import com.bugull.hithiumfarmweb.http.service.EssStationService;
 import com.bugull.hithiumfarmweb.http.service.RealTimeDataService;
 import com.bugull.hithiumfarmweb.http.vo.DeviceInfoVo;
 import com.bugull.hithiumfarmweb.http.vo.DeviceVo;
@@ -16,12 +14,12 @@ import com.bugull.hithiumfarmweb.http.vo.ProvinceVo;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import io.swagger.annotations.*;
 import org.apache.commons.lang.StringUtils;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import springfox.documentation.annotations.ApiIgnore;
 
 import javax.annotation.Resource;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -67,11 +65,7 @@ public class DeviceController extends AbstractController {
     @Resource
     private ConnetDeviceService connetDeviceService;
     @Resource
-    private EssStationService essStationService;
-    @Resource
     private RealTimeDataService realTimeDataService;
-
-
     /**
      * 添加EMQ连接白名单设备
      */
@@ -124,7 +118,7 @@ public class DeviceController extends AbstractController {
     public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDeivcesByPage(@ApiIgnore @RequestParam Map<String, Object> params) {
         return deviceService.queryDevicesByPage(params, getUser());
     }
-
+    @RequiresPermissions(value = "sys:user")
     @GetMapping(value = "/queryDeviceWithoutBindByPage")
     @ApiOperation(value = "未绑定设备列表 带分页 ", httpMethod = "GET")
     @ApiImplicitParams({
@@ -154,6 +148,7 @@ public class DeviceController extends AbstractController {
      * @param modifyDeviceBo
      * @return
      */
+    @RequiresPermissions(value = "sys:user")
     @PostMapping(value = "/modifyDeviceInfo")
     @ApiOperation(value = "设置设备时间段电量单价", httpMethod = "POST")
     @ApiImplicitParam(name = "modifyDeviceBo", value = "设备修改实体类", required = true, paramType = "body", dataTypeClass = ModifyDeviceBo.class, dataType = "ModifyDeviceBo")
@@ -215,6 +210,7 @@ public class DeviceController extends AbstractController {
      * @param modifyDevicePowerBo
      * @return
      */
+    @RequiresPermissions(value = "sys:user")
     @PostMapping(value = "/modifyDevicePowerInfo")
     @ApiOperation(value = "设置设备时间段功率", httpMethod = "POST")
     @ApiImplicitParam(name = "modifyDevicePowerBo", value = "设备功率修改实体类", required = true, paramType = "body", dataTypeClass = ModifyDevicePowerBo.class, dataType = "ModifyDevicePowerBo")
@@ -228,13 +224,27 @@ public class DeviceController extends AbstractController {
                 return ResHelper.pamIll();
             }
             if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-                if(!deviceService.verificationDeviceNameList(Arrays.asList(arrayDeviceName),getUser())){
+                if (!deviceService.verificationDeviceNameList(Arrays.asList(arrayDeviceName), getUser())) {
                     return ResHelper.error(NO_MODIFY_PERMISSION);
                 }
             }
             return deviceService.modifyDevicePowerInfo(modifyDevicePowerBo, Arrays.asList(arrayDeviceName));
         }
         return ResHelper.pamIll();
+    }
+
+    @PostMapping(value = "/saveDeviceImg")
+    @ApiOperation(value = "修改设备图片信息", httpMethod = "POST")
+    @ApiImplicitParam(name = "deviceImgBo", value = "修改设备图片信息", required = true, paramType = "body", dataTypeClass = DeviceImgBo.class, dataType = "DeviceImgBo")
+    public ResHelper<Void> saveDeviceImg(@RequestBody DeviceImgBo deviceImgBo) {
+        if (StringUtils.isEmpty(deviceImgBo.getDeviceNames())) {
+            return ResHelper.pamIll();
+        }
+        String[] deviceNamesSplit = deviceImgBo.getDeviceNames().split(",");
+        if (deviceNamesSplit == null || deviceNamesSplit.length == 0) {
+            return ResHelper.pamIll();
+        }
+        return deviceService.saveDeviceImg(deviceImgBo);
     }
 
 

@@ -5,6 +5,7 @@ import com.bugull.hithiumfarmweb.http.bo.AreaNetInNumBo;
 import com.bugull.hithiumfarmweb.http.bo.StatisticBo;
 import com.bugull.hithiumfarmweb.http.entity.EssStation;
 import com.bugull.hithiumfarmweb.http.service.EssStationService;
+import com.bugull.hithiumfarmweb.http.service.RealTimeDataService;
 import com.bugull.hithiumfarmweb.http.service.StatisticsService;
 import com.bugull.hithiumfarmweb.http.vo.*;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
@@ -34,7 +35,7 @@ public class StatisticsController extends AbstractController {
     @Resource
     private StatisticsService statisticsService;
     @Resource
-    private EssStationService essStationService;
+    private RealTimeDataService realTimeDataService;
 
     @PostMapping(value = "/netInNum")
     @ApiOperation(value = "统计总功率 根据年份、类型 月份/季度")
@@ -93,6 +94,7 @@ public class StatisticsController extends AbstractController {
 
     /**
      * TODO 总收益要从incomeEntity实体类获取  收益分析代码还要重写
+     *
      * @param areaInfoBo
      * @return
      */
@@ -125,20 +127,8 @@ public class StatisticsController extends AbstractController {
             return ResHelper.pamIll();
         }
         if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
-            List<EssStation> essStationList = essStationService.getEssStationList(getUser().getStationList());
-            if(!CollectionUtils.isEmpty(essStationList) &&  !essStationList.isEmpty()){
-                boolean flag=false;
-                for(EssStation essStation:essStationList){
-                    if(!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()){
-                        if(essStation.getDeviceNameList().contains(deviceName)){
-                            flag=true;
-                            break;
-                        }
-                    }
-                }
-                if(!flag){
-                    return ResHelper.error(NO_QUERY_PERMISSION);
-                }
+            if (!realTimeDataService.verificationDeviceName(deviceName, getUser())) {
+                return ResHelper.error(NO_QUERY_PERMISSION);
             }
         }
         return statisticsService.deviceOfIncomeStatistic(deviceName);
@@ -148,20 +138,20 @@ public class StatisticsController extends AbstractController {
     @ApiOperation(value = "按时间 最近的12小时、天数 7天 、月份半年或者12个月 获取储能充放电统计")
     @ApiImplicitParam(name = "areaInfoBo", value = "地区实体类", readOnly = true, paramType = "body", dataTypeClass = AreaInfoBo.class, dataType = "AreaInfoBo")
 //    Map<String, Map<String,CapacityNumOfDateVo>>
-    public ResHelper<Map<String, List<CapacityVo>>> capacityNumOfDate(@RequestBody AreaInfoBo areaInfoBo){
-        return statisticsService.capacityNumOfDate(getUser(),areaInfoBo);
+    public ResHelper<Map<String, List<CapacityVo>>> capacityNumOfDate(@RequestBody AreaInfoBo areaInfoBo) {
+        return statisticsService.capacityNumOfDate(getUser(), areaInfoBo);
     }
 
-    @PostMapping(value = "/capacityNumOfStation")
+    @GetMapping(value = "/capacityNumOfStation")
     @ApiOperation(value = "电站项目下的储能站充放电量统计")
     @ApiImplicitParam(name = "stationId", value = "电站id", paramType = "query", dataType = "String", dataTypeClass = String.class)
-    public ResHelper<ChargeCapacityStationVo> capacityNumOfStation(@ApiIgnore @RequestParam(value = "stationId",required = false) String stationId){
-        if(StringUtils.isEmpty(stationId)){
+    public ResHelper<ChargeCapacityStationVo> capacityNumOfStation(@ApiIgnore @RequestParam(value = "stationId", required = false) String stationId) {
+        if (StringUtils.isEmpty(stationId)) {
             return ResHelper.pamIll();
         }
-        if(!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()){
-            if(!getUser().getStationList().contains(stationId)){
-               return ResHelper.error(NO_QUERY_PERMISSION);
+        if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
+            if (!getUser().getStationList().contains(stationId)) {
+                return ResHelper.error(NO_QUERY_PERMISSION);
             }
         }
         return statisticsService.capacityNumOfStation(stationId);

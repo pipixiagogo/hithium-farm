@@ -75,7 +75,11 @@ public class Device extends SimpleEntity {
     //总充电量
     private String chargeCapacitySum = "0";
 
-    //是否已经绑定电站
-    private Boolean bindStation=false;
+    //是否已经绑定电站 true绑定 false未绑定
+    private Boolean bindStation = false;
+
+    private List<String> imgUrl;
+
+    private String uploadImgId;
 
 }

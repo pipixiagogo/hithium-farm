@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import static com.bugull.hithiumfarmweb.common.Const.*;
 import static com.bugull.hithiumfarmweb.utils.DateUtils.DAY_OF_SECONDS;
 import static com.bugull.hithiumfarmweb.utils.DateUtils.HOUR_OF_SECONDS;
+import static com.mongodb.client.model.Filters.in;
 
 @Service
 public class DeviceService {
@@ -54,6 +55,8 @@ public class DeviceService {
     private PcsChannelDicDao pcsChannelDicDao;
     @Resource
     private EssStationService essStationService;
+    @Resource
+    private UploadEntityDao uploadEntityDao;
 
     private static final Logger log = LoggerFactory.getLogger(DeviceService.class);
 
@@ -434,6 +437,7 @@ public class DeviceService {
         List<TimeOfPriceBo> priceOfTime = modifyDeviceBo.getPriceOfTime();
         if (!priceOfTime.isEmpty()) {
             List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+
             String[] arrayDeviceNames = modifyDeviceBo.getDeviceNames().split(",");
             if (arrayDeviceNames == null || arrayDeviceNames.length == 0) {
                 return ResHelper.pamIll();
@@ -443,6 +447,7 @@ public class DeviceService {
                     return ResHelper.error(NO_MODIFY_PERMISSION);
                 }
             }
+            log.info("批量修改设备电价  设备列表为:{}",Arrays.asList(arrayDeviceNames));
             /**
              * 格式校验map
              */
@@ -501,9 +506,7 @@ public class DeviceService {
                     return ResHelper.error("设备不存在");
                 }
             }
-            BuguQuery<Device> query = deviceDao.query().in(DEVICE_NAME, deviceNames);
-
-            deviceDao.update().set("priceOfTime", priceOfTime).execute(query);
+            deviceDao.update().set("priceOfTime", priceOfTime).execute(deviceDao.query().in(DEVICE_NAME,Arrays.asList(arrayDeviceNames)));
             return ResHelper.success("修改成功");
         }
         return ResHelper.pamIll();
@@ -566,7 +569,7 @@ public class DeviceService {
                 priceOfPercenVo.setTime(value);
                 priceOfPercenVo.setMinute(s);
                 priceOfPercenVoList.add(priceOfPercenVo);
-            } else {
+            } else if(begin.after(end)){
                 String timeOfFirst = split[0] + END_TIME;
                 String timeOfLast = START_TIME + split[1];
                 outOfDay.add(type + "_" + timeOfFirst);
@@ -722,6 +725,7 @@ public class DeviceService {
     }
 
     public ResHelper<Void> modifyDevicePowerInfo(ModifyDevicePowerBo modifyDevicePowerBo, List<String> deviceNames) {
+        log.info("批量修改设备功率  设备列表为:{}",deviceNames);
         Map<Integer, List<TimeOfPowerBo>> powerOfTime = modifyDevicePowerBo.getPowerOfTime();
         if (!CollectionUtils.isEmpty(powerOfTime) && !powerOfTime.isEmpty()) {
 
@@ -814,5 +818,22 @@ public class DeviceService {
             }
         }
         return false;
+    }
+
+    public ResHelper<Void> saveDeviceImg(DeviceImgBo deviceImgBo) {
+        List<String> deviceNameList = Arrays.asList(deviceImgBo.getDeviceNames().split(","));
+        UploadEntity uploadEntity = uploadEntityDao.query().is("_id", deviceImgBo.getUploadImgId()).result();
+        if(uploadEntity == null || !uploadEntity.getType().equals(ENERGY_STORAGE)){
+            return ResHelper.pamIll();
+        }
+        if(!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()){
+            if(uploadEntityDao.update().set("bindImg",true).execute(uploadEntity).isUpdateOfExisting()
+                    && deviceDao.update().set("imgUrl",uploadEntity.getImgUrl()).set("uploadImgId",deviceImgBo.getUploadImgId()).execute(deviceDao.query().in(DEVICE_NAME,deviceNameList)).isUpdateOfExisting() ){
+                return ResHelper.success("上传图片成功");
+            }else {
+                return ResHelper.error("上传图片失败");
+            }
+        }
+        return ResHelper.pamIll();
     }
 }

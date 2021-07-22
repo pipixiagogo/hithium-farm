@@ -45,7 +45,6 @@ public class LoginController {
     @GetMapping("/captcha.jpg")
     @ApiImplicitParam(name = "uuid", value = "UUID随机码 保证每次请求唯一", required = false)
     public void captcha(HttpServletResponse response, @RequestParam(name = "uuid", required = false) String uuid) throws IOException {
-
         response.setHeader("Cache-Control", "no-store, no-cache");
         response.setContentType("image/jpeg");
         //获取图片验证码
@@ -75,25 +74,6 @@ public class LoginController {
     @ApiImplicitParam(name = "refreshToken", value = "刷新的token", required = false)
     public ResHelper<LoginVo> refreshToken(@RequestParam(value = "refreshToken", required = true) String refreshToken) {
         return sysUserService.refreshToken(refreshToken);
-    }
-
-    /**
-     * TODO 上传图片
-     * @param file
-     * @return
-     * @throws Exception
-     */
-    @ApiOperation(value = "上传图片文件", response = ResHelper.class)
-    @PostMapping("/upload")
-    public ResHelper<Void> upload(@RequestParam("file") MultipartFile file) throws Exception {
-        if (file.isEmpty()) {
-            return ResHelper.error("上传文件不能为空");
-        }
-        ImageUploader imageUploader = new ImageUploader(file.getInputStream(), "测试");
-
-        imageUploader.save();
-
-        return ResHelper.success("上传成功 访问地址为:localhost:8090/getFile/" + imageUploader.getFilename());
     }
 
 

@@ -35,11 +35,15 @@ public class PropertiesConfig {
     private Map<String, String> citys = null;
     private Map<String, Set<String>> proToCitys = null;
 
-    private Object lock=new Object();
+    private Object lock = new Object();
     @Value("${mqtt.clientid.subscriber}")
     private String mqttClientIdSub;
     @Value("${excel.realtime.data.excel.export.dir}")
     private String realTimeDataExcelTempDir;
+    @Value("${image.generation.location.pc}")
+    private String imageGenerationLocationPc;
+    @Value("${image.generation.location.ph}")
+    private String imageGenerationLocationPh;
     @Value("${mqtt.complete.timeout}")
     private int completeTimeout;
 
@@ -62,6 +66,8 @@ public class PropertiesConfig {
     private String mqttClientIdPub;
     @Value("${excel.start.time.export.excel.switch}")
     private boolean startExportExcelSwitch;
+    @Value("${image.scheduled.remove.switch}")
+    private boolean imageRemoveSwitch;
 
     @Value("${excel.export.pagesize}")
     private Integer excelExportPageSize;
@@ -71,6 +77,10 @@ public class PropertiesConfig {
 
     @Value("#{'${production.equipment.devicename:}'.empty ? null : '${production.equipment.devicename:}'.split(',')}")
     private List<String> productionDeviceNameList;   //判断空 null
+
+    public boolean isImageRemoveSwitch() {
+        return imageRemoveSwitch;
+    }
 
     public Integer getRemoveExcelDate() {
         return removeExcelDate;
@@ -115,10 +125,20 @@ public class PropertiesConfig {
     public String getMqttClientIdPub() {
         return mqttClientIdPub;
     }
+
     public Map<String, Set<String>> getProToCitys() {
         getCitys();
         return proToCitys;
     }
+
+    public String getImageGenerationLocationPc() {
+        return imageGenerationLocationPc;
+    }
+
+    public String getImageGenerationLocationPh() {
+        return imageGenerationLocationPh;
+    }
+
     public Map<String, String> getCitys() {
         if (citys == null) {
             synchronized (lock) {
@@ -181,8 +201,8 @@ public class PropertiesConfig {
         if (!StringUtils.isEmpty(city) && !getCitys().containsKey(city) && !getCitys().get(city).equals(province)) {
             return false;
         }
-        if(!StringUtils.isEmpty(province) && !StringUtils.isEmpty(city)){
-            if(!getProToCitys().get(province).contains(city) || !getCitys().get(city).equals(province)){
+        if (!StringUtils.isEmpty(province) && !StringUtils.isEmpty(city)) {
+            if (!getProToCitys().get(province).contains(city) || !getCitys().get(city).equals(province)) {
                 return false;
             }
         }

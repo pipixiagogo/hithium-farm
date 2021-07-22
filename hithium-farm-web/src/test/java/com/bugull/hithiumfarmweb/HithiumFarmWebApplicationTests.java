@@ -8,6 +8,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.bugull.hithiumfarmweb.common.BuguPageDao;
 import com.bugull.hithiumfarmweb.common.Const;
 import com.bugull.hithiumfarmweb.config.CustomThreadFactory;
+import com.bugull.hithiumfarmweb.dao.CaEntityDao;
 import com.bugull.hithiumfarmweb.dao.TestExpireIndexDao;
 import com.bugull.hithiumfarmweb.entity.CaEntity;
 import com.bugull.hithiumfarmweb.entity.TestExpireIndex;
@@ -70,8 +71,36 @@ public class HithiumFarmWebApplicationTests {
 
     @Test
     public void testFileExist(){
-        File file = new File("D://d92b934a1b474ca8975de89fa748225.jpg");
-        System.out.println(file.exists());
+//        File file = new File("D://d92b934a1b474ca8975de89fa748225.jpg");
+//        System.out.println(file.exists());
+//        file.deleteOnExit();
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("192.168.241.151");
+//        conn2.setPort(27017);
+//        conn2.setUsername("ess");
+//        conn2.setPassword("ess");
+//        conn2.setDatabase("ess");
+//        conn2.connect();
+//        CaEntityDao caEntityDao = new CaEntityDao();
+//
+////        CaEntity caEntity = new CaEntity();
+//        List<String> list = new ArrayList<>();
+//        for(int i=0;i<9;i++){
+//            list.add(String.valueOf(i));
+//        }
+//        caEntity.setList(list);
+//
+//        CaEntity list1 = caEntityDao.query().is("list", list).result();
+//        System.out.println(list1);
+//        System.out.println(list1.getId());
+//        List<String> result=new ArrayList<>();
+//
+//        result.add(String.valueOf(11));
+//        result.add(String.valueOf(10));
+//        result.add(String.valueOf(15));
+//        boolean list = caEntityDao.query().in("list", result).exists();
+//        System.out.println(list);
+
     }
     @Test
     public void contextLoads() {
@@ -170,12 +199,18 @@ public class HithiumFarmWebApplicationTests {
 //        }
 //        System.out.println(dates.size());
 //        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-//        conn2.setHost("192.168.241.145");
+//        conn2.setHost("192.168.241.149");
 //        conn2.setPort(27017);
 //        conn2.setUsername("ess");
 //        conn2.setPassword("ess");
 //        conn2.setDatabase("ess");
 //        conn2.connect();
+//        DeviceDao deviceDao = new DeviceDao();
+//        boolean updateOfExisting = deviceDao.update().set("imgUrl", new ArrayList<>()).execute(deviceDao.query().is("deviceName", "d06a4137967744efa6a24dd564480e0a")).isUpdateOfExisting();
+//        System.out.println(updateOfExisting);
+//        RoleEntityDao entityDao = new RoleEntityDao();
+//        boolean updateOfExisting = entityDao.update().set("roleName", "1111").execute(entityDao.query().is("_id", "6057f5b1171c617d48587e22")).isUpdateOfExisting();
+//        System.out.println(updateOfExisting);
 //        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();
 //        Iterable<DBObject> bamsDischargeCapacityIterable = bamsDischargeCapacityDao.aggregate().match(bamsDischargeCapacityDao.query()
 //                .is("deviceName", "d06a4137967744efa6a24dd564480e0a")
@@ -198,10 +233,10 @@ public class HithiumFarmWebApplicationTests {
         /**
          * TODO 明天测试数据加验证
          */
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("172.24.63.229").setPort(27017).setUsername("farm").setPassword("hithium.db.mongo").setDatabase("farm").connect();
-        DeviceDao deviceDao = new DeviceDao();
-        deviceDao.update().set("bindStation",false).execute(deviceDao.query());
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("172.24.63.229").setPort(27017).setUsername("farm").setPassword("hithium.db.mongo").setDatabase("farm").connect();
+//        DeviceDao deviceDao = new DeviceDao();
+//        deviceDao.update().set("bindStation",false).execute(deviceDao.query());
 //        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();
 //        {_id:'$incomeOfDay',count:{$sum:{$toDouble:'$income'}}}
 //        {_id:{ $dateToString: { format: '%Y-%m', date: '$accessTime' } }
@@ -281,26 +316,26 @@ public class HithiumFarmWebApplicationTests {
         });
         System.out.println(date);
     }
-
-    public static String upload(MultipartFile file, String path, String fileLocation) {
-        String fileFinishName = null;
-        try {
-            // 如果目录不存在则创建
-            File uploadDir = new File(fileLocation);
-            if (!uploadDir.exists()) {
-                uploadDir.mkdir();
-            }
-            //获取源文件名称
-            String fileName = file.getOriginalFilename();
-            fileFinishName = UUID.randomUUID() + fileName.substring(fileName.lastIndexOf("."), fileName.length());
-            //上传文件到指定目录下
-            File uploadFile = new File(uploadDir + uploadDir.separator + fileFinishName);
-            file.transferTo(uploadFile);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        return path + "/" + fileFinishName;
-    }
+//
+//    public static String upload(MultipartFile file, String path, String fileLocation) {
+//        String fileFinishName = null;
+//        try {
+//            // 如果目录不存在则创建
+//            File uploadDir = new File(fileLocation);
+//            if (!uploadDir.exists()) {
+//                uploadDir.mkdir();
+//            }
+//            //获取源文件名称
+//            String fileName = file.getOriginalFilename();
+//            fileFinishName = UUID.randomUUID() + fileName.substring(fileName.lastIndexOf("."), fileName.length());
+//            //上传文件到指定目录下
+//            File uploadFile = new File(uploadDir + uploadDir.separator + fileFinishName);
+//            file.transferTo(uploadFile);
+//        } catch (Exception ex) {
+//            ex.printStackTrace();
+//        }
+//        return path + "/" + fileFinishName;
+//    }
 
     @Test
     public void testWhile() {
@@ -779,26 +814,26 @@ public class HithiumFarmWebApplicationTests {
     @Test
     public void testAmmer() {
 
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("172.24.63.229");
-        conn2.setPort(27017);
-        conn2.setUsername("farm");
-        conn2.setPassword("hithium.db.mongo");
-        conn2.setDatabase("farm");
-        conn2.connect();
-        DeviceDao deviceDao = new DeviceDao();
-        DBObject group = new BasicDBObject();
-        group.put("_id", null);
-        DBObject toDouble = new BasicDBObject();
-        toDouble.put("$toDouble", "$longitude");
-        group.put("sum", new BasicDBObject("$sum", toDouble));
-        Iterable<DBObject> iterable = deviceDao.aggregate().group(group).results();
-        if (iterable != null) {
-            for (DBObject object : iterable) {
-                Double sum = (Double) object.get("sum");
-                System.out.println(sum);
-            }
-        }
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("172.24.63.229");
+//        conn2.setPort(27017);
+//        conn2.setUsername("farm");
+//        conn2.setPassword("hithium.db.mongo");
+//        conn2.setDatabase("farm");
+//        conn2.connect();
+//        DeviceDao deviceDao = new DeviceDao();
+//        DBObject group = new BasicDBObject();
+//        group.put("_id", null);
+//        DBObject toDouble = new BasicDBObject();
+//        toDouble.put("$toDouble", "$longitude");
+//        group.put("sum", new BasicDBObject("$sum", toDouble));
+//        Iterable<DBObject> iterable = deviceDao.aggregate().group(group).results();
+//        if (iterable != null) {
+//            for (DBObject object : iterable) {
+//                Double sum = (Double) object.get("sum");
+//                System.out.println(sum);
+//            }
+//        }
 
 //        AmmeterDataDicDao ammeterDataDicDao = new AmmeterDataDicDao();
 //        long start = System.currentTimeMillis();
@@ -845,36 +880,36 @@ public class HithiumFarmWebApplicationTests {
         /**
          * 根据当前时间查询出当前电价 计算充放电收益
          */
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("172.24.63.229");
-        conn2.setPort(27017);
-        conn2.setUsername("farm");
-        conn2.setPassword("hithium.db.mongo");
-        conn2.setDatabase("farm");
-        conn2.connect();
-        DeviceDao deviceDao = new DeviceDao();
-        Iterable<DBObject> objs = deviceDao.aggregate()
-                .group("{_id:{ $dateToString: { format: '%Y-%m', date: '$accessTime' } },count:{$sum:{$toDouble:'$stationPower'}}}").results();
-        Map<String, StatisticBo> map = getDefaultBo(2021);
-        if (objs != null) {
-            for (DBObject obj : objs) {
-                String name = obj.get("_id").toString();
-                Double count = Double.valueOf(obj.get("count").toString());
-                StatisticBo bo = map.get(name);
-                if (bo != null) {
-                    bo.setCount(count);
-                }
-            }
-        }
-        List<StatisticBo> aim = new ArrayList<>(map.values());
-
-        Collections.sort(aim, new Comparator<StatisticBo>() {
-            @Override
-            public int compare(StatisticBo o1, StatisticBo o2) {
-                return Integer.parseInt(o1.getDate()) - Integer.parseInt(o2.getDate());
-            }
-        });
-        List<StatisticBo> result = new ArrayList<>(map.values().size());
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("172.24.63.229");
+//        conn2.setPort(27017);
+//        conn2.setUsername("farm");
+//        conn2.setPassword("hithium.db.mongo");
+//        conn2.setDatabase("farm");
+//        conn2.connect();
+//        DeviceDao deviceDao = new DeviceDao();
+//        Iterable<DBObject> objs = deviceDao.aggregate()
+//                .group("{_id:{ $dateToString: { format: '%Y-%m', date: '$accessTime' } },count:{$sum:{$toDouble:'$stationPower'}}}").results();
+//        Map<String, StatisticBo> map = getDefaultBo(2021);
+//        if (objs != null) {
+//            for (DBObject obj : objs) {
+//                String name = obj.get("_id").toString();
+//                Double count = Double.valueOf(obj.get("count").toString());
+//                StatisticBo bo = map.get(name);
+//                if (bo != null) {
+//                    bo.setCount(count);
+//                }
+//            }
+//        }
+//        List<StatisticBo> aim = new ArrayList<>(map.values());
+//
+//        Collections.sort(aim, new Comparator<StatisticBo>() {
+//            @Override
+//            public int compare(StatisticBo o1, StatisticBo o2) {
+//                return Integer.parseInt(o1.getDate()) - Integer.parseInt(o2.getDate());
+//            }
+//        });
+//        List<StatisticBo> result = new ArrayList<>(map.values().size());
 //        for (int i = 0; i < 4; i++) {
 //            result.add(i,getStatisticBo(i,aim));
 //        }
@@ -884,12 +919,12 @@ public class HithiumFarmWebApplicationTests {
         /**
          * 第一个集合
          */
-        for (int i = 0; i < 11; i++) {
-            result.add(getStatisticBo(aim, i));
-        }
-        for (StatisticBo statisticBo1 : result) {
-            System.out.println(statisticBo1);
-        }
+//        for (int i = 0; i < 11; i++) {
+//            result.add(getStatisticBo(aim, i));
+//        }
+//        for (StatisticBo statisticBo1 : result) {
+//            System.out.println(statisticBo1);
+//        }
 
 
 //        BmsCellTempDataDicDao bmsCellTempDataDicDao = new BmsCellTempDataDicDao();
@@ -963,27 +998,27 @@ public class HithiumFarmWebApplicationTests {
 
     @Test
     public void testPrice() {
-        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
-        conn2.setHost("172.24.63.229");
-        conn2.setPort(27017);
-        conn2.setUsername("farm");
-        conn2.setPassword("hithium.db.mongo");
-        conn2.setDatabase("farm");
-        conn2.connect();
-        EquipmentDao equipmentDao = new EquipmentDao();
-        List<Equipment> equipments = equipmentDao.query().is(DEVICE_NAME, "clld3w7tdxjhvuhf6gzn60whffuy0hyj").is("enabled", true).results();
-        List<Equipment> resutlEquipment = new ArrayList<>();
-
-        /**
-         * 电池簇
-         */
-        List<Equipment> bamsClusterEquipment2 = equipments.stream().
-                filter(equip -> equip.getEquipmentId() > 36 && equip.getEquipmentId() < 53).collect(Collectors.toList());
-        List<Equipment> equipment = equipments.stream().
-                filter(equip -> equip.getEquipmentId() == 34 || equip.getEquipmentId() == 53).collect(Collectors.toList());
-        resutlEquipment.addAll(bamsClusterEquipment2);
-        resutlEquipment.addAll(equipment);
-        System.out.println(resutlEquipment.size());
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("172.24.63.229");
+//        conn2.setPort(27017);
+//        conn2.setUsername("farm");
+//        conn2.setPassword("hithium.db.mongo");
+//        conn2.setDatabase("farm");
+//        conn2.connect();
+//        EquipmentDao equipmentDao = new EquipmentDao();
+//        List<Equipment> equipments = equipmentDao.query().is(DEVICE_NAME, "clld3w7tdxjhvuhf6gzn60whffuy0hyj").is("enabled", true).results();
+//        List<Equipment> resutlEquipment = new ArrayList<>();
+//
+//        /**
+//         * 电池簇
+//         */
+//        List<Equipment> bamsClusterEquipment2 = equipments.stream().
+//                filter(equip -> equip.getEquipmentId() > 36 && equip.getEquipmentId() < 53).collect(Collectors.toList());
+//        List<Equipment> equipment = equipments.stream().
+//                filter(equip -> equip.getEquipmentId() == 34 || equip.getEquipmentId() == 53).collect(Collectors.toList());
+//        resutlEquipment.addAll(bamsClusterEquipment2);
+//        resutlEquipment.addAll(equipment);
+//        System.out.println(resutlEquipment.size());
 //        Device device = deviceDao.query().is("deviceName", "705780da821448599201d2f4cf68d6a1").result();
 
 //        List<TimeOfPriceBo> priceOfTime = device.getPriceOfTime();
@@ -1260,21 +1295,21 @@ public class HithiumFarmWebApplicationTests {
 //
 //        BigDecimal multiply = bigDecimalOfI.multiply(bigDecimalOfY);
 //        System.out.println(multiply);
-        DeviceDao deviceDao = new DeviceDao();
-        System.out.println("执行了" + new Date());
-        long count = deviceDao.count();
-        int pageSize = 100;
-        Date date = new Date();
-//        Date time = DateUtils.addDateDays(date, -1);
-        String time = "2021-04-16";
-        RealTimeDataService realTimeDataService = new RealTimeDataService();
-        ExportRecordDao exportRecordDao = new ExportRecordDao();
-        int ceil = (int) Math.ceil((double) count / (double) pageSize);
-        System.out.println(ceil);
-        Date date1 = new Date();
-        Date beforeDate = DateUtils.addDateDays(date1, -1);
-        String time1 = DateUtils.format(beforeDate);
-        System.out.println(time1);
+//        DeviceDao deviceDao = new DeviceDao();
+//        System.out.println("执行了" + new Date());
+//        long count = deviceDao.count();
+//        int pageSize = 100;
+//        Date date = new Date();
+////        Date time = DateUtils.addDateDays(date, -1);
+//        String time = "2021-04-16";
+//        RealTimeDataService realTimeDataService = new RealTimeDataService();
+//        ExportRecordDao exportRecordDao = new ExportRecordDao();
+//        int ceil = (int) Math.ceil((double) count / (double) pageSize);
+//        System.out.println(ceil);
+//        Date date1 = new Date();
+//        Date beforeDate = DateUtils.addDateDays(date1, -1);
+//        String time1 = DateUtils.format(beforeDate);
+//        System.out.println(time1);
 //        for (int i = 0; i < (int) Math.ceil((double) count / (double) pageSize); i++) {
 //            List<Device> deviceList = deviceDao.query().pageSize(pageSize).pageNumber(i + 1).results();
 //            for (Device device : deviceList) {

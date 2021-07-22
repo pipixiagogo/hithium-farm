@@ -56,4 +56,10 @@ public class DeviceInfoVo {
 
     @ApiModelProperty(value = "Pcs运行状态数据")
     private List<PcsStatusVo> pcsStatusVoList;
+    @ApiModelProperty(value = "上传图片URL地址")
+    private List<String> imgUrl;
+    @ApiModelProperty(value = "上传图片ID")
+    private String uploadImgId;
+
+
 }

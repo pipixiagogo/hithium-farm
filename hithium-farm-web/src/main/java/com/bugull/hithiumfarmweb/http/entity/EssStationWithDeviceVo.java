@@ -19,4 +19,9 @@ public class EssStationWithDeviceVo {
     private List<DeviceInfoVo> deviceList;
     @ApiModelProperty(value = "设备所处位置")
     private String areaCity;
+
+
+
+
+
 }

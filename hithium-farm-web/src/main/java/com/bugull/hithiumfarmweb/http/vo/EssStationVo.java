@@ -14,12 +14,16 @@ public class EssStationVo {
     private String stationName;
     @ApiModelProperty(name = "code", value = "电站编码")
     private String code;
-    @ApiModelProperty(name = "deviceList", value = "电站下的设备列表信息")
-    private List<DeviceVo> deviceVoList;
+    @ApiModelProperty(name = "deviceInfoVos", value = "电站下的设备列表信息")
+    private List<DeviceInfoVo> deviceInfoVos;
     @ApiModelProperty(name = "areaCity", value = "设备所处位置")
     private String areaCity;
     @ApiModelProperty(name = "deviceNameList", value = "电站下的设备名称")
     private List<String> deviceNameList;
+    @ApiModelProperty(name = "stationImgUrls", value = "电站下的图片列表")
+    private List<String> stationImgUrls;
+    @ApiModelProperty(name = "uploadImgId",value = "电站下的图片ID")
+    private String uploadImgId;
 
     public Integer getNumberOfDevice() {
         return deviceNameList.size();

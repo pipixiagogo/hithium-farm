@@ -239,7 +239,6 @@ public class BreakDownLogService {
                     deviceBuguQuery.in(DEVICE_NAME, deviceNames);
                 }
             }
-
         }
         List<String> deviceNames = deviceBuguQuery.results().stream().map(Device::getDeviceName).collect(Collectors.toList());
         BuguQuery<BreakDownLog> breakDownLogBuguQuery = breakDownLogDao.query();
@@ -252,6 +251,7 @@ public class BreakDownLogService {
         if (status != null) {
             breakDownLogBuguQuery.is(STATUS, status);
         }
+        log.info("EXCEL导出告警日志  告警日志开始时间:{}---告警日志结束时间:{}",startTime,endTime);
         List<BreakDownLog> breakDownLogList = breakDownLogBuguQuery.greaterThanEquals(GENERATION_DATA_TIME, startTime)
                 .lessThanEquals(GENERATION_DATA_TIME, endTime).sort("{generationDataTime:-1}").results();
         if (!CollectionUtils.isEmpty(breakDownLogList) && !breakDownLogList.isEmpty()) {

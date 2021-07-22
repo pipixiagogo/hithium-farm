@@ -54,8 +54,6 @@ public class RealTimeDataController extends AbstractController {
     private RealTimeDataService realTimeDataService;
     @Resource
     private ExcelExportService excelExportService;
-    @Resource
-    private EssStationService essStationService;
 
     @ApiOperation(value = "ammeter电表数据查询", httpMethod = "GET")
     @GetMapping(value = "/ammeterDataQuery")
@@ -227,7 +225,6 @@ public class RealTimeDataController extends AbstractController {
             return realTimeDataService.bmsTempMsg(deviceName);
         }
         return ResHelper.pamIll();
-
     }
 
     /**
@@ -246,7 +243,6 @@ public class RealTimeDataController extends AbstractController {
             return realTimeDataService.bamsLatestData(deviceName);
         }
         return ResHelper.pamIll();
-
     }
 
     /**
@@ -300,7 +296,6 @@ public class RealTimeDataController extends AbstractController {
             return realTimeDataService.stationInformationQuery(deviceName, equipmentId);
         }
         return ResHelper.pamIll();
-
     }
 
     @ApiOperation(value = "导出电池相关数据 默认为当天数据内容   可选时间 只能为一天的数据")

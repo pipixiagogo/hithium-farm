@@ -2,6 +2,7 @@ package com.bugull.hithiumfarmweb.common;
 
 import com.bugull.hithiumfarmweb.annotation.SortField;
 import com.bugull.hithiumfarmweb.http.entity.BreakDownLog;
+import com.bugull.hithiumfarmweb.utils.PatternUtil;
 
 import java.lang.reflect.Field;
 import java.util.*;
@@ -12,6 +13,8 @@ import java.util.regex.Pattern;
  * 常量类
  */
 public class Const {
+    public static final String STATION="STATION";
+    public static final String ENERGY_STORAGE="ENERGY_STORAGE";
 
     public static final String REGEX_MOBILE = "((^(13|15|18)[0-9]{9}$)|(^0[1,2]{1}\\d{1}-?\\d{8}$)|(^0[3-9] {1}\\d{2}-?\\d{7,8}$)|(^0[1,2]{1}\\d{1}-?\\d{8}-(\\d{1,4})$)|(^0[3-9]{1}\\d{2}-? \\d{7,8}-(\\d{1,4})$))";
     public static final String NO_QUERY_PERMISSION="该账户无查询该设备权限";
