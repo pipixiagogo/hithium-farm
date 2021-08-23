@@ -37,9 +37,6 @@ import java.util.stream.Collectors;
 import static com.bugull.hithiumfarmweb.common.Const.PASSWORD_PATTERN;
 import static com.bugull.hithiumfarmweb.common.Const.RESET_PWD;
 
-/**
- * TODO 定时执行将用户过期任务
- */
 @Service
 public class SysUserService {
     @Resource
@@ -71,8 +68,9 @@ public class SysUserService {
             /**
              * 邮箱+用户名相同  或者 电话 +用户名相同 即为同一用户
              */
-            if (sysUserDao.query().is("userName", sysUser.getUserName()).exists() || sysUserDao.query().is("mobile", sysUser.getMobile()).exists()) {
-                return ResHelper.error("用户名/手机号已存在");
+            if (sysUserDao.query().is("userName", sysUser.getUserName()).exists() || sysUserDao.query().is("mobile", sysUser.getMobile()).exists()
+                    || sysUserDao.query().is("email", sysUser.getEmail()).exists()) {
+                return ResHelper.error("用户名/手机号/邮箱已存在");
             }
             if (!CollectionUtils.isEmpty(sysUser.getStationList()) && !sysUser.getStationList().isEmpty()) {
                 for (String stationId : sysUser.getStationList()) {
@@ -93,6 +91,9 @@ public class SysUserService {
             }
             if (sysUser.getUserType() == null) {
                 return ResHelper.pamIll();
+            }
+            if (sysUser.getUserType() == 0 || sysUser.getUserType() == 1) {
+                sysUser.setPerms("sys:device");
             }
             sysUser.setCreateTime(new Date());
             //sha256加密
@@ -156,8 +157,8 @@ public class SysUserService {
                     }
                 }
                 BeanUtils.copyProperties(user, infoUserVo);
-                if(!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()){
-                    infoUserVo.setEssStationList(essStationDao.query().in("_id",user.getStationList()).results());
+                if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+                    infoUserVo.setEssStationList(essStationDao.query().in("_id", user.getStationList()).results());
                 }
                 return infoUserVo;
             }).collect(Collectors.toList());
@@ -171,6 +172,9 @@ public class SysUserService {
     public ResHelper<Void> updateById(UpdateUserBo user) {
         try {
             if (sysUserDao.query().is("_id", String.valueOf(user.getId())).exists()) {
+                if (user.getId() == 1) {
+                    return ResHelper.error("管理员账号无法修改");
+                }
                 BuguUpdater<SysUser> update = sysUserDao.update();
                 if (user.getStatus() != null) {
                     update.set("status", user.getStatus());
@@ -179,10 +183,21 @@ public class SysUserService {
                     if (!PatternUtil.isMobile(user.getMobile())) {
                         return ResHelper.error("手机号码格式错误");
                     }
-                    if (sysUserDao.query().is("userName", user.getMobile()).notEquals("_id", String.valueOf(user.getId())).exists()) {
+                    if (sysUserDao.query().is("mobile", user.getMobile()).notEquals("_id", String.valueOf(user.getId())).exists()) {
                         return ResHelper.error("该手机号已存在");
                     }
                     update.set("mobile", user.getMobile());
+                } else {
+                    return ResHelper.error("参数错误");
+                }
+
+                if (!StringUtils.isEmpty(user.getEmail())) {
+                    if (sysUserDao.query().is("email", user.getEmail()).notEquals("_id", String.valueOf(user.getId())).exists()) {
+                        return ResHelper.error("该邮箱已存在");
+                    }
+                    update.set("email", user.getEmail());
+                } else {
+                    return ResHelper.error("参数错误");
                 }
                 if (!StringUtils.isEmpty(user.getUserExpireTimeStr())) {
                     if (!Const.DATE_PATTERN.matcher(user.getUserExpireTimeStr()).matches()) {
@@ -225,6 +240,13 @@ public class SysUserService {
                     update.set("remarks", user.getRemarks());
                 }
                 if (user.getUserType() == null) {
+                    return ResHelper.pamIll();
+                }
+                if (user.getUserType() == 0 || user.getUserType() == 1) {
+                    update.set("perms", "sys:device");
+                } else if (user.getUserType() == 2) {
+                    update.set("perms", null);
+                } else {
                     return ResHelper.pamIll();
                 }
                 update.set("userType", user.getUserType());

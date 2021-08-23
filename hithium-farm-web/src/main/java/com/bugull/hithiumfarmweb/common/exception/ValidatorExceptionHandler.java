@@ -32,10 +32,10 @@ public class ValidatorExceptionHandler {
 	 * 处理自定义异常
 	 */
 	@ExceptionHandler(ParamsValidateException.class)
-	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	@ResponseStatus(HttpStatus.OK)
 	public ResHelper<Void> handleRRException(ParamsValidateException e){
 		logger.error(e.getMessage());
-		return ResHelper.error( "参数错误");
+		return ResHelper.error("参数错误");
 	}
 //    /**
 //     * 处理无此Bean异常
@@ -60,7 +60,7 @@ public class ValidatorExceptionHandler {
 //
 	@ExceptionHandler({UnauthorizedException.class,AuthorizationException.class})
 	public ResHelper<Void> handleAuthorizationException(AuthorizationException e){
-		logger.error(e.getMessage(), e);
+		logger.error("没有响应权限",e);
 		return ResHelper.error(HttpStatus.FORBIDDEN.value(),"没有权限，请联系管理员授权");
 	}
 //

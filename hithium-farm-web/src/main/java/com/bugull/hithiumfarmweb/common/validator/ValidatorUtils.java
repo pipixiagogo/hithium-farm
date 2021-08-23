@@ -15,7 +15,6 @@ public class ValidatorUtils {
     static {
         validator = Validation.buildDefaultValidatorFactory().getValidator();
     }
-
     /**
      * 校验对象
      * @param object        待校验对象

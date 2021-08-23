@@ -15,7 +15,7 @@ import java.util.Map;
  */
 @Data
 @Entity
-@EnsureIndex("{deviceName:1}")
+@EnsureIndex("{deviceName:1,equipmentId:1},{generationDataTime:-1}")
 public class BmsCellVoltDataDic extends SimpleEntity {
     /**
      * Time	DateTime	时间	默认值DateTime.Now;

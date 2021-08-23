@@ -6,6 +6,8 @@ import com.bugull.mongo.annotations.Ignore;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
+import javax.validation.constraints.Email;
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.util.List;
 
@@ -18,8 +20,10 @@ public class UpdateUserBo {
     @ApiModelProperty(name = "userName", value = "用户名称")
     private String userName;
 
-//    @ApiModelProperty(name = "email", required = true, example = " ", value = "用户邮箱")
-//    private String email;
+    @ApiModelProperty(name = "email", required = true, example = " ", value = "用户邮箱")
+    private String email;
+    @NotBlank(message="邮箱不能为空", groups = { UpdateGroup.class, AddGroup.class})
+    @Email(message="邮箱格式不正确", groups = { UpdateGroup.class,AddGroup.class})
     @ApiModelProperty(name = "mobile", required = true, example = " ", value = "手机号")
     private String mobile;
 
@@ -37,5 +41,6 @@ public class UpdateUserBo {
 
     @ApiModelProperty(name = "userType",value = "用户类型 内部用户:0 外部用户:1")
     private Integer userType;
+
 
 }

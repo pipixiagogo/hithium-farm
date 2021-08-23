@@ -477,22 +477,20 @@ public class DeviceService {
                     }
                     String endTime = setTimes[1];
                     String startTime = setTimes[0];
-                    Integer endTimeintHour = Integer.valueOf(endTime.split(":")[0]);
-                    Integer startTimeintHour = Integer.valueOf(startTime.split(":")[0]);
-                    Integer endTimeintMin = Integer.valueOf(endTime.split(":")[1]);
-                    Integer startTimeintMin = Integer.valueOf(startTime.split(":")[1]);
-                    if (endTimeintHour > startTimeintHour) {
-                        sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
-                    } else if (endTimeintHour == startTimeintHour) {
-                        if (endTimeintMin > startTimeintMin) {
-                            sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
-                        } else {
-                            endTimeintHour = endTimeintHour + 24;
-                            sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
+                    Integer endTimeIntHour = Integer.valueOf(endTime.split(":")[0]);
+                    Integer startTimeIntHour = Integer.valueOf(startTime.split(":")[0]);
+                    Integer endTimeIntMin = Integer.valueOf(endTime.split(":")[1]);
+                    Integer startTimeIntMin = Integer.valueOf(startTime.split(":")[1]);
+                    if (endTimeIntHour > startTimeIntHour) {
+                        sum += (endTimeIntHour - startTimeIntHour) * HOUR_OF_SECONDS + (endTimeIntMin - startTimeIntMin) * 60;
+                    } else if (endTimeIntHour == startTimeIntHour) {
+                        if (endTimeIntMin <= startTimeIntMin) {
+                            endTimeIntHour = endTimeIntHour + 24;
                         }
+                        sum += (endTimeIntHour - startTimeIntHour) * HOUR_OF_SECONDS + (endTimeIntMin - startTimeIntMin) * 60;
                     } else {
-                        endTimeintHour = endTimeintHour + 24;
-                        sum += (endTimeintHour - startTimeintHour) * HOUR_OF_SECONDS + (endTimeintMin - startTimeintMin) * 60;
+                        endTimeIntHour = endTimeIntHour + 24;
+                        sum += (endTimeIntHour - startTimeIntHour) * HOUR_OF_SECONDS + (endTimeIntMin - startTimeIntMin) * 60;
                     }
                 }
                 if (num != sum) {

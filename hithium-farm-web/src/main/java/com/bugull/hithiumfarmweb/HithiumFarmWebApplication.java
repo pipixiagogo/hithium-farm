@@ -31,6 +31,7 @@ public class HithiumFarmWebApplication {
     public static void main(String[] args) {
         //init mongodb
         String configFilePath = null;
+        //加载配置文件
         loadArgs(args);
         String location = ARGS.get("spring.config.location");
         String name = ARGS.get("spring.config.name");

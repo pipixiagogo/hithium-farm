@@ -21,7 +21,7 @@ import java.util.Date;
  */
 @Data
 @Entity
-@EnsureIndex("{deviceName:1}")
+@EnsureIndex("{deviceName:1,equipmentId:1},{generationDataTime:-1}")
 public class FireControlDataDic implements BuguEntity {
     @ExcelIgnore
     @Id

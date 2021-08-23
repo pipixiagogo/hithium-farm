@@ -21,8 +21,8 @@ public class InfoUserVo {
 
     @ApiModelProperty(value = "手机号")
     private String mobile;
-//    @ApiModelProperty(value = "邮箱")
-//    private String email;
+    @ApiModelProperty(value = "邮箱")
+    private String email;
 
     @ApiModelProperty(value = "角色实体类")
     private List<RoleEntityOfUserBo> roleEntityLsit;

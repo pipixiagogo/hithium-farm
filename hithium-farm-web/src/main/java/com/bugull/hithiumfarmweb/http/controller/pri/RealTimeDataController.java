@@ -20,6 +20,7 @@ import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang.StringUtils;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -55,6 +56,7 @@ public class RealTimeDataController extends AbstractController {
     @Resource
     private ExcelExportService excelExportService;
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "ammeter电表数据查询", httpMethod = "GET")
     @GetMapping(value = "/ammeterDataQuery")
     @ApiImplicitParams({
@@ -69,6 +71,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.ammeterDataQuery(params, getUser());
     }
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "Bams数据查询", httpMethod = "GET")
     @GetMapping(value = "/bamsDataquery")
     @ApiImplicitParams({
@@ -83,6 +86,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.bamsDataquery(params, getUser());
     }
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "Bms单元温度数据查询", httpMethod = "GET")
     @GetMapping(value = "/bmsTempDataquery")
     @ApiImplicitParams({
@@ -97,6 +101,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.bmsTempDataquery(params, getUser());
     }
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "Bms单元电压数据查询", httpMethod = "GET")
     @GetMapping(value = "/bmsVoltDataquery")
     @ApiImplicitParams({
@@ -111,6 +116,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.bmsVoltDataquery(params, getUser());
     }
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "Bcu电池簇状态数据查询", httpMethod = "GET")
     @GetMapping(value = "/bcuDataquery")
     @ApiImplicitParams({
@@ -125,6 +131,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.bcuDataquery(params, getUser());
     }
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "pcs舱主机状态数据查询", httpMethod = "GET")
     @GetMapping(value = "/pcsCabinetquery")
     @ApiImplicitParams({
@@ -139,6 +146,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.pcsCabinetquery(params, getUser());
     }
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "pcs通道状态数据查询", httpMethod = "GET")
     @GetMapping(value = "/pcsChannelquery")
     @ApiImplicitParams({
@@ -153,6 +161,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.pcsChannelquery(params, getUser());
     }
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "空调数据查询", httpMethod = "GET")
     @GetMapping(value = "/airConditionquery")
     @ApiImplicitParams({
@@ -167,6 +176,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.airConditionquery(params, getUser());
     }
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "动环系统数据查询", httpMethod = "GET")
     @GetMapping(value = "/temperatureMeterquery")
     @ApiImplicitParams({
@@ -181,6 +191,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.temperatureMeterquery(params, getUser());
     }
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "消防控制数据查询", httpMethod = "GET")
     @GetMapping(value = "/fireControlquery")
     @ApiImplicitParams({
@@ -195,6 +206,7 @@ public class RealTimeDataController extends AbstractController {
         return realTimeDataService.fileControlquery(params, getUser());
     }
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "ups后备电源数据查询", httpMethod = "GET")
     @GetMapping(value = "/upsPowerquery")
     @ApiImplicitParams({
@@ -287,17 +299,22 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "equipmentId", required = true, paramType = "query", value = "设备ID")})
     public ResHelper<Object> stationInformationQuery(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName,
                                                      @ApiIgnore @RequestParam(value = "equipmentId", required = false) Integer equipmentId) {
+
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(getUser().getStationList()) && !getUser().getStationList().isEmpty()) {
                 if (!realTimeDataService.verificationDeviceName(deviceName,getUser())) {
                     return ResHelper.success("");
                 }
             }
-            return realTimeDataService.stationInformationQuery(deviceName, equipmentId);
+            if(getUser().getUserType() != null){
+                return realTimeDataService.stationInformationQuery(deviceName, equipmentId,getUser().getUserType());
+            }
         }
+
         return ResHelper.pamIll();
     }
 
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "导出电池相关数据 默认为当天数据内容   可选时间 只能为一天的数据")
     @RequestMapping(value = "/exportBamsData", method = {RequestMethod.GET, RequestMethod.POST})
     @ApiImplicitParams({@ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识"),

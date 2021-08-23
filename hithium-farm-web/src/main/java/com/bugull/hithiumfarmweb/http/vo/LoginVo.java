@@ -23,6 +23,6 @@ public class LoginVo {
     @ApiModelProperty(value = "id")
     private String id;
 
-    @ApiModelProperty(value = "用户类型  内部 0 外部 1")
+    @ApiModelProperty(value = "用户类型  内部 0 外部 1 测试 2")
     private Integer userType;
 }

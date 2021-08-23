@@ -9,6 +9,7 @@ import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang.StringUtils;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import springfox.documentation.annotations.ApiIgnore;
@@ -31,7 +32,7 @@ public class BreakDownLogController extends AbstractController {
 
     @Resource
     private BreakDownLogService breakDownLogService;
-
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "告警日志查询")
     @GetMapping(value = "/queryBreakDownlog")
     @ApiImplicitParams({
@@ -51,7 +52,7 @@ public class BreakDownLogController extends AbstractController {
     public ResHelper<BuguPageQuery.Page<BreakDownLogVo>> queryBreakDownlog(@ApiIgnore @RequestParam Map<String, Object> params) {
         return breakDownLogService.query(params,getUser());
     }
-
+    @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "告警日志导出")
     @GetMapping(value = "/exportBreakDwonlog")
     @ApiImplicitParams({@ApiImplicitParam(name = "time", required = false, paramType = "query", value = "时间日期"),
@@ -95,6 +96,5 @@ public class BreakDownLogController extends AbstractController {
                 outputStream.close();
             }
         }
-
     }
 }

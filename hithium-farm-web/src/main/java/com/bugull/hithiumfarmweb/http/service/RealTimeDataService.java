@@ -307,7 +307,7 @@ public class RealTimeDataService {
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                if(!deviceNames.contains(deviceName)){
+                if (!deviceNames.contains(deviceName)) {
                     return ResHelper.success("", query.resultWithNullPage());
                 }
             }
@@ -470,28 +470,28 @@ public class RealTimeDataService {
         return ResHelper.success("", bmsCellDataBos);
     }
 
-    public ResHelper<Object> stationInformationQuery(String deviceName, Integer equipmentId) {
+    public ResHelper<Object> stationInformationQuery(String deviceName, Integer equipmentId, Integer userType) {
         if (StringUtils.isEmpty(deviceName) || equipmentId == null) {
             return ResHelper.pamIll();
         }
         if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
             if (equipmentId == 2) {
-                return ResHelper.success("", stationInfoQuery(fireControlDataDicDao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(fireControlDataDicDao, deviceName, equipmentId, userType));
             }
             if (equipmentId == 4 || equipmentId == 7 || equipmentId == 12) {
-                return ResHelper.success("", stationInfoQuery(ammeterDataDicDao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(ammeterDataDicDao, deviceName, equipmentId, userType));
             }
             if (equipmentId == 13) {
-                return ResHelper.success("", stationInfoQuery(upsPowerDataDicDao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(upsPowerDataDicDao, deviceName, equipmentId, userType));
             }
             if (equipmentId == 14 || equipmentId == 55) {
-                return ResHelper.success("", stationInfoQuery(airConditionDataDicDao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(airConditionDataDicDao, deviceName, equipmentId, userType));
             }
             if (equipmentId == 36) {
-                return ResHelper.success("", stationInfoQuery(bamsDataDicBADao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(bamsDataDicBADao, deviceName, equipmentId, userType));
             }
             if (equipmentId == 32 || equipmentId == 34 || equipmentId == 53) {
-                return ResHelper.success("", stationInfoQuery(temperatureMeterDataDicDao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(temperatureMeterDataDicDao, deviceName, equipmentId, userType));
             }
             if (equipmentId > 36 && equipmentId < 53) {
                 /**
@@ -501,22 +501,22 @@ public class RealTimeDataService {
             }
         } else {
             if (equipmentId == 1) {
-                return ResHelper.success("", stationInfoQuery(fireControlDataDicDao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(fireControlDataDicDao, deviceName, equipmentId, userType));
             }
             if (equipmentId == 3 || equipmentId == 6 || equipmentId == 11) {
-                return ResHelper.success("", stationInfoQuery(ammeterDataDicDao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(ammeterDataDicDao, deviceName, equipmentId, userType));
             }
             if (equipmentId == 12) {
-                return ResHelper.success("", stationInfoQuery(upsPowerDataDicDao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(upsPowerDataDicDao, deviceName, equipmentId, userType));
             }
             if (equipmentId == 13) {
-                return ResHelper.success("", stationInfoQuery(airConditionDataDicDao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(airConditionDataDicDao, deviceName, equipmentId, userType));
             }
             if (equipmentId == 14) {
-                return ResHelper.success("", stationInfoQuery(bamsDataDicBADao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(bamsDataDicBADao, deviceName, equipmentId, userType));
             }
             if (equipmentId == 32 || equipmentId == 34 || equipmentId == 44) {
-                return ResHelper.success("", stationInfoQuery(temperatureMeterDataDicDao, deviceName, equipmentId));
+                return ResHelper.success("", stationInfoQuery(temperatureMeterDataDicDao, deviceName, equipmentId, userType));
             }
             if (equipmentId > 35 && equipmentId < 54) {
                 /**
@@ -526,10 +526,10 @@ public class RealTimeDataService {
             }
         }
         if (equipmentId == 15) {
-            return ResHelper.success("", stationInfoQuery(pcsCabinetDicDao, deviceName, equipmentId));
+            return ResHelper.success("", stationInfoQuery(pcsCabinetDicDao, deviceName, equipmentId, userType));
         }
         if (equipmentId > 15 && equipmentId < 32) {
-            return ResHelper.success("", stationInfoQuery(pcsChannelDicDao, deviceName, equipmentId));
+            return ResHelper.success("", stationInfoQuery(pcsChannelDicDao, deviceName, equipmentId, userType));
         }
         return ResHelper.success("");
     }
@@ -565,7 +565,6 @@ public class RealTimeDataService {
                 bcuDataVolTemVo.setTempMap(tempMap);
             }
         }
-
         Iterable<DBObject> cellVolIte = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId))
                 .sort("{generationDataTime:-1}").limit(1).results();
         if (cellVolIte != null) {
@@ -585,9 +584,15 @@ public class RealTimeDataService {
         return bcuDataVolTemVo;
     }
 
-    public Object stationInfoQuery(BuguPageDao buguPageDao, String deviceName, Integer equipmentId) {
-        Iterable<DBObject> iterable = buguPageDao.aggregate().match(buguPageDao.query().is(DEVICE_NAME, deviceName)
-                .is("equipmentId", equipmentId)).sort("{generationDataTime:-1}").limit(1).results();
+    public Object stationInfoQuery(BuguPageDao buguPageDao, String deviceName, Integer equipmentId, Integer userType) {
+        Iterable<DBObject> iterable;
+        if (userType == 2) {
+            iterable = buguPageDao.aggregate().match(buguPageDao.query().is(DEVICE_NAME, deviceName)
+                    .is("equipmentId", equipmentId)).sort("{generationDataTime:1}").limit(1).results();
+        } else {
+            iterable = buguPageDao.aggregate().match(buguPageDao.query().is(DEVICE_NAME, deviceName)
+                    .is("equipmentId", equipmentId)).sort("{generationDataTime:-1}").limit(1).results();
+        }
         if (iterable != null) {
             Object dbObject = null;
             for (DBObject object : iterable) {
@@ -598,7 +603,7 @@ public class RealTimeDataService {
         return null;
     }
 
-    public boolean verificationDeviceName(String deviceName,SysUser sysUser) {
+    public boolean verificationDeviceName(String deviceName, SysUser sysUser) {
         List<EssStation> essStationList = essStationService.getEssStationList(sysUser.getStationList());
         if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
             for (EssStation essStation : essStationList) {

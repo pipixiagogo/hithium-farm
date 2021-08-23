@@ -220,24 +220,15 @@ public class BreakDownLogService {
             deviceBuguQuery.is("city", city);
         }
         if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-            List<EssStation> essStationList = essStationService.getEssStationList(user.getStationList());
-            boolean flag = false;
-            List<String> deviceNames = new ArrayList<>();
-            for (EssStation essStation : essStationList) {
-                if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                    if (essStation.getDeviceNameList().contains(deviceName)) {
-                        flag = true;
-                    }
+            List<String> essStationServiceDeviceNames = essStationService.getDeviceNames(user.getStationList());
+            if(!CollectionUtils.isEmpty(essStationServiceDeviceNames) && !essStationServiceDeviceNames.isEmpty()){
+                if(!StringUtils.isEmpty(deviceName) && essStationServiceDeviceNames.contains(deviceName)){
+                    deviceBuguQuery.is(DEVICE_NAME,deviceName);
                 }
-                deviceNames.addAll(essStation.getDeviceNameList());
-            }
-
-            if (!flag) {
-                throw new ExcelExportWithoutDataException("该日期暂无数据");
-            } else {
-                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                    deviceBuguQuery.in(DEVICE_NAME, deviceNames);
+                if(!StringUtils.isEmpty(deviceName) &&!essStationServiceDeviceNames.contains(deviceName)){
+                    throw new ExcelExportWithoutDataException("该日期暂无数据");
                 }
+                deviceBuguQuery.in(DEVICE_NAME,essStationServiceDeviceNames);
             }
         }
         List<String> deviceNames = deviceBuguQuery.results().stream().map(Device::getDeviceName).collect(Collectors.toList());
