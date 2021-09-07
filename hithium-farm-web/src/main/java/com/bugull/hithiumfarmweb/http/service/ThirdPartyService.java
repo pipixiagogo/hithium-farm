@@ -12,7 +12,6 @@ import org.thymeleaf.context.Context;
 
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 

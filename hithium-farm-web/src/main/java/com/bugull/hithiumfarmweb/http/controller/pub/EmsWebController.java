@@ -2,33 +2,86 @@ package com.bugull.hithiumfarmweb.http.controller.pub;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.bugull.hithiumfarmweb.common.Const;
+import com.bugull.hithiumfarmweb.common.exception.ExcelExportWithoutDataException;
+import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.config.RedisPoolUtil;
-import com.bugull.hithiumfarmweb.http.service.ThirdPartyService;
+import com.bugull.hithiumfarmweb.http.controller.pub.entity.BcuEntity;
+import com.bugull.hithiumfarmweb.http.controller.pub.entity.BcuEntityDao;
+import com.bugull.hithiumfarmweb.http.dao.BcuDataDicBCUDao;
+import com.bugull.hithiumfarmweb.http.entity.BcuDataDicBCU;
+import com.bugull.hithiumfarmweb.utils.DateUtils;
+import com.bugull.hithiumfarmweb.utils.HttpUtils;
+import com.bugull.hithiumfarmweb.utils.ResHelper;
 import io.swagger.annotations.ApiOperation;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.apache.http.HttpResponse;
+import org.apache.http.util.EntityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
 import redis.clients.jedis.Jedis;
 
 import javax.annotation.Resource;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/EmsWebService")
 public class EmsWebController {
 
-
+    private static final Logger log = LoggerFactory.getLogger(EmsWebController.class);
     @Resource
     private RedisPoolUtil redisPoolUtil;
+    @Resource
+    private BcuDataDicBCUDao bcuDataDicBCUDao;
+    @Resource
+    private BcuEntityDao bcuEntityDao;
+
+    @Resource
+    private PropertiesConfig propertiesConfig;
+
+    /**
+     * 发送短信  对接第三方接口
+     * @return
+     */
+//    @RequestMapping(value = "/sendMsg")
+//    public String sendMsg(){
+////        AppCode：a6236cf2b04645baabb8dcc9c67771d5
+//        Map<String, String> headers = new HashMap<String, String>();
+//        //最后在header中的格式(中间是英文空格)为Authorization:APPCODE 83359fd73fe94948385f570e3c139105
+//        headers.put("Authorization", "APPCODE " + propertiesConfig.getSmsAppcode());
+//        //根据API的要求，定义相对应的Content-Type
+//        headers.put("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+//        Map<String, String> querys = new HashMap<String, String>();
+//        Map<String, String> bodys = new HashMap<String, String>();
+//        bodys.put("callbackUrl", propertiesConfig.getSmsCallbackUrl());
+//        bodys.put("channel", "0");
+//        bodys.put("mobile", "+8613215007077");
+//        bodys.put("templateID", propertiesConfig.getSmsTemplateId());
+//        bodys.put("templateParamSet", "测试, 1");
+//        try {
+//            /**
+//             * 重要提示如下:
+//             * HttpUtils请从
+//             * https://github.com/aliyun/api-gateway-demo-sign-java/blob/master/src/main/java/com/aliyun/api/gateway/demo/util/HttpUtils.java
+//             * 下载
+//             *
+//             * 相应的依赖请参照
+//             * https://github.com/aliyun/api-gateway-demo-sign-java/blob/master/pom.xml
+//             */
+//            HttpResponse response = HttpUtils.doPost(propertiesConfig.getSmsHost(), propertiesConfig.getSmsPath(), propertiesConfig.getSmsMethod(), headers, querys, bodys);
+//            System.out.println(response.toString());
+//            System.out.println("321"+ EntityUtils.toString(response.getEntity()));
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//        return "OK";
+//    }
 //    @Resource
 //    private ThirdPartyService thirdPartyService;
 //    private final TemplateEngine templateEngine;
@@ -41,6 +94,9 @@ public class EmsWebController {
 //        this.templateEngine = templateEngine;
 //    }
 
+    /**
+     * 根据模板发送Email
+     */
 //    @RequestMapping("/templateMail")
 //    public String templateMail() {
 //        try {
@@ -88,6 +144,38 @@ public class EmsWebController {
 //        mailSender.send(mimeMessage);
 //        return "OK";
 //    }
+
+    @ApiOperation(value = "获取时间设备数据")
+    @RequestMapping(method = RequestMethod.GET,value = "getDeviceTimeData")
+    public ResHelper<JSONObject> getDeviceTimeData(@RequestParam(value = "deviceName",required = false)String deviceName,
+                                       @RequestParam(value = "name",required = false)String name,
+                                       @RequestParam(value = "time",required = false)String time){
+        if(StringUtils.isEmpty(deviceName) || StringUtils.isEmpty(time) || StringUtils.isEmpty(name)){
+            return ResHelper.pamIll();
+        }
+        if (!Const.DATE_PATTERN.matcher(time).matches()) {
+            return ResHelper.pamIll();
+        }
+        JSONObject jsonObject = new JSONObject();
+        try {
+            Date startTime = DateUtils.dateToStrWithHHmm(time);
+            Date endTime = DateUtils.getEndTime(startTime);
+            long start = System.currentTimeMillis();
+            List<BcuEntity> bcuDataDicBCUS = bcuEntityDao.query().is("deviceName", deviceName).is("name", name)
+                    .greaterThan("generationDataTime", startTime).lessThan("generationDataTime", endTime)
+                    .results();
+            long end = System.currentTimeMillis();
+            log.info("导出耗时:{},条数:{}",(end-start),bcuDataDicBCUS.size());
+            if(!CollectionUtils.isEmpty(bcuDataDicBCUS) && !bcuDataDicBCUS.isEmpty()){
+                jsonObject.put("result",JSONObject.toJSON(bcuDataDicBCUS));
+                return ResHelper.success("",jsonObject);
+            }
+        }catch (Exception e){
+            log.info("解析日期出错:{}",e);
+        }
+        return ResHelper.success("数据为空",jsonObject);
+    }
+
 
     /**
      * 设备状态信息  需要有设备才有这些状态

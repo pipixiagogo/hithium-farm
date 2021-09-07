@@ -145,19 +145,19 @@ public class ExcelExportService {
      * 一个月启动一次
      */
     @Scheduled(cron = "${excel.scheduled.remove.excel}")
-    public void uploadImgDel(){
+    public void uploadImgDel() {
         if (!propertiesConfig.isImageRemoveSwitch()) {
             return;
         }
         Date date = DateUtils.addDateDays(new Date(), -propertiesConfig.getRemoveExcelDate());
         List<UploadEntity> uploadEntities = uploadEntityDao.query().lessThan("uploadTime", date).is("bindImg", false).pageNumber(1).pageSize(2000).results();
         log.info("启动定时删除导入图片任务,查询到可删除图片文件数量为:{}", uploadEntities.size());
-        for(UploadEntity uploadEntity : uploadEntities){
+        for (UploadEntity uploadEntity : uploadEntities) {
             List<String> imgOfFullPath = uploadEntity.getImgOfFullPath();
-            if(!CollectionUtils.isEmpty(imgOfFullPath) && !imgOfFullPath.isEmpty()){
-                for(String path:imgOfFullPath){
+            if (!CollectionUtils.isEmpty(imgOfFullPath) && !imgOfFullPath.isEmpty()) {
+                for (String path : imgOfFullPath) {
                     File file = new File(path);
-                    if(file.exists()){
+                    if (file.exists()) {
                         log.info("删除excel,删除文件名称:{}", path);
                         file.delete();
                     }

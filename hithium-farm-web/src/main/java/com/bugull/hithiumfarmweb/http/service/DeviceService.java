@@ -603,10 +603,18 @@ public class DeviceService {
             deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
             getDeviceRunstatusMsg(deviceInfoVo);
             getDeviceIncome(deviceInfoVo);
+            getDeviceDayIncome(deviceInfoVo);
             getPcsDataMsg(deviceInfoVo);
             return deviceInfoVo;
         }
         return null;
+    }
+
+    private void getDeviceDayIncome(DeviceInfoVo deviceInfoVo) {
+        String dateToStr = DateUtils.dateToStr(new Date());
+        IncomeEntity incomeEntity = incomeEntityDao.query().is("deviceName", deviceInfoVo.getDeviceName()).is("incomeOfDay", dateToStr).result();
+        BigDecimal incomeBigDecimal = incomeEntity.getIncome().setScale(4, BigDecimal.ROUND_HALF_UP);
+        deviceInfoVo.setDayDeviceIncome(incomeBigDecimal.toString());
     }
 
     private void getPcsDataMsg(DeviceInfoVo deviceInfoVo) {
@@ -652,7 +660,7 @@ public class DeviceService {
         if (incomeIterable != null) {
             for (DBObject object : incomeIterable) {
                 Double count = (Double) object.get("count");
-                BigDecimal incomeBigDecimal = BigDecimal.valueOf(count).setScale(2, BigDecimal.ROUND_HALF_UP);
+                BigDecimal incomeBigDecimal = BigDecimal.valueOf(count).setScale(4, BigDecimal.ROUND_HALF_UP);
                 deviceInfoVo.setIncome(incomeBigDecimal.toString());
             }
         }

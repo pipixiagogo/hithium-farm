@@ -15,5 +15,11 @@ public class ChargeCapacityStationVo {
     @ApiModelProperty(value = "电站名称")
     private String stationName;
 
+    @ApiModelProperty(value = "总收益")
+    private String totalStationIncome;
+
+    @ApiModelProperty(value = "日收益")
+    private String dayStationIncome;
+
 
 }

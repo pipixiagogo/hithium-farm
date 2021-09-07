@@ -36,6 +36,19 @@ public class PropertiesConfig {
     private Map<String, Set<String>> proToCitys = null;
 
     private Object lock = new Object();
+    @Value("${send.sms.configuration.host}")
+    private String smsHost;
+
+    @Value("${send.sms.configuration.path}")
+    private String smsPath;
+    @Value("${send.sms.configuration.method}")
+    private String smsMethod;
+    @Value("${send.sms.configuration.appcode}")
+    private String smsAppcode;
+    @Value("${send.sms.configuration.callbackUrl}")
+    private String smsCallbackUrl;
+    @Value("${send.sms.configuration.templateID}")
+    private String smsTemplateId;
     @Value("${mqtt.clientid.subscriber}")
     private String mqttClientIdSub;
     @Value("${excel.realtime.data.excel.export.dir}")
@@ -211,5 +224,29 @@ public class PropertiesConfig {
 
     public List<String> getProductionDeviceNameList() {
         return productionDeviceNameList;
+    }
+
+    public String getSmsHost() {
+        return smsHost;
+    }
+
+    public String getSmsPath() {
+        return smsPath;
+    }
+
+    public String getSmsMethod() {
+        return smsMethod;
+    }
+
+    public String getSmsAppcode() {
+        return smsAppcode;
+    }
+
+    public String getSmsCallbackUrl() {
+        return smsCallbackUrl;
+    }
+
+    public String getSmsTemplateId() {
+        return smsTemplateId;
     }
 }

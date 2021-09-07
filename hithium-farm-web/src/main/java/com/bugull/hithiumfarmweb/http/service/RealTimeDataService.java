@@ -7,6 +7,7 @@ import com.bugull.hithiumfarmweb.http.bo.*;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
 import com.bugull.hithiumfarmweb.http.vo.BcuDataVolTemVo;
+import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import com.bugull.mongo.utils.MapperUtil;
@@ -123,6 +124,30 @@ public class RealTimeDataService {
 
     public ResHelper<BuguPageQuery.Page<BmsCellTempDataDic>> bmsTempDataquery(Map<String, Object> params, SysUser user) {
         BuguPageQuery<BmsCellTempDataDic> query = bmsCellTempDataDicDao.pageQuery();
+        String startTime = (String) params.get("startTime");
+        String endTime = (String) params.get("endTime");
+        try {
+            if (!StringUtils.isEmpty(startTime)) {
+                Date end;
+                if (StringUtils.isEmpty(endTime)) {
+                    end = new Date();
+                } else {
+                    end = DateUtils.strToDate(endTime);
+                }
+                Date start = DateUtils.strToDate(startTime);
+                if (startTime != null && endTime != null) {
+                    if (start.getTime() > end.getTime()) {
+                        return ResHelper.pamIll();
+                    } else {
+                        query.greaterThanEquals(GENERATION_DATA_TIME, start);
+                        query.lessThanEquals(GENERATION_DATA_TIME, end);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("BMS温度历史数据查询失败:{}", e);
+            return ResHelper.pamIll();
+        }
         if (!queryOfParams(query, params, BMSCELL_TEMP_DATADIC_TABLE)) {
             return ResHelper.pamIll();
         }

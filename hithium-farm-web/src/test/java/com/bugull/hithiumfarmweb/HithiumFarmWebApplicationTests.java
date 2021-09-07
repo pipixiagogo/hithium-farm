@@ -8,8 +8,10 @@ import com.alibaba.fastjson.JSONObject;
 import com.bugull.hithiumfarmweb.common.BuguPageDao;
 import com.bugull.hithiumfarmweb.common.Const;
 import com.bugull.hithiumfarmweb.config.CustomThreadFactory;
+import com.bugull.hithiumfarmweb.dao.BcuEntityDao;
 import com.bugull.hithiumfarmweb.dao.CaEntityDao;
 import com.bugull.hithiumfarmweb.dao.TestExpireIndexDao;
+import com.bugull.hithiumfarmweb.entity.BcuEntity;
 import com.bugull.hithiumfarmweb.entity.CaEntity;
 import com.bugull.hithiumfarmweb.entity.TestExpireIndex;
 import com.bugull.hithiumfarmweb.enumerate.DataType;
@@ -68,6 +70,57 @@ import static com.bugull.hithiumfarmweb.common.Const.*;
 import static com.bugull.hithiumfarmweb.http.service.StatisticsService.INCOME_RECORD_PREFIX;
 
 public class HithiumFarmWebApplicationTests {
+    private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//    @Test
+//    public void getResultValue(){
+//        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
+//        conn2.setHost("172.24.63.229:27017");
+//        conn2.setPort(27017);
+//        conn2.setUsername("farm");
+//        conn2.setPassword("hithium.db.mongo");
+//        conn2.setDatabase("farm");
+//        conn2.connect();
+////        {$dateToString:{format:'%Y-%m-%d',date:{$add:['$generationDataTime',28800000]}}}
+////{_id:{$dateToString:{format:'%Y-%m-%d %H',date:{$add:['$generationDataTime',28800000]}}}
+//        BcuEntityDao bcuEntityDao = new BcuEntityDao();
+////        Iterable <DBObject>results = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is("deviceName", "clld3w7tdxjhvuhf6gzn60whffuy0hyj").is("name", "集装箱电池簇6"))
+////                .group("{_id:{$dateToString:{format:'%Y-%m-%d',date:{$add:['$generationDataTime',28800000]}}},sum:{$max:{$toDouble:'$cellTemperatureDiff'}}}").results();
+//
+////        Iterable <DBObject>results = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is("deviceName", "clld3w7tdxjhvuhf6gzn60whffuy0hyj").is("name", "集装箱电池簇6"))
+////                .group("{_id:{$dateToString:{format:'%Y-%m-%d',date:{$add:['$generationDataTime',28800000]}}},sum:{$max:{$toDouble:'$maxSingleTemperature'}}}").results();
+////        Iterable <DBObject>results = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is("deviceName", "clld3w7tdxjhvuhf6gzn60whffuy0hyj").is("name", "集装箱电池簇6"))
+////                .group("{_id:{$dateToString:{format:'%Y-%m-%d',date:{$add:['$generationDataTime',28800000]}}},sum:{$max:{$toDouble:'$avgSingleTemperature'}}}").results();
+//        Date date = DateUtils.addDateDays(new Date(), -1);
+//        Date startTime = DateUtils.getStartTime(date);
+//        Date endTime = DateUtils.getEndTime(date);
+//        List<BcuEntity> results = bcuEntityDao.query().is("deviceName","clld3w7tdxjhvuhf6gzn60whffuy0hyj").is("name","集装箱电池簇6").greaterThan("generationDataTime", startTime).lessThan("generationDataTime", endTime)
+//                .returnFields("_id","deviceName","name","avgSingleTemperature","maxSingleTemperature","groupCurrent","generationDataTime").results();
+//        Map<String,String>map=new TreeMap<>();
+//        for(BcuEntity bcuEntity:results){
+//            map.put(sdf.format(bcuEntity.getGenerationDataTime()),JSONObject.toJSONString(bcuEntity));
+//        }
+//        Set<Map.Entry<String, String>> entries = map.entrySet();
+//        for(Map.Entry<String, String> entry:entries){
+//            System.out.println(entry.getKey()+entry.getValue());
+//        }
+//        roupCurrent
+//        if(results!=null){
+//            Map<String,Double> map = new TreeMap<>();
+//            for(DBObject object:results){
+//                String id = (String) object.get("_id");
+//                Double sum=(Double) object.get("sum");
+//                map.put(id,sum);
+//            }
+//            Set<Map.Entry<String, Double>> entries = map.entrySet();
+//            for(Map.Entry<String, Double> entry:entries){
+//                System.out.println(entry.getKey()+"---"+entry.getValue());
+//            }
+//        }
+//        for(DBObject object :results){
+//            BcuDataDicBCU bcuDataDicBCU = MapperUtil.fromDBObject(bcuDataDicBCUDao.getEntityClass(),  object);
+//            System.out.println(bcuDataDicBCU.getId());
+//        }
+//    }
 
     @Test
     public void testFileExist(){

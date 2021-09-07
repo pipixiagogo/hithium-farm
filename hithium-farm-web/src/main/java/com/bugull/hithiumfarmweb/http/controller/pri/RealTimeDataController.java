@@ -95,7 +95,9 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class),
+            @ApiImplicitParam(name = "startTime", value = "告警发生开始时间 yyyy-MM-dd HH:mm:ss", paramType = "query", required = false, dataType = "String", dataTypeClass = String.class),
+            @ApiImplicitParam(name = "endTime", value = "告警发生结束时间 yyyy-MM-dd HH:mm:ss", paramType = "query", required = false, dataType = "String", dataTypeClass = String.class)
     })
     public ResHelper<BuguPageQuery.Page<BmsCellTempDataDic>> bmsTempDataquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.bmsTempDataquery(params, getUser());
@@ -125,7 +127,7 @@ public class RealTimeDataController extends AbstractController {
             @ApiImplicitParam(name = "deviceName", required = false, paramType = "query", value = "设备码  唯一标识", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(name = "orderField", required = false, paramType = "query", value = "排序字段", dataType = "String", dataTypeClass = String.class),
             @ApiImplicitParam(example = "1", name = "order", required = false, paramType = "query", value = "升序 | 降序 -1：降序 1：升序", dataType = "int", dataTypeClass = Integer.class),
-            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class)
+            @ApiImplicitParam(name = "equipmentId", required = false, paramType = "query", value = "设备ID 用于标识集装箱下哪种设备", dataType = "int", dataTypeClass = Integer.class),
     })
     public ResHelper<BuguPageQuery.Page<BcuDataDicBCU>> bcuDataquery(@ApiIgnore @RequestParam Map<String, Object> params) {
         return realTimeDataService.bcuDataquery(params, getUser());
@@ -360,7 +362,7 @@ public class RealTimeDataController extends AbstractController {
                 excelExportService.exportStationOfBattery(deviceName, time, type, outputStream);
             }
         } catch (Exception e) {
-            log.error("下载文件失败:{},时间为:{},设备名称:{},导出设备类型:{}", e.getMessage(), time, deviceName, excelExportService.getMsgByType(type));
+            log.error("下载文件失败:{},时间为:{},设备名称:{},导出设备类型:{}", e, time, deviceName, excelExportService.getMsgByType(type));
             response.reset();
             response.setStatus(HttpStatus.NOT_ACCEPTABLE.value());
             response.setContentType("application/json; charset=utf-8");

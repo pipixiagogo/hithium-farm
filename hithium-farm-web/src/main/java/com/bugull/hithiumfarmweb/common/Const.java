@@ -13,6 +13,8 @@ import java.util.regex.Pattern;
  * 常量类
  */
 public class Const {
+    public static final Long DAY_OF_MILLISECONDS=60*60*24*1000L;
+    public static final String SAFE_OF_DAY="SAFE_DAYS";
     public static final String STATION="STATION";
     public static final String ENERGY_STORAGE="ENERGY_STORAGE";
 

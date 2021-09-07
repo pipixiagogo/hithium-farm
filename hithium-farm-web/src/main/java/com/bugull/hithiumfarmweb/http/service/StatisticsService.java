@@ -453,14 +453,16 @@ public class StatisticsService {
                 }
             }
         }
-        ExecutorService executorService = Executors.newFixedThreadPool(3);
-        CountDownLatch countDownLatch = new CountDownLatch(3);
+        ExecutorService executorService = Executors.newFixedThreadPool(4);
+        CountDownLatch countDownLatch = new CountDownLatch(4);
         IncomeStatisOfMongo g1 = new IncomeStatisOfMongo(countDownLatch, "DAY", areaInfoBo, user);
         executorService.execute(g1);
         IncomeStatisOfMongo g2 = new IncomeStatisOfMongo(countDownLatch, "MONTH", areaInfoBo, user);
         executorService.execute(g2);
         IncomeStatisOfMongo g3 = new IncomeStatisOfMongo(countDownLatch, "YEAR", areaInfoBo, user);
         executorService.execute(g3);
+        IncomeStatisOfMongo g4 = new IncomeStatisOfMongo(countDownLatch, "SAFE_OF_DAY", areaInfoBo, user);
+        executorService.execute(g4);
         try {
             countDownLatch.await(120L, TimeUnit.SECONDS);
             ThreadUtil.safeClose(executorService);
@@ -471,7 +473,14 @@ public class StatisticsService {
         resultMap.put(DAY, g1.getIncomeStatisticVo());
         resultMap.put(MONTH, g2.getIncomeStatisticVo());
         resultMap.put(YEAR, g3.getIncomeStatisticVo());
+        resultMap.put(SAFE_OF_DAY, g4.getIncomeStatisticVo());
         return ResHelper.success("", resultMap);
+    }
+
+    private IncomeStatisticVo getSafeDays(List<String> deviceNames) {
+        IncomeStatisticVo incomeStatisticVo = new IncomeStatisticVo();
+
+        return null;
     }
 
     public ResHelper<Map<String, List<IncomeStatisticOfDayVo>>> incomeStatisticOfAll(AreaInfoBo areaInfoBo, SysUser user) {
@@ -598,8 +607,8 @@ public class StatisticsService {
     public ResHelper<ChargeCapacityStationVo> capacityNumOfStation(String stationId) {
         ChargeCapacityStationVo chargeCapacityStationVo = new ChargeCapacityStationVo();
         EssStation essStation = essStationDao.query().is("_id", stationId).result();
-        if(essStation != null){
-            if(!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()){
+        if (essStation != null) {
+            if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
                 List<Device> deviceList = deviceDao.query().in(DEVICE_NAME, essStation.getDeviceNameList()).results();
                 List<BigDecimal> chargeCapacitySumList = deviceList.stream().map(device -> new BigDecimal(device.getChargeCapacitySum())).collect(Collectors.toList());
                 BigDecimal chargeCapacityDecimal = chargeCapacitySumList.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -608,12 +617,37 @@ public class StatisticsService {
                 chargeCapacityStationVo.setChargeCapacity(chargeCapacityDecimal.toString());
                 chargeCapacityStationVo.setDisChargeCapacity(disChargeCapacityDecimal.toString());
                 chargeCapacityStationVo.setStationName(essStation.getStationName());
-                return ResHelper.success("",chargeCapacityStationVo);
+
+                getTotalStationIncome(essStation.getDeviceNameList(), chargeCapacityStationVo);
+                getDayStationIncome(essStation.getDeviceNameList(), chargeCapacityStationVo);
+                return ResHelper.success("", chargeCapacityStationVo);
             }
             return ResHelper.error("该电站未绑定设备");
         }
         return ResHelper.error("该电站不存在");
 
+    }
+
+    private void getDayStationIncome(List<String> deviceNameList, ChargeCapacityStationVo chargeCapacityStationVo) {
+        String dateToStr = DateUtils.dateToStr(new Date());
+        List<IncomeEntity> incomeEntities = incomeEntityDao.query().in("deviceName", deviceNameList).is("incomeOfDay", dateToStr).results();
+        BigDecimal incomeBigDecimal = new BigDecimal(0);
+        for (IncomeEntity incomeEntity : incomeEntities) {
+            incomeBigDecimal = incomeBigDecimal.add(incomeEntity.getIncome().setScale(4, BigDecimal.ROUND_HALF_UP));
+        }
+        chargeCapacityStationVo.setDayStationIncome(incomeBigDecimal.toString());
+    }
+
+    private void getTotalStationIncome(List<String> deviceNameList, ChargeCapacityStationVo chargeCapacityStationVo) {
+        Iterable<DBObject> incomeIterable = incomeEntityDao.aggregate().match(incomeEntityDao.query().in("deviceName", deviceNameList))
+                .group("{_id:null,count:{$sum:{$toDouble:'$income'}}}").limit(1).results();
+        if (incomeIterable != null) {
+            for (DBObject object : incomeIterable) {
+                Double count = (Double) object.get("count");
+                BigDecimal incomeBigDecimal = BigDecimal.valueOf(count).setScale(4, BigDecimal.ROUND_HALF_UP);
+                chargeCapacityStationVo.setTotalStationIncome(incomeBigDecimal.toString());
+            }
+        }
     }
 
 
@@ -949,6 +983,7 @@ public class StatisticsService {
         private AreaInfoBo areaInfoBo;
         private IncomeStatisticVo incomeStatisticVo;
         private SysUser user;
+        private List<String> deviceNameList;
 
         public IncomeStatisOfMongo(CountDownLatch countDownLatch, String type, AreaInfoBo areaInfoBo, SysUser user) {
             this.type = type;
@@ -982,9 +1017,9 @@ public class StatisticsService {
                 }
                 if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                     incomeEntityBuguQuery.in(DEVICE_NAME, deviceNames);
+                    this.deviceNameList = deviceNames;
                 }
             }
-            //TODO 使用数据库的数据统计 不用redis
             //统计当天的收益、当年的收益 当月的收益
             try {
                 if (!StringUtils.isEmpty(type)) {
@@ -1013,7 +1048,7 @@ public class StatisticsService {
                             }
                         }
                         incomeStatisticVo.setDate(date);
-                    } else {
+                    } else if (YEAR.equals(type)) {
                         incomeEntityBuguQuery.regexCaseInsensitive("incomeOfDay", DateUtils.dateToStryyyy(date));
                         Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityBuguQuery)
                                 .group(INCOMEOFYEAR).sort("{_id:-1}").limit(1).results();
@@ -1022,6 +1057,34 @@ public class StatisticsService {
                                 Double count = (Double) object.get("count");
                                 BigDecimal decimal = BigDecimal.valueOf(count);
                                 incomeStatisticVo.setIncome(decimal.setScale(2, BigDecimal.ROUND_HALF_UP).toString());
+                            }
+                        }
+                        incomeStatisticVo.setDate(date);
+                    } else {
+                        /**
+                         * 计算安全天数
+                         */
+                        if (!CollectionUtils.isEmpty(this.deviceNameList) && !this.deviceNameList.isEmpty()) {
+                            /**
+                             * 有绑定电站情况
+                             */
+                            List<Device> deviceList = deviceDao.query().in("deviceName", deviceNameList).results();
+                            if(!CollectionUtils.isEmpty(deviceList) && !deviceList.isEmpty()){
+                                Device device = deviceList.get(0);
+                                incomeStatisticVo.setIncome(String.valueOf((date.getTime() - device.getAccessTime().getTime()) / DAY_OF_MILLISECONDS));
+                            }else {
+                                Device device = deviceDao.findOne();
+                                if(device != null){
+                                    incomeStatisticVo.setIncome(String.valueOf((date.getTime() - device.getAccessTime().getTime()) / DAY_OF_MILLISECONDS));
+                                }
+                            }
+                        } else {
+                            /**
+                             * 没有绑定电站情况  直接取第一台设备
+                             */
+                            Device device = deviceDao.findOne();
+                            if(device != null){
+                                incomeStatisticVo.setIncome(String.valueOf((date.getTime() - device.getAccessTime().getTime()) / DAY_OF_MILLISECONDS));
                             }
                         }
                         incomeStatisticVo.setDate(date);

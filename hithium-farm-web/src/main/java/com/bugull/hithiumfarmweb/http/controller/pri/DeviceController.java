@@ -192,7 +192,7 @@ public class DeviceController extends AbstractController {
     }
 
     @GetMapping(value = "/queryDeviceByName")
-    @ApiOperation(value = "查询单台设备的收益以及充放电量、Pcs运行状态数据", httpMethod = "GET")
+    @ApiOperation(value = "查询单台设备的总收益、天收益以及充放电量、Pcs运行状态数据", httpMethod = "GET")
     @ApiImplicitParam(name = "deviceName", paramType = "query", value = "设备码", dataType = "String", dataTypeClass = String.class)
     public ResHelper<DeviceInfoVo> selectDevice(@ApiIgnore @RequestParam(value = "deviceName", required = false) String deviceName) {
         if (StringUtils.isEmpty(deviceName)) {
