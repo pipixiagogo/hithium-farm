@@ -130,6 +130,7 @@ public class SysUserController extends AbstractController {
     @ApiOperation(value = "批量重置密码",response = ResHelper.class)
     @ApiImplicitParam(name = "/userIds", value = "用户ID数组", allowMultiple = true, dataType = "string", required = true)
     @PostMapping(value = "/resetPwd")
+    @SysLog(value = "批量重置密码")
     public ResHelper<Void> resetPwd(@RequestBody String[] userIds){
         List<String> users = new ArrayList<>();
         for (String userId : userIds) {
@@ -143,6 +144,7 @@ public class SysUserController extends AbstractController {
     /**
      * 修改密码
      */
+    @SysLog(value = "修改密码")
     @ApiOperation(value = "修改密码",response = ResHelper.class)
     @PostMapping(value = "/password")
     @ApiImplicitParam(name = "passwordForm", value = "密码表单实体类", dataType = "PasswordForm",dataTypeClass = PasswordForm.class,required = true)

@@ -20,6 +20,7 @@ import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import com.bugull.mongo.BuguQuery;
+import org.apache.shiro.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -53,7 +54,7 @@ public class BreakDownLogService {
     public static final Logger log = LoggerFactory.getLogger(BreakDownLogService.class);
 
 
-    public ResHelper<BuguPageQuery.Page<BreakDownLogVo>> query(Map<String, Object> params, SysUser user) {
+    public ResHelper<BuguPageQuery.Page<BreakDownLogVo>> query(Map<String, Object> params) {
         BuguPageQuery<BreakDownLog> query = breakDownLogDao.pageQuery();
         String deviceName = (String) params.get(DEVICE_NAME);
         if (!StringUtils.isEmpty(deviceName)) {
@@ -91,6 +92,7 @@ public class BreakDownLogService {
             log.error("告警日志查询失败:{}", e);
             return ResHelper.pamIll();
         }
+        SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
         List<EssStation> essStationList = essStationService.getEssStationList(user.getStationList());
         if (propertiesConfig.verify(params)) {
             String province = (String) params.get(PROVINCE);
@@ -197,7 +199,7 @@ public class BreakDownLogService {
         }
     }
 
-    public void exportBreakDownlog(String time, String province, String city, Boolean status, OutputStream outputStream, SysUser user, String deviceName) throws ParseException {
+    public void exportBreakDownlog(String time, String province, String city, Boolean status, OutputStream outputStream, String deviceName) throws ParseException {
         Date startTime = null;
         Date endTime = null;
         if (StringUtils.isEmpty(time)) {
@@ -219,6 +221,7 @@ public class BreakDownLogService {
         if (!StringUtils.isEmpty(city)) {
             deviceBuguQuery.is("city", city);
         }
+        SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
         if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
             List<String> essStationServiceDeviceNames = essStationService.getDeviceNames(user.getStationList());
             if(!CollectionUtils.isEmpty(essStationServiceDeviceNames) && !essStationServiceDeviceNames.isEmpty()){

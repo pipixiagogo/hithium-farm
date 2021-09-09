@@ -19,11 +19,10 @@ public class UpdateUserBo {
 
     @ApiModelProperty(name = "userName", value = "用户名称")
     private String userName;
-
-    @ApiModelProperty(name = "email", required = true, example = " ", value = "用户邮箱")
-    private String email;
     @NotBlank(message="邮箱不能为空", groups = { UpdateGroup.class, AddGroup.class})
     @Email(message="邮箱格式不正确", groups = { UpdateGroup.class,AddGroup.class})
+    @ApiModelProperty(name = "email", required = true, example = " ", value = "用户邮箱")
+    private String email;
     @ApiModelProperty(name = "mobile", required = true, example = " ", value = "手机号")
     private String mobile;
 

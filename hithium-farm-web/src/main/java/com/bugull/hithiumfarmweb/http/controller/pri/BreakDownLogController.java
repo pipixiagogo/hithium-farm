@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.controller.pri;
 
 import com.alibaba.fastjson.JSON;
+import com.bugull.hithiumfarmweb.annotation.SysLog;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.http.service.BreakDownLogService;
 import com.bugull.hithiumfarmweb.http.vo.BreakDownLogVo;
@@ -50,11 +51,12 @@ public class BreakDownLogController extends AbstractController {
             @ApiImplicitParam(name = "city", value = "市区", required = false, paramType = "query", dataType = "String", dataTypeClass = String.class)
     })
     public ResHelper<BuguPageQuery.Page<BreakDownLogVo>> queryBreakDownlog(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return breakDownLogService.query(params,getUser());
+        return breakDownLogService.query(params);
     }
+    @SysLog("告警日志导出")
     @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "告警日志导出")
-    @GetMapping(value = "/exportBreakDwonlog")
+    @RequestMapping(value = "/exportBreakDwonlog",method = {RequestMethod.GET,RequestMethod.POST})
     @ApiImplicitParams({@ApiImplicitParam(name = "time", required = false, paramType = "query", value = "时间日期"),
             @ApiImplicitParam(name = "fileName", required = false, paramType = "query", value = "文件名称"),
             @ApiImplicitParam(name = "province", value = "省份", required = false, paramType = "query", dataType = "String", dataTypeClass = String.class),
@@ -82,7 +84,7 @@ public class BreakDownLogController extends AbstractController {
             response.setCharacterEncoding("utf-8");
             fileName = URLEncoder.encode(fileName, "UTF-8").replaceAll("\\+", "%20");
             response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
-            breakDownLogService.exportBreakDownlog(time,province,city,status,outputStream,getUser(),deviceName );
+            breakDownLogService.exportBreakDownlog(time,province,city,status,outputStream,deviceName );
         } catch (Exception e) {
             response.reset();
             response.setStatus(HttpStatus.NOT_ACCEPTABLE.value());

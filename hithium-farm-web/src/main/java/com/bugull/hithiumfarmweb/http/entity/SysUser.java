@@ -19,6 +19,7 @@ import java.util.List;
 @ToString
 @ApiModel
 @Entity
+@EnsureIndex("{userName:1}")
 public class SysUser implements BuguEntity {
 
     @ApiModelProperty(hidden = true)

@@ -15,6 +15,7 @@ import com.bugull.mongo.BuguAggregation;
 import com.bugull.mongo.BuguQuery;
 import com.bugull.mongo.utils.MapperUtil;
 import com.mongodb.DBObject;
+import org.apache.shiro.SecurityUtils;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,8 +61,9 @@ public class DeviceService {
 
     private static final Logger log = LoggerFactory.getLogger(DeviceService.class);
 
-    public ResHelper<List<ProvinceVo>> aggrationArea(SysUser user) {
+    public ResHelper<List<ProvinceVo>> aggrationArea() {
         BuguAggregation<Device> aggregate = deviceDao.aggregate();
+        SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
@@ -302,7 +304,7 @@ public class DeviceService {
     }
 
 
-    public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> deviceAreaList(Map<String, Object> params, SysUser user) {
+    public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> deviceAreaList(Map<String, Object> params) {
         if (propertiesConfig.verify(params)) {
             BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
             if (!queryOfParams(deviceBuguPageQuery, params)) {
@@ -316,6 +318,7 @@ public class DeviceService {
             if (!StringUtils.isEmpty(city)) {
                 deviceBuguPageQuery.is("city", city);
             }
+            SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
             if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
                 List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
                 if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
@@ -407,11 +410,12 @@ public class DeviceService {
         return true;
     }
 
-    public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDevicesByPage(Map<String, Object> params, SysUser user) {
+    public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDevicesByPage(Map<String, Object> params) {
         BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
         if (!queryOfParams(deviceBuguPageQuery, params)) {
             return ResHelper.pamIll();
         }
+        SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
         if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
             List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
@@ -433,9 +437,10 @@ public class DeviceService {
         return ResHelper.success("");
     }
 
-    public ResHelper<Void> modifyDeviceInfo(ModifyDeviceBo modifyDeviceBo, SysUser user) {
+    public ResHelper<Void> modifyDeviceInfo(ModifyDeviceBo modifyDeviceBo) {
         List<TimeOfPriceBo> priceOfTime = modifyDeviceBo.getPriceOfTime();
         if (!priceOfTime.isEmpty()) {
+            SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
             List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
 
             String[] arrayDeviceNames = modifyDeviceBo.getDeviceNames().split(",");
@@ -613,8 +618,10 @@ public class DeviceService {
     private void getDeviceDayIncome(DeviceInfoVo deviceInfoVo) {
         String dateToStr = DateUtils.dateToStr(new Date());
         IncomeEntity incomeEntity = incomeEntityDao.query().is("deviceName", deviceInfoVo.getDeviceName()).is("incomeOfDay", dateToStr).result();
-        BigDecimal incomeBigDecimal = incomeEntity.getIncome().setScale(4, BigDecimal.ROUND_HALF_UP);
-        deviceInfoVo.setDayDeviceIncome(incomeBigDecimal.toString());
+        if(incomeEntity != null){
+            BigDecimal incomeBigDecimal = incomeEntity.getIncome().setScale(4, BigDecimal.ROUND_HALF_UP);
+            deviceInfoVo.setDayDeviceIncome(incomeBigDecimal.toString());
+        }
     }
 
     private void getPcsDataMsg(DeviceInfoVo deviceInfoVo) {

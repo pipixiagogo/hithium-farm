@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 
 @Entity
 @Data
-@EnsureIndex("{deviceName:1}")
+@EnsureIndex("{deviceName:1,incomeOfDay:1}")
 public class IncomeEntity extends SimpleEntity {
 
 

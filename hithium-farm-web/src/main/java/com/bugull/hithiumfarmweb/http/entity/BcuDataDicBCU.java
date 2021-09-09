@@ -15,7 +15,7 @@ import java.util.Date;
 
 @Data
 @Entity
-@EnsureIndex("{deviceName:1,equipmentId:1},{generationDataTime:-1}")
+@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1}")
 public class BcuDataDicBCU implements BuguEntity {
     @ExcelIgnore
     @Id

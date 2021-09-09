@@ -1,6 +1,8 @@
 package com.bugull.hithiumfarmweb.annotation.aspect;
 
 import com.bugull.hithiumfarmweb.annotation.SysLog;
+import com.bugull.hithiumfarmweb.http.dao.DeviceDao;
+import com.bugull.hithiumfarmweb.http.entity.Device;
 import com.bugull.hithiumfarmweb.http.entity.OperationLog;
 import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import com.bugull.hithiumfarmweb.http.service.OperationLogService;
@@ -14,20 +16,33 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.annotation.Pointcut;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static com.bugull.hithiumfarmweb.common.Const.DEVICE_NAME;
+import static com.bugull.hithiumfarmweb.common.Const.EXCEL_METHOD;
 
 @Aspect
 @Component
 public class SysLogAspect {
     @Resource
     private OperationLogService operationLogService;
+    @Resource
+    private DeviceDao deviceDao;
+
+    private static final Logger log= LoggerFactory.getLogger(SysLogAspect.class);
 
     @Pointcut("@annotation(com.bugull.hithiumfarmweb.annotation.SysLog)")
     public void logPointCut() {
@@ -63,18 +78,29 @@ public class SysLogAspect {
         operationLog.setMethod(className + "." + methodName + "()");
 //		//请求的参数
         Object[] args = joinPoint.getArgs();
+        String params = "";
         try {
-            String params = new Gson().toJson(args);
+            if (!StringUtils.isEmpty(operationLog.getOperation()) && operationLog.getOperation().contains("导出")) {
+                List<Object> collect = Arrays.stream(args).skip(2).collect(Collectors.toList());
+                if(operationLog.getOperation().equals(EXCEL_METHOD)){
+                    Device device = deviceDao.query().is(DEVICE_NAME, collect.get(0)).result();
+                    operationLog.setOperation("导出设备:" + device.getName() +",时间"+  collect.get(1) + "的" +  collect.get(2) + "数据");
+                }
+                params = new Gson().toJson(collect);
+            } else {
+                params = new Gson().toJson(args);
+            }
             operationLog.setParams(params);
         } catch (Exception e) {
-
+            log.error("AOP转换字符串错误:{}",e.getMessage());
         }
         //获取request
         HttpServletRequest request = HttpContextUtils.getHttpServletRequest();
         //设置IP地址
         operationLog.setIp(IPUtils.getIpAddr(request));
         //用户名
-        String username = ((SysUser) SecurityUtils.getSubject().getPrincipal()).getUserName();
+        SysUser sysUser = (SysUser) SecurityUtils.getSubject().getPrincipal();
+        String username = sysUser.getUserName();
         operationLog.setUsername(username);
         operationLog.setTime(time);
         operationLog.setCreateDate(new Date());

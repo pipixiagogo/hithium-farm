@@ -51,7 +51,6 @@ public class EssStationController extends AbstractController {
         return essStationService.updateStation(essStationBo);
     }
 
-    @SysLog(value = "查询电站信息")
     @GetMapping(value = "/selectStation")
     @ApiOperation(value = "查询电站信息", httpMethod = "GET", response = ResHelper.class)
     @ApiImplicitParams({
@@ -59,7 +58,7 @@ public class EssStationController extends AbstractController {
             @ApiImplicitParam(example = "10", name = "pageSize", value = "每页记录数", paramType = "query", required = true, dataType = "int", dataTypeClass = Integer.class),
             @ApiImplicitParam(name = "stationName", required = false, paramType = "query", value = "电站名称", dataType = "String", dataTypeClass = String.class)})
     public ResHelper<BuguPageQuery.Page<EssStationVo>> selectStation(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return essStationService.selectStation(params, getUser());
+        return essStationService.selectStation(params,getUser());
     }
 
     /**

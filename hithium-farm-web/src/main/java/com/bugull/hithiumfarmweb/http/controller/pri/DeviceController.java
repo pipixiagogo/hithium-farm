@@ -1,5 +1,6 @@
 package com.bugull.hithiumfarmweb.http.controller.pri;
 
+import com.bugull.hithiumfarmweb.annotation.SysLog;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.common.validator.ValidatorUtils;
 import com.bugull.hithiumfarmweb.common.validator.group.AddGroup;
@@ -80,7 +81,7 @@ public class DeviceController extends AbstractController {
     @GetMapping(value = "/aggrationArea")
     @ApiOperation(value = "统计设备定位信息 地区+数量", httpMethod = "GET", response = ResHelper.class)
     public ResHelper<List<ProvinceVo>> aggrationArea() {
-        return deviceService.aggrationArea(getUser());
+        return deviceService.aggrationArea();
     }
 
     @GetMapping(value = "/detailArea")
@@ -116,7 +117,7 @@ public class DeviceController extends AbstractController {
             @ApiImplicitParam(name = "name", required = false, paramType = "query", value = "设备名称", dataType = "String", dataTypeClass = String.class)
     })
     public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDeivcesByPage(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return deviceService.queryDevicesByPage(params, getUser());
+        return deviceService.queryDevicesByPage(params);
     }
     @RequiresPermissions(value = "sys:user")
     @GetMapping(value = "/queryDeviceWithoutBindByPage")
@@ -141,13 +142,14 @@ public class DeviceController extends AbstractController {
             @ApiImplicitParam(name = "city", value = "市区", paramType = "query", required = false, dataTypeClass = String.class, dataType = "string")
     })
     public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> deviceAreaList(@ApiIgnore @RequestParam Map<String, Object> params) {
-        return deviceService.deviceAreaList(params, getUser());
+        return deviceService.deviceAreaList(params);
     }
 
     /**
      * @param modifyDeviceBo
      * @return
      */
+    @SysLog("设置设备时间段电量单价")
     @RequiresPermissions(value = "sys:user")
     @PostMapping(value = "/modifyDeviceInfo")
     @ApiOperation(value = "设置设备时间段电量单价", httpMethod = "POST")
@@ -155,7 +157,7 @@ public class DeviceController extends AbstractController {
     public ResHelper<Void> modifyDeviceInfo(@RequestBody ModifyDeviceBo modifyDeviceBo) {
         if (modifyDeviceBo != null) {
             if (!StringUtils.isEmpty(modifyDeviceBo.getDeviceNames())) {
-                return deviceService.modifyDeviceInfo(modifyDeviceBo, getUser());
+                return deviceService.modifyDeviceInfo(modifyDeviceBo);
             }
         }
         return ResHelper.pamIll();
@@ -210,6 +212,7 @@ public class DeviceController extends AbstractController {
      * @param modifyDevicePowerBo
      * @return
      */
+    @SysLog("设置设备时间段功率")
     @RequiresPermissions(value = "sys:user")
     @PostMapping(value = "/modifyDevicePowerInfo")
     @ApiOperation(value = "设置设备时间段功率", httpMethod = "POST")
@@ -233,6 +236,7 @@ public class DeviceController extends AbstractController {
         return ResHelper.pamIll();
     }
 
+    @SysLog("修改设备图片信息")
     @PostMapping(value = "/saveDeviceImg")
     @ApiOperation(value = "修改设备图片信息", httpMethod = "POST")
     @ApiImplicitParam(name = "deviceImgBo", value = "修改设备图片信息", required = true, paramType = "body", dataTypeClass = DeviceImgBo.class, dataType = "DeviceImgBo")

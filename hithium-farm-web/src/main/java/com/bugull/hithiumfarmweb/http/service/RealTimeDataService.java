@@ -625,6 +625,7 @@ public class RealTimeDataService {
             }
             return dbObject;
         }
+
         return null;
     }
 

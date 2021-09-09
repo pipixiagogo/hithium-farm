@@ -124,9 +124,12 @@ public class HithiumFarmWebApplicationTests {
 
     @Test
     public void testFileExist(){
-        BigDecimal bigDecimal  = new BigDecimal("0");
-        BigDecimal bigDecimal1 = new BigDecimal("0");
-        System.out.println(bigDecimal1.compareTo(bigDecimal));
+        String value="[\"clld3w7tdxjhvuhf6gzn60whffuy0hyj\",\"2021-08-31\",\"电池堆数据\",0]";
+        String s = value.replaceAll("\"", "").replaceAll("\\]","").replaceAll("\\[","");
+        System.out.println(s);
+//        BigDecimal bigDecimal  = new BigDecimal("0");
+//        BigDecimal bigDecimal1 = new BigDecimal("0");
+//        System.out.println(bigDecimal1.compareTo(bigDecimal));
 //        File file = new File("D://d92b934a1b474ca8975de89fa748225.jpg");
 //        System.out.println(file.exists());
 //        file.deleteOnExit();

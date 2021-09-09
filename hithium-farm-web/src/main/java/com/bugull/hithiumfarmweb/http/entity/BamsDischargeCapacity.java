@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.entity;
 
 import com.bugull.mongo.SimpleEntity;
+import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import lombok.Data;
 
@@ -9,6 +10,7 @@ import java.util.Date;
 
 @Data
 @Entity
+@EnsureIndex("{deviceName:1},{generationDataTime:-1}")
 public class BamsDischargeCapacity extends SimpleEntity {
     private String deviceName;
 

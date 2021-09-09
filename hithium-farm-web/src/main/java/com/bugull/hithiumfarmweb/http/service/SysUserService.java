@@ -331,6 +331,7 @@ public class SysUserService {
         }
         //sha256加密
         String password = new Sha256Hash(passwordForm.getPassword(), sysUser.getSalt()).toHex();
+        passwordForm.setPassword(password);
         //sha256加密
         SysUser userName = sysUserDao.query().is("userName", sysUser.getUserName()).result();
         if (userName != null && sysUser.getPassword().equals(password)) {
@@ -343,7 +344,8 @@ public class SysUserService {
              * 修改密码加修改盐
              */
             String salt = RandomStringUtils.randomAlphanumeric(20);
-            sysUserDao.update().set("password", new Sha256Hash(passwordForm.getNewPassword(), salt).toHex())
+            passwordForm.setNewPassword(new Sha256Hash(passwordForm.getNewPassword(), salt).toHex());
+            sysUserDao.update().set("password", passwordForm.getNewPassword())
                     .set("salt", salt)
                     .set("token", TokenGenerator.generateValue())
                     .set("tokenExpireTime", expireTime)

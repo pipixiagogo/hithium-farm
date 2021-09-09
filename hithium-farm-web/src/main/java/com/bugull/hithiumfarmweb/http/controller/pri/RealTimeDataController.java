@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.controller.pri;
 
 import com.alibaba.fastjson.JSON;
+import com.bugull.hithiumfarmweb.annotation.SysLog;
 import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.common.exception.ExcelExportWithoutDataException;
 import com.bugull.hithiumfarmweb.common.exception.ParamsValidateException;
@@ -316,6 +317,7 @@ public class RealTimeDataController extends AbstractController {
         return ResHelper.pamIll();
     }
 
+    @SysLog("Excel导出数据")
     @RequiresPermissions(value = "sys:device")
     @ApiOperation(value = "导出电池相关数据 默认为当天数据内容   可选时间 只能为一天的数据")
     @RequestMapping(value = "/exportBamsData", method = {RequestMethod.GET, RequestMethod.POST})
