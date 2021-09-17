@@ -10,7 +10,7 @@ import java.util.Date;
 
 @Data
 @Entity
-@EnsureIndex("{generationDataTime:1}")
+@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1},{deviceName:1,generationDataTime:-1}")
 public class BamsDataDicBA extends SimpleEntity {
    
     private String deviceName;

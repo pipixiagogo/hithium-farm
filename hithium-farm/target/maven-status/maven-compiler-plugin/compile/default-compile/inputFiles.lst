@@ -5,7 +5,9 @@ D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\da
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\integration\service\UnknowService.java
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\dao\AmmeterDataDicDao.java
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\entity\Cabin.java
+D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\entity\BamsDischargeCapacity.java
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\dao\UpsPowerDataDicDao.java
+D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\dao\BamsDischargeCapacityDao.java
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\dao\PccsDao.java
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\core\dao\EquipmentDao.java
 D:\zhouh\demo\hithium-farm\hithium-farm\src\main\java\com\bugull\hithium\integration\trans\MessageTransformer.java

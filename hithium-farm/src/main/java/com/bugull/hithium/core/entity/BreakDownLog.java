@@ -14,7 +14,7 @@ import java.util.Date;
  */
 @Data
 @Entity
-@EnsureIndex("{deviceName:1}")
+@EnsureIndex("{deviceName:1},{generationDataTime:1}")
 public class BreakDownLog extends SimpleEntity {
     private String deviceName;
     //设备ID

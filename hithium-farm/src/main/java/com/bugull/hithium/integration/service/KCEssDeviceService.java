@@ -108,12 +108,15 @@ public class KCEssDeviceService {
         DataType dataType = jMessage.getDataType();
         try {
             switch (dataType) {
+                //处理设备列表信息
                 case DEVICE_LIST_DATA:
                     handleDeviceInfo(jMessage);
                     break;
+                //处理设备告警信息
                 case BREAKDOWNLOG_DATA:
                     handleBreakDownLog(jMessage);
                     break;
+                //处理设备实时数据
                 case REAL_TIME_DATA:
                     handleRealTimeData(jMessage);
                     break;
@@ -171,40 +174,40 @@ public class KCEssDeviceService {
         }
     }
 
-    private void parseSaveData(Map.Entry<String, Object> entry, JSONObject jsonObject, Equipment device) {
+    private void parseSaveData(Map.Entry<String, Object> entry, JSONObject jsonObject, Equipment equipment) {
         switch (entry.getKey()) {
             case Const.REAL_TIME_DATATYPE_AMMETER:
-                handleAmmeterData(jsonObject, entry, device);
+                handleAmmeterData(jsonObject, entry, equipment);
                 break;
             case REAL_TIME_DATATYPE_BAMS:
-                handleBamsData(jsonObject, entry, device);
+                handleBamsData(jsonObject, entry, equipment);
                 break;
             case REAL_TIME_DATATYPE_BMSCELLTEMP:
-                handleBmsCellTempData(jsonObject, entry, device);
+                handleBmsCellTempData(jsonObject, entry, equipment);
                 break;
             case REAL_TIME_DATATYPE_BMSCELLVOLT:
-                handleBmsCellVolData(jsonObject, entry, device);
+                handleBmsCellVolData(jsonObject, entry, equipment);
                 break;
             case REAL_TIME_DATATYPE_BCU:
-                handleBcuData(jsonObject, entry, device);
+                handleBcuData(jsonObject, entry, equipment);
                 break;
             case REAL_TIME_DATATYPE_PCSCABINET:
-                handlePcsData(jsonObject, entry, device);
+                handlePcsData(jsonObject, entry, equipment);
                 break;
             case REAL_TIME_DATATYPE_PCSCHANNEL:
-                handlePcsChannelData(jsonObject, entry, device);
+                handlePcsChannelData(jsonObject, entry, equipment);
                 break;
             case REAL_TIME_DATATYPE_AIRCONDITION:
-                handleAirConditionData(jsonObject, entry, device);
+                handleAirConditionData(jsonObject, entry, equipment);
                 break;
             case REAL_TIME_DATATYPE_TEMPERATUREMETER:
-                handleTemperatureData(jsonObject, entry, device);
+                handleTemperatureData(jsonObject, entry, equipment);
                 break;
             case REAL_TIME_DATATYPE_FIRECONTROLDATA:
-                handleFireControlData(jsonObject, entry, device);
+                handleFireControlData(jsonObject, entry, equipment);
                 break;
             case REAL_TIME_DATATYPE_UPSPOWERDATA:
-                handleUpsPowerData(jsonObject, entry, device);
+                handleUpsPowerData(jsonObject, entry, equipment);
                 break;
             default:
                 log.error("无效数据");
@@ -214,6 +217,10 @@ public class KCEssDeviceService {
     private void handleFireControlData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         FireControlDataDic fireControlDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
         if (fireControlDataDic != null) {
+            if (fireControlDataDic.getEquipChannelStatus() == 1) {
+                log.info("消防主机前置机连接通道异常 数据无效丢弃 设备编码:{},设备名称:{}", equipment.getDeviceName(), equipment.getName());
+                return;
+            }
             fireControlDataDic.setName(equipment.getName());
             fireControlDataDic.setDeviceName(equipment.getDeviceName());
             fireControlDataDic.setGenerationDataTime(strToDate(fireControlDataDic.getTime()));
@@ -224,6 +231,10 @@ public class KCEssDeviceService {
     private void handleAirConditionData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         AirConditionDataDic airConditionDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
         if (airConditionDataDic != null) {
+            if (airConditionDataDic.getEquipChannelStatus() == 1) {
+                log.info("空调数据前置机连接异常 数据无效丢弃 设备编码:{},设备名称:{}", equipment.getDeviceName(), equipment.getName());
+                return;
+            }
             airConditionDataDic.setName(equipment.getName());
             airConditionDataDic.setDeviceName(equipment.getDeviceName());
             airConditionDataDic.setGenerationDataTime(strToDate(airConditionDataDic.getTime()));
@@ -234,6 +245,10 @@ public class KCEssDeviceService {
     private void handleBcuData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         BcuDataDicBCU bcuDataDicBCU = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
         if (bcuDataDicBCU != null) {
+            if (bcuDataDicBCU.getEquipChannelStatus() == 1) {
+                log.info("BCU数据 前置机连接通道异常 数据无效 丢弃 设备编码:{},设备名称:{}", equipment.getDeviceName(), equipment.getName());
+                return;
+            }
             bcuDataDicBCU.setName(equipment.getName());
             bcuDataDicBCU.setDeviceName(equipment.getDeviceName());
             bcuDataDicBCU.setGenerationDataTime(strToDate(bcuDataDicBCU.getTime()));
@@ -247,6 +262,10 @@ public class KCEssDeviceService {
          * TODO 实时计算单台设备收益--->充放电量*时间段单价
          */
         if (ammeterDataDic != null) {
+            if (ammeterDataDic.getEquipChannelStatus() == 1) {
+                log.info("电表数据前置机连接通道异常 数据无效 丢弃 设备编码:{},设备名称:{}", equipment.getDeviceName(), equipment.getName());
+                return;
+            }
             ammeterDataDic.setDeviceName(equipment.getDeviceName());
             ammeterDataDic.setName(equipment.getName());
             ammeterDataDic.setGenerationDataTime(strToDate(ammeterDataDic.getTime()));
@@ -256,11 +275,16 @@ public class KCEssDeviceService {
     }
 
     private void saveAndCountIncome(Equipment equipment, AmmeterDataDic ammeterDataDic) {
+        if (equipment.getEquipmentId() != 4 && propertiesConfig.getProductionDeviceNameList().contains(equipment.getDeviceName())) {
+            log.info("设备{}上报 电表ID{}数据 不计算收益", equipment.getDeviceName(), equipment.getEquipmentId());
+            return;
+        }
         Device device = deviceDao.query().is("deviceName", equipment.getDeviceName()).result();
         //TODO 削峰填谷时候计算收益
         if (device.getApplicationScenarios() == 4) {
             return;
         }
+
         if (device != null) {
             List<TimeOfPriceBo> priceOfTime = device.getPriceOfTime();
             if (!CollectionUtils.isEmpty(priceOfTime) && priceOfTime.size() > 0) {
@@ -423,6 +447,10 @@ public class KCEssDeviceService {
     private void handleTemperatureData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         TemperatureMeterDataDic temperatureMeterDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
         if (temperatureMeterDataDic != null) {
+            if (temperatureMeterDataDic.getEquipChannelStatus() == 1) {
+                log.info("动环系统数据前置机连接通道异常 数据无效丢弃 设备编码:{},设备名称:{}", equipment.getDeviceName(), equipment.getName());
+                return;
+            }
             temperatureMeterDataDic.setName(equipment.getName());
             temperatureMeterDataDic.setDeviceName(equipment.getDeviceName());
             temperatureMeterDataDic.setGenerationDataTime(strToDate(temperatureMeterDataDic.getTime()));
@@ -433,6 +461,10 @@ public class KCEssDeviceService {
     private void handleBmsCellVolData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         BmsCellVoltDataDic bmsCellVoltDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
         if (bmsCellVoltDataDic != null) {
+            if (bmsCellVoltDataDic.getEquipChannelStatus() == 1) {
+                log.info("单体电压数据 前置机连接通道异常 数据无效 丢弃 设备编码:{},设备名称:{}", equipment.getDeviceName(), equipment.getName());
+                return;
+            }
             bmsCellVoltDataDic.setName(equipment.getName());
             bmsCellVoltDataDic.setDeviceName(equipment.getDeviceName());
             bmsCellVoltDataDic.setVolMap(getListOfTempAndVol(jsonObject, "Vol"));
@@ -445,6 +477,10 @@ public class KCEssDeviceService {
         BamsDataDicBA bamsDataDicBA = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
         Device device = deviceDao.query().is("deviceName", equipment.getDeviceName()).result();
         if (bamsDataDicBA != null && device != null) {
+            if (bamsDataDicBA.getEquipChannelStatus() == 1) {
+                log.info("BAMS数据前置机连接通道异常 数据无效 丢弃 设备编码:{},设备名称:{}", equipment.getDeviceName(), equipment.getName());
+                return;
+            }
             bamsDataDicBA.setDeviceName(equipment.getDeviceName());
             bamsDataDicBA.setName(equipment.getName());
             bamsDataDicBA.setGenerationDataTime(strToDate(bamsDataDicBA.getTime()));
@@ -500,6 +536,10 @@ public class KCEssDeviceService {
                 BigDecimal chargeCapacitySumNew = new BigDecimal(chargeCapacitySum);
                 BigDecimal chargeCapacitySubtractResult = chargeCapacitySumNew.subtract(chargeCapacitySumOld);
                 bamsDischargeCapacity.setChargeCapacitySubtract(chargeCapacitySubtractResult);
+                if (bamsDischargeCapacity.getDischargeCapacitySubtract().compareTo(new BigDecimal("0")) == 0 &&
+                        bamsDischargeCapacity.getChargeCapacitySubtract().compareTo(new BigDecimal("0")) == 0) {
+                    return;
+                }
                 bamsDischargeCapacityDao.insert(bamsDischargeCapacity);
             } else {
                 /**
@@ -507,6 +547,10 @@ public class KCEssDeviceService {
                  */
                 bamsDischargeCapacity.setDischargeCapacitySubtract(new BigDecimal(dischargeCapacitySum));
                 bamsDischargeCapacity.setChargeCapacitySubtract(new BigDecimal(chargeCapacitySum));
+                if (bamsDischargeCapacity.getDischargeCapacitySubtract().compareTo(new BigDecimal("0")) == 0 &&
+                        bamsDischargeCapacity.getChargeCapacitySubtract().compareTo(new BigDecimal("0")) == 0) {
+                    return;
+                }
                 bamsDischargeCapacityDao.insert(bamsDischargeCapacity);
             }
         }
@@ -523,6 +567,10 @@ public class KCEssDeviceService {
     private void handleBmsCellTempData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         BmsCellTempDataDic tempDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
         if (tempDataDic != null) {
+            if (tempDataDic.getEquipChannelStatus() == 1) {
+                log.info("单体温度数据前置机连接通道异常 数据无效 丢弃 设备编码:{},设备名称:{}", equipment.getDeviceName(), equipment.getName());
+                return;
+            }
             tempDataDic.setName(equipment.getName());
             tempDataDic.setDeviceName(equipment.getDeviceName());
             tempDataDic.setTempMap(getListOfTempAndVol(jsonObject, "Temp"));
@@ -534,6 +582,10 @@ public class KCEssDeviceService {
     private void handlePcsChannelData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         PcsChannelDic pcsChannelDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
         if (pcsChannelDic != null) {
+            if (pcsChannelDic.getEquipChannelStatus() == 1) {
+                log.info("PCS通道数据前置机连接通道异常 数据无效 丢弃 设备编码:{},设备名称:{}", equipment.getDeviceName(), equipment.getName());
+                return;
+            }
             pcsChannelDic.setName(equipment.getName());
             pcsChannelDic.setDeviceName(equipment.getDeviceName());
             pcsChannelDic.setGenerationDataTime(strToDate(pcsChannelDic.getTime()));
@@ -544,6 +596,10 @@ public class KCEssDeviceService {
     private void handlePcsData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         PcsCabinetDic pcsCabinetDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
         if (pcsCabinetDic != null) {
+            if (pcsCabinetDic.getEquipChannelStatus() == 1) {
+                log.info("PCS主机数据 前置机连接通道异常 数据无效丢弃 设备编码:{},设备名称:{}", equipment.getDeviceName(), equipment.getName());
+                return;
+            }
             pcsCabinetDic.setName(equipment.getName());
             pcsCabinetDic.setGenerationDataTime(strToDate(pcsCabinetDic.getTime()));
             pcsCabinetDic.setDeviceName(equipment.getDeviceName());
@@ -554,6 +610,10 @@ public class KCEssDeviceService {
     private void handleUpsPowerData(JSONObject jsonObject, Map.Entry<String, Object> entry, Equipment equipment) {
         UpsPowerDataDic upsPowerDataDic = JSON.parseObject(jsonObject.toString(), (Type) entry.getValue());
         if (upsPowerDataDic != null) {
+            if (upsPowerDataDic.getEquipChannelStatus() == 1) {
+                log.info("UPS数据前置机连接通道异常 数据无效丢弃,设备编码:{},设备名称:{}", equipment.getDeviceName(), equipment.getName());
+                return;
+            }
             upsPowerDataDic.setName(equipment.getName());
             upsPowerDataDic.setDeviceName(equipment.getDeviceName());
             upsPowerDataDic.setGenerationDataTime(strToDate(upsPowerDataDic.getTime()));
@@ -851,8 +911,7 @@ public class KCEssDeviceService {
         }
     }
 
-    private void pccsMsgHanlder(String
-                                        deviceName, List<Equipment> equipmentDbList, List<DeviceStationsInfo> deviceStationsInfos, List<PccsInfo> pccsInfos) {
+    private void pccsMsgHanlder(String deviceName, List<Equipment> equipmentDbList, List<DeviceStationsInfo> deviceStationsInfos, List<PccsInfo> pccsInfos) {
         /**
          * 设备信息处理
          */
@@ -861,12 +920,10 @@ public class KCEssDeviceService {
         BeanUtils.copyProperties(deviceStationsInfo, device, Const.IGNORE_ID);
         device.setStationId(deviceStationsInfo.getId());
         device.setDeviceName(deviceName);
-
         Map<Integer, List<String>> stationEquipmentIds = equipmentDbList.stream().filter(equipment ->
                 equipment.getCabinId() == null && equipment.getCubeId() == null
                         && equipment.getPccId() == null && equipment.getStationId() != null).collect(Collectors.groupingBy(Equipment::getStationId, Collectors.mapping(Equipment::getId, Collectors.toList())));
         device.setEquipmentIds(stationEquipmentIds.get(device.getStationId()));
-
         Map<Integer, List<String>> pccEquipmentIds = equipmentDbList.stream().filter(equipment -> equipment.getCabinId() == null && equipment.getCubeId() == null
                 && equipment.getPccId() != null && equipment.getStationId() == null).collect(Collectors.groupingBy(Equipment::getPccId, Collectors.mapping(Equipment::getId, Collectors.toList())));
         List<Pccs> pccsList = pccsInfos.stream().map(pccsInfo -> {

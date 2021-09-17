@@ -3,6 +3,7 @@ com\bugull\hithium\core\util\Md5.class
 com\bugull\hithium\integration\service\KCEssDeviceService.class
 com\bugull\hithium\core\enumerate\ProjectType.class
 com\bugull\hithium\integration\util\redis\RedisPoolUtil.class
+com\bugull\hithium\core\dao\BamsDischargeCapacityDao.class
 com\bugull\hithium\core\dao\AirConditionDataDicDao.class
 com\bugull\hithium\core\util\PlusArrayUtils.class
 com\bugull\hithium\core\dao\IncomeEntityDao.class
@@ -13,6 +14,7 @@ com\bugull\hithium\core\dao\DeviceDao.class
 com\bugull\hithium\integration\service\UnknowService.class
 META-INF\spring-configuration-metadata.json
 com\bugull\hithium\core\dao\CubeDao.class
+com\bugull\hithium\core\entity\BamsDischargeCapacity.class
 com\bugull\hithium\core\util\ByteUtil.class
 com\bugull\hithium\core\dao\PcsCabinetDicDao.class
 com\bugull\hithium\core\enumerate\DataType.class

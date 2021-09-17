@@ -54,8 +54,11 @@ public class MqttService {
     @Bean
     public IntegrationFlow mqttInFlow() {
         return IntegrationFlows.from(mqttInbound())
+                //接收数据处理管道
                 .channel(c -> c.executor(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2 + 1, new CustomThreadFactory(TAKE_MAIN_TASK))))
+                //消息处理转换
                 .handle(MessageTransformer::mqttMessage2JMessage)
+                //路由转换至对应处理扩机
                 .<JMessage, ProjectType>route(JMessage::getProjectType,
                         mapping -> mapping
                                 .subFlowMapping(ProjectType.KE_ESS, kcEssDeviceSubFlow())
@@ -85,7 +88,7 @@ public class MqttService {
         messageHandler.setAsync(true);
         return messageHandler;
     }
-
+    //注册对应处理业务逻辑
     IntegrationFlow kcEssDeviceSubFlow() {
         return flow -> flow.handle("kCEssDeviceService", "handle");
     }

@@ -83,6 +83,12 @@ public class PropertiesConfig {
     private boolean redisCacheSwitch;
     @Value("${send.to.kafka}")
     private boolean sendToKafka;
+    @Value("#{'${production.equipment.devicename:}'.empty ? null : '${production.equipment.devicename:}'.split(',')}")
+    private List<String> productionDeviceNameList;   //判断空 null
+
+    public List<String> getProductionDeviceNameList() {
+        return productionDeviceNameList;
+    }
 
     public boolean isSendToKafka() {
         return sendToKafka;

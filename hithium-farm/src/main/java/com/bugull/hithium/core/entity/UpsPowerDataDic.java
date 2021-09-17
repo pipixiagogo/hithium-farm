@@ -1,6 +1,7 @@
 package com.bugull.hithium.core.entity;
 
 import com.bugull.mongo.SimpleEntity;
+import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
@@ -13,6 +14,7 @@ import java.util.Date;
  */
 @Data
 @Entity
+@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1}")
 public class UpsPowerDataDic extends SimpleEntity {
 
     private String deviceName;
@@ -21,7 +23,6 @@ public class UpsPowerDataDic extends SimpleEntity {
      * EquipmentId	int	设备名称
      * EquipChannelStatus	int	前置机连接的设备的通道状态	"0-正常，1-异常
      * 默认值异常
-     * "
      * PhaseRvoltage	String	R相市电电压	精度0.1V
      * PhaseSvoltage	String	S相市电电压	精度0.1V
      * PhaseTvoltage	String	T相市电电压	精度0.1V

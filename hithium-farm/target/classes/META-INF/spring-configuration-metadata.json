@@ -4,5 +4,9 @@
     "type": "com.bugull.hithium.core.util.PropertiesConfig",
     "sourceType": "com.bugull.hithium.core.util.PropertiesConfig"
   }],
-  "properties": []
+  "properties": [{
+    "name": "production-device-name-list",
+    "type": "java.util.List<java.lang.String>",
+    "sourceType": "com.bugull.hithium.core.util.PropertiesConfig"
+  }]
 }
