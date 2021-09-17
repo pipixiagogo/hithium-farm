@@ -77,6 +77,7 @@ public class EssStationController extends AbstractController {
                 return ResHelper.error(NO_QUERY_PERMISSION);
             }
         }
+
         return ResHelper.success("", essStationService.infoStationById(stationId));
     }
 

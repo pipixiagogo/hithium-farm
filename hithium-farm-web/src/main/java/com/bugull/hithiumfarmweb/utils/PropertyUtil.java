@@ -19,7 +19,7 @@ public class PropertyUtil {
     private static final Properties PROPERTIES = new Properties();
 
 //    static {
-//        String configFile = System.getProperty("configFile");
+//        String configFile =.getProperty("configFile");
 //        configFile = StringUtils.isEmpty(configFile) ? CONFIG : configFile;
 //        Resource resource = resourceLoader.getResource(configFile);
 //        try (InputStream is = resource.getInputStream()) {

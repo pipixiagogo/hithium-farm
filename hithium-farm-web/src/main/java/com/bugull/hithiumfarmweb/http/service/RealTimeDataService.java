@@ -292,10 +292,7 @@ public class RealTimeDataService {
                 }
             }
         }
-        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-            query.in(DEVICE_NAME, deviceNames);
-        }
-        query.sortDesc("_id");
+        query.sort("{generationDataTime:-1}");
         BuguPageQuery.Page<TemperatureMeterDataDic> temperatureMeterDataDicPage = query.resultsWithPage();
         return ResHelper.success("", temperatureMeterDataDicPage);
     }

@@ -452,7 +452,7 @@ public class DeviceService {
                     return ResHelper.error(NO_MODIFY_PERMISSION);
                 }
             }
-            log.info("批量修改设备电价  设备列表为:{}",Arrays.asList(arrayDeviceNames));
+            log.info("批量修改设备电价  设备列表为:{}", Arrays.asList(arrayDeviceNames));
             /**
              * 格式校验map
              */
@@ -509,7 +509,7 @@ public class DeviceService {
                     return ResHelper.error("设备不存在");
                 }
             }
-            deviceDao.update().set("priceOfTime", priceOfTime).execute(deviceDao.query().in(DEVICE_NAME,Arrays.asList(arrayDeviceNames)));
+            deviceDao.update().set("priceOfTime", priceOfTime).execute(deviceDao.query().in(DEVICE_NAME, Arrays.asList(arrayDeviceNames)));
             return ResHelper.success("修改成功");
         }
         return ResHelper.pamIll();
@@ -572,7 +572,7 @@ public class DeviceService {
                 priceOfPercenVo.setTime(value);
                 priceOfPercenVo.setMinute(s);
                 priceOfPercenVoList.add(priceOfPercenVo);
-            } else if(begin.after(end)){
+            } else if (begin.after(end)) {
                 String timeOfFirst = split[0] + END_TIME;
                 String timeOfLast = START_TIME + split[1];
                 outOfDay.add(type + "_" + timeOfFirst);
@@ -618,46 +618,45 @@ public class DeviceService {
     private void getDeviceDayIncome(DeviceInfoVo deviceInfoVo) {
         String dateToStr = DateUtils.dateToStr(new Date());
         IncomeEntity incomeEntity = incomeEntityDao.query().is("deviceName", deviceInfoVo.getDeviceName()).is("incomeOfDay", dateToStr).result();
-        if(incomeEntity != null){
+        if (incomeEntity != null) {
             BigDecimal incomeBigDecimal = incomeEntity.getIncome().setScale(4, BigDecimal.ROUND_HALF_UP);
             deviceInfoVo.setDayDeviceIncome(incomeBigDecimal.toString());
         }
     }
 
     private void getPcsDataMsg(DeviceInfoVo deviceInfoVo) {
-        Iterable<DBObject> pcsChannelIterable = pcsChannelDicDao.aggregate().match(pcsChannelDicDao.query().is("deviceName", deviceInfoVo.getDeviceName()))
-                .group("{_id:'$equipmentId',dataId:{$last:'$_id'}}").sort("{generationDataTime:-1}").results();
-        if (pcsChannelIterable != null) {
-            List<String> queryIds = new ArrayList<>();
-            for (DBObject pcsChannelObject : pcsChannelIterable) {
-                ObjectId dataId = (ObjectId) pcsChannelObject.get("dataId");
-                String queryId = dataId.toString();
-                queryIds.add(queryId);
-            }
-            if (!CollectionUtils.isEmpty(queryIds) && !queryIds.isEmpty()) {
-                List<PcsChannelDic> pcsChannelDicsList = pcsChannelDicDao.query().in("_id", queryIds).results();
-                if (!CollectionUtils.isEmpty(pcsChannelDicsList) && !pcsChannelDicsList.isEmpty()) {
-                    List<PcsStatusVo> pcsStatusVos = pcsChannelDicsList.stream().sorted(Comparator.comparing(PcsChannelDic::getEquipmentId))
-                            .map(pcsChannelDic -> {
-                                PcsStatusVo pcsStatusVo = new PcsStatusVo();
-                                pcsStatusVo.setName(pcsChannelDic.getName());
-                                pcsStatusVo.setEquipmentId(pcsChannelDic.getEquipmentId());
-                                pcsStatusVo.setActivePower(pcsChannelDic.getActivePower());
-                                pcsStatusVo.setChargeDischargeStatusMsg(getChargeDischageStatus(pcsChannelDic.getChargeDischargeStatus()));
-                                pcsStatusVo.setReactivePower(pcsChannelDic.getReactivePower());
-                                pcsStatusVo.setExchangeVol(getExchangeVol(pcsChannelDic));
-                                pcsStatusVo.setExchangeCurrent(getExchangeCurrent(pcsChannelDic));
-                                pcsStatusVo.setExchangeRate(getExchangeRate(pcsChannelDic));
-                                pcsStatusVo.setPower(keepDecimalTwoPlaces(pcsChannelDic.getDCPower()));
-                                pcsStatusVo.setCurrent(keepDecimalTwoPlaces(pcsChannelDic.getDCCurrent()));
-                                pcsStatusVo.setVoltage(keepDecimalTwoPlaces(pcsChannelDic.getDCVoltage()));
-                                pcsStatusVo.setRunningStatusMsg(pcsChannelDic.getRunningStatus() ? RUNNING_STATUS_MSG_START : RUNNING_STATUS_MSG_DOWN);
-                                pcsStatusVo.setSoc(pcsChannelDic.getSoc());
-                                return pcsStatusVo;
-                            }).collect(Collectors.toList());
-                    deviceInfoVo.setPcsStatusVoList(pcsStatusVos);
+        List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceInfoVo.getDeviceName()).results();
+        List<PcsChannelDic> pcsChannelDicsList = new ArrayList<>();
+        for (Equipment equipment : equipmentList) {
+            Iterable<DBObject> iterable = pcsChannelDicDao.aggregate().match(pcsChannelDicDao.query().is(DEVICE_NAME, equipment.getDeviceName())
+                    .is("equipmentId", equipment.getEquipmentId())).sort("{generationDataTime:-1}").limit(1).results();
+            if(iterable!=null){
+                for (DBObject pcsChannelDic : iterable) {
+                    PcsChannelDic channelDic = MapperUtil.fromDBObject(PcsChannelDic.class, pcsChannelDic);
+                    pcsChannelDicsList.add(channelDic);
                 }
             }
+        }
+        if (!CollectionUtils.isEmpty(pcsChannelDicsList) && !pcsChannelDicsList.isEmpty()) {
+            List<PcsStatusVo> pcsStatusVos = pcsChannelDicsList.stream().sorted(Comparator.comparing(PcsChannelDic::getEquipmentId))
+                    .map(pcsChannelDic -> {
+                        PcsStatusVo pcsStatusVo = new PcsStatusVo();
+                        pcsStatusVo.setName(pcsChannelDic.getName());
+                        pcsStatusVo.setEquipmentId(pcsChannelDic.getEquipmentId());
+                        pcsStatusVo.setActivePower(pcsChannelDic.getActivePower());
+                        pcsStatusVo.setChargeDischargeStatusMsg(getChargeDischageStatus(pcsChannelDic.getChargeDischargeStatus()));
+                        pcsStatusVo.setReactivePower(pcsChannelDic.getReactivePower());
+                        pcsStatusVo.setExchangeVol(getExchangeVol(pcsChannelDic));
+                        pcsStatusVo.setExchangeCurrent(getExchangeCurrent(pcsChannelDic));
+                        pcsStatusVo.setExchangeRate(getExchangeRate(pcsChannelDic));
+                        pcsStatusVo.setPower(keepDecimalTwoPlaces(pcsChannelDic.getDCPower()));
+                        pcsStatusVo.setCurrent(keepDecimalTwoPlaces(pcsChannelDic.getDCCurrent()));
+                        pcsStatusVo.setVoltage(keepDecimalTwoPlaces(pcsChannelDic.getDCVoltage()));
+                        pcsStatusVo.setRunningStatusMsg(pcsChannelDic.getRunningStatus() ? RUNNING_STATUS_MSG_START : RUNNING_STATUS_MSG_DOWN);
+                        pcsStatusVo.setSoc(pcsChannelDic.getSoc());
+                        return pcsStatusVo;
+                    }).collect(Collectors.toList());
+            deviceInfoVo.setPcsStatusVoList(pcsStatusVos);
         }
     }
 
@@ -738,7 +737,7 @@ public class DeviceService {
     }
 
     public ResHelper<Void> modifyDevicePowerInfo(ModifyDevicePowerBo modifyDevicePowerBo, List<String> deviceNames) {
-        log.info("批量修改设备功率  设备列表为:{}",deviceNames);
+        log.info("批量修改设备功率  设备列表为:{}", deviceNames);
         Map<Integer, List<TimeOfPowerBo>> powerOfTime = modifyDevicePowerBo.getPowerOfTime();
         if (!CollectionUtils.isEmpty(powerOfTime) && !powerOfTime.isEmpty()) {
 
@@ -774,8 +773,8 @@ public class DeviceService {
                 }
                 timeOfPowerBos.addAll(entry.getValue());
             }
-            for(String deviceName:deviceNames){
-                if (!deviceDao.query().is(DEVICE_NAME,deviceName).exists()) {
+            for (String deviceName : deviceNames) {
+                if (!deviceDao.query().is(DEVICE_NAME, deviceName).exists()) {
                     return ResHelper.error("设备不存在");
                 }
             }
@@ -825,8 +824,8 @@ public class DeviceService {
 
     public boolean verificationDeviceNameList(List<String> deviceNameList, SysUser user) {
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
-        if(!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()){
-            if(deviceNames.containsAll(deviceNameList)){
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            if (deviceNames.containsAll(deviceNameList)) {
                 return true;
             }
         }
@@ -836,14 +835,14 @@ public class DeviceService {
     public ResHelper<Void> saveDeviceImg(DeviceImgBo deviceImgBo) {
         List<String> deviceNameList = Arrays.asList(deviceImgBo.getDeviceNames().split(","));
         UploadEntity uploadEntity = uploadEntityDao.query().is("_id", deviceImgBo.getUploadImgId()).result();
-        if(uploadEntity == null || !uploadEntity.getType().equals(ENERGY_STORAGE)){
+        if (uploadEntity == null || !uploadEntity.getType().equals(ENERGY_STORAGE)) {
             return ResHelper.pamIll();
         }
-        if(!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()){
-            if(uploadEntityDao.update().set("bindImg",true).execute(uploadEntity).isUpdateOfExisting()
-                    && deviceDao.update().set("imgUrl",uploadEntity.getImgUrl()).set("uploadImgId",deviceImgBo.getUploadImgId()).execute(deviceDao.query().in(DEVICE_NAME,deviceNameList)).isUpdateOfExisting() ){
+        if (!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()) {
+            if (uploadEntityDao.update().set("bindImg", true).execute(uploadEntity).isUpdateOfExisting()
+                    && deviceDao.update().set("imgUrl", uploadEntity.getImgUrl()).set("uploadImgId", deviceImgBo.getUploadImgId()).execute(deviceDao.query().in(DEVICE_NAME, deviceNameList)).isUpdateOfExisting()) {
                 return ResHelper.success("上传图片成功");
-            }else {
+            } else {
                 return ResHelper.error("上传图片失败");
             }
         }

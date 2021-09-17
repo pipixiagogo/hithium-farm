@@ -14,6 +14,7 @@ import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
 import com.bugull.hithiumfarmweb.http.excelBo.AirConditionExcelBo;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
+import com.bugull.mongo.BuguQuery;
 import com.bugull.mongo.fs.BuguFS;
 import com.bugull.mongo.fs.BuguFSFactory;
 import com.bugull.mongo.fs.Uploader;
@@ -117,11 +118,12 @@ public class ExcelExportService {
     private TemperatureMeterDataDicDao temperatureMeterDataDicDao;
     @Resource
     private UploadEntityDao uploadEntityDao;
+    @Resource
+    private EssStationDao essStationDao;
 
     /**
      * 定时删除数据库中超过一段时间的excel文件 释放存储压力
      * <p>
-     * 一个月启动一次
      */
     @Scheduled(cron = "${excel.scheduled.remove.excel}")
     public void excelDel() {
@@ -129,13 +131,18 @@ public class ExcelExportService {
             return;
         }
         Date date = DateUtils.addDateDays(new Date(), -propertiesConfig.getRemoveExcelDate());
-        List<ExportRecord> exportRecords = exportRecordDao.query().lessThanEquals("recordTime", date).is("exporting", true).results();
+        List<ExportRecord> exportRecords = exportRecordDao.query().lessThanEquals("recordTime", date).results();
         log.info("启动定时删除excel任务,查询到可删除excel文件数量为:{}", exportRecords.size());
         BuguFS fs = BuguFSFactory.getInstance().create();
         for (ExportRecord exportRecord : exportRecords) {
-            fs.remove(exportRecord.getFilename());
+            DBObject query = new BasicDBObject();
+            query.put("filename", exportRecord.getFilename());
+            if (fs.find(query) != null) {
+                fs.remove(exportRecord.getFilename());
+                log.info("删除excel文件,时间为:{},删除文件名称:{}", exportRecord.getRecordTime(), exportRecord.getFilename());
+            }
             exportRecordDao.remove(exportRecord);
-            log.info("删除excel,时间为:{},删除文件名称:{}", exportRecord.getRecordTime(), exportRecord.getFilename());
+            log.info("删除excel导出记录,时间为:{},导出结果:{}", exportRecord.getRecordTime(), exportRecord.getFailReason());
         }
     }
 
@@ -143,14 +150,36 @@ public class ExcelExportService {
      * 定时删除磁盘中中超过一段时间的  最多 未绑定的2000张图片文件 释放存储压力
      * <p>
      * 一个月启动一次
+     * 查看电站 电站下面未绑定的图片 即为过期图片
      */
     @Scheduled(cron = "${excel.scheduled.remove.excel}")
     public void uploadImgDel() {
         if (!propertiesConfig.isImageRemoveSwitch()) {
             return;
         }
-        Date date = DateUtils.addDateDays(new Date(), -propertiesConfig.getRemoveExcelDate());
-        List<UploadEntity> uploadEntities = uploadEntityDao.query().lessThan("uploadTime", date).is("bindImg", false).pageNumber(1).pageSize(2000).results();
+        Date date = DateUtils.addDateDays(new Date(), -propertiesConfig.getRemovePictureDate());
+        long essStationCount = essStationDao.count();
+        int pageSize = propertiesConfig.getExcelExportPageSize();
+        Set<String> uploadEntityIds = new HashSet<>();
+        for (int i = 0; i < (int) Math.ceil((double) essStationCount / (double) pageSize); i++) {
+            List<EssStation> essStationList = essStationDao.query().pageSize(pageSize).pageNumber(i + 1).results();
+            if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+                for (EssStation essStation : essStationList) {
+                    uploadEntityIds.add(essStation.getUploadImgId());
+                }
+            }
+        }
+        long deviceCount = deviceDao.count();
+        for (int i = 0; i < (int) Math.ceil((double) deviceCount / (double) pageSize); i++) {
+            List<Device> deviceList = deviceDao.query().pageSize(pageSize).pageNumber(i + 1).results();
+            if (!CollectionUtils.isEmpty(deviceList) && !deviceList.isEmpty()) {
+                for (Device device : deviceList) {
+                    uploadEntityIds.add(device.getUploadImgId());
+                }
+            }
+        }
+        BuguQuery<UploadEntity> query = uploadEntityDao.query().notIn("_id", new ArrayList(uploadEntityIds)).lessThan("uploadTime", date).pageSize(2000).pageNumber(1);
+        List<UploadEntity> uploadEntities = query.results();
         log.info("启动定时删除导入图片任务,查询到可删除图片文件数量为:{}", uploadEntities.size());
         for (UploadEntity uploadEntity : uploadEntities) {
             List<String> imgOfFullPath = uploadEntity.getImgOfFullPath();
@@ -158,10 +187,11 @@ public class ExcelExportService {
                 for (String path : imgOfFullPath) {
                     File file = new File(path);
                     if (file.exists()) {
-                        log.info("删除excel,删除文件名称:{}", path);
+                        log.info("删除图片,删除图片路径名称:{}", path);
                         file.delete();
                     }
                 }
+                uploadEntityDao.remove(uploadEntity);
             }
         }
     }
@@ -210,6 +240,7 @@ public class ExcelExportService {
                             exportRecord.setFilename(filename);
                             exportStationOfBattery(device.getDeviceName(), time, type, outputStream);
                             exportRecord.setExporting(true);
+                            exportRecord.setFailReason("导出Excel成功");
                             outputStream.close();
                             if (!exportRecordDao.query().is("filename", filename).exists()) {
                                 Uploader uploader = new Uploader(file, exportRecord.getFilename(), false);
@@ -272,7 +303,8 @@ public class ExcelExportService {
      * @param outputStream
      * @throws ParseException TODO 看情况是否启用多线程导出
      */
-    public void exportStationOfBattery(String deviceName, String time, Integer type, OutputStream outputStream) throws ParseException {
+    public void exportStationOfBattery(String deviceName, String time, Integer type, OutputStream outputStream) throws
+            ParseException {
         if (StringUtils.isEmpty(deviceName)) {
             throw new ExcelExportWithoutDataException("该日期暂无数据");
         }
@@ -389,7 +421,8 @@ public class ExcelExportService {
     }
 
 
-    private void exportUpsAirFireData(OutputStream outputStream, String deviceName, Date startTime, Date endTime) {
+    private void exportUpsAirFireData(OutputStream outputStream, String deviceName, Date startTime, Date
+            endTime) {
         List<Equipment> equipmentList;
         if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
             equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", PRODUCTION_FIRE_AIR_UPS_EQUIPMENT_IDS).results();

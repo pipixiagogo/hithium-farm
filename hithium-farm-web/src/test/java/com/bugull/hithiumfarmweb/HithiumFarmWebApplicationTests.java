@@ -290,10 +290,56 @@ public class HithiumFarmWebApplicationTests {
     @Test
     public void testStatics() {
         /**
-         * TODO 明天测试数据加验证
+         * TODO 下午测试下上传
          */
 //        BuguConnection conn2 = BuguFramework.getInstance().createConnection();
 //        conn2.setHost("172.24.63.229").setPort(27017).setUsername("farm").setPassword("hithium.db.mongo").setDatabase("farm").connect();
+////        conn2.setHost("192.168.241.189").setPort(27017).setUsername("ess").setPassword("ess").setDatabase("ess").connect();
+//        Date date = DateUtils.addDateMinutes(new Date(), -1);
+//        EssStationDao essStationDao= new EssStationDao();
+//        long essStationCount = essStationDao.count();
+//        int pageSize = 2000;
+//        Set<String> uploadEntityIds = new HashSet<>();
+//        for(int i=0;i<(int) Math.ceil((double) essStationCount / (double) pageSize);i++){
+//            List<EssStation> essStationList = essStationDao.query().pageSize(pageSize).pageNumber(i+1).results();
+//            if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+//                for (EssStation essStation : essStationList) {
+//                    uploadEntityIds.add(essStation.getUploadImgId());
+//                }
+//            }
+//        }
+//        DeviceDao deviceDao = new DeviceDao();
+//        long deviceCount = deviceDao.count();
+//        for (int i = 0; i < (int) Math.ceil((double) deviceCount / (double) pageSize); i++) {
+//            List<Device> deviceList = deviceDao.query().pageSize(pageSize).pageNumber(i + 1).results();
+//            if (!CollectionUtils.isEmpty(deviceList) && !deviceList.isEmpty()) {
+//                for (Device device : deviceList) {
+//                    uploadEntityIds.add(device.getUploadImgId());
+//                }
+//            }
+//        }
+//        UploadEntityDao uploadEntityDao = new UploadEntityDao();
+//        BuguQuery<UploadEntity> query = uploadEntityDao.query().notIn("_id", new ArrayList(uploadEntityIds)).lessThan("uploadTime", date).pageSize(2000).pageNumber(1);
+//        List<UploadEntity> uploadEntities = query.results();
+//        System.out.println("启动定时删除导入图片任务,查询到可删除图片文件数量为:{}"+uploadEntities.size());
+//        for (UploadEntity uploadEntity : uploadEntities) {
+//            List<String> imgOfFullPath = uploadEntity.getImgOfFullPath();
+//            if (!CollectionUtils.isEmpty(imgOfFullPath) && !imgOfFullPath.isEmpty()) {
+//                for (String path : imgOfFullPath) {
+////                    File file = new File(path);
+////                    if (file.exists()) {
+//                    System.out.println("删除图片,删除图片路径名称:{}"+path);
+////                        file.delete();
+////                    }
+//                }
+////                uploadEntityDao.remove(uploadEntity);
+//            }
+//        }
+//        for (ExportRecord exportRecord : exportRecords) {
+//            fs.remove(exportRecord.getFilename());
+//            exportRecordDao.remove(exportRecord);
+//            System.out.println("删除excel,时间为:"+exportRecord.getRecordTime()+",删除文件名称:{}"+exportRecord.getFilename());
+//        }
 //        DeviceDao deviceDao = new DeviceDao();
 //        deviceDao.update().set("bindStation",false).execute(deviceDao.query());
 //        BamsDischargeCapacityDao bamsDischargeCapacityDao = new BamsDischargeCapacityDao();

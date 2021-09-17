@@ -87,9 +87,16 @@ public class PropertiesConfig {
 
     @Value("${remove.excel.date}")
     private Integer removeExcelDate;
+    @Value("${remove.picture.date}")
+    private Integer removePictureDate;
+
 
     @Value("#{'${production.equipment.devicename:}'.empty ? null : '${production.equipment.devicename:}'.split(',')}")
     private List<String> productionDeviceNameList;   //判断空 null
+
+    public Integer getRemovePictureDate() {
+        return removePictureDate;
+    }
 
     public boolean isImageRemoveSwitch() {
         return imageRemoveSwitch;

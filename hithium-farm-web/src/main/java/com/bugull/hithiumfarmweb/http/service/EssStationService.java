@@ -166,6 +166,9 @@ public class EssStationService {
             }
             if (!StringUtils.isEmpty(essStationBo.getUploadImgId())) {
                 BuguQuery<UploadEntity> uploadEntityBuguQuery = uploadEntityDao.query().is("_id", essStationBo.getUploadImgId());
+                if(!uploadEntityBuguQuery.exists()){
+                   return  ResHelper.pamIll();
+                }
                 UploadEntity uploadEntity = uploadEntityBuguQuery.result();
                 if (uploadEntity == null || !uploadEntity.getType().equals(STATION)) {
                     return ResHelper.pamIll();
@@ -177,12 +180,14 @@ public class EssStationService {
                         log.info("电站 上传图片解绑成功");
                     } else {
                         log.error("电站 上传图片解绑失败");
+                        return ResHelper.error("修改电站信息失败");
                     }
                 }
                 if (uploadEntityDao.update().set("bindImg", true).execute(uploadEntityBuguQuery).isUpdateOfExisting()) {
                     log.info("电站 上传图片绑定成功");
                 } else {
                     log.error("电站 上传图片绑定失败");
+                    return ResHelper.error("修改电站信息失败");
                 }
             } else {
                 if (!StringUtils.isEmpty(essStationOld.getUploadImgId())) {
@@ -190,6 +195,7 @@ public class EssStationService {
                         log.info("电站 上传图片解绑成功");
                     } else {
                         log.error("电站 上传图片解绑失败");
+                        return ResHelper.error("修改电站信息失败");
                     }
                 }
                 essStationBuguUpdater.set("stationImgUrls", new ArrayList<>());
@@ -203,12 +209,14 @@ public class EssStationService {
                     log.info("电站 解绑设备成功");
                 } else {
                     log.error("电站 解绑设备失败");
+                    return ResHelper.error("修改电站信息失败");
                 }
             }
             if (deviceDao.update().set("bindStation", true).execute(deviceDao.query().in(DEVICE_NAME, essStationBo.getDeviceNameList())).isUpdateOfExisting()) {
                 log.info("电站 绑定设备成功");
             } else {
                 log.error("电站 绑定设备失败");
+                return ResHelper.error("修改电站信息失败");
             }
             if (essStationBuguUpdater.execute(essStationDao.query().is("_id", essStationBo.getId())).isUpdateOfExisting()) {
                 return ResHelper.success("修改电站信息成功");

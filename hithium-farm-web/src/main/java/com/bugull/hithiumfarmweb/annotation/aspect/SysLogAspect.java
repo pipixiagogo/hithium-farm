@@ -5,6 +5,7 @@ import com.bugull.hithiumfarmweb.http.dao.DeviceDao;
 import com.bugull.hithiumfarmweb.http.entity.Device;
 import com.bugull.hithiumfarmweb.http.entity.OperationLog;
 import com.bugull.hithiumfarmweb.http.entity.SysUser;
+import com.bugull.hithiumfarmweb.http.service.ExcelExportService;
 import com.bugull.hithiumfarmweb.http.service.OperationLogService;
 import com.bugull.hithiumfarmweb.utils.HttpContextUtils;
 import com.bugull.hithiumfarmweb.utils.IPUtils;
@@ -41,8 +42,10 @@ public class SysLogAspect {
     private OperationLogService operationLogService;
     @Resource
     private DeviceDao deviceDao;
+    @Resource
+    private ExcelExportService excelExportService;
 
-    private static final Logger log= LoggerFactory.getLogger(SysLogAspect.class);
+    private static final Logger log = LoggerFactory.getLogger(SysLogAspect.class);
 
     @Pointcut("@annotation(com.bugull.hithiumfarmweb.annotation.SysLog)")
     public void logPointCut() {
@@ -82,9 +85,12 @@ public class SysLogAspect {
         try {
             if (!StringUtils.isEmpty(operationLog.getOperation()) && operationLog.getOperation().contains("导出")) {
                 List<Object> collect = Arrays.stream(args).skip(2).collect(Collectors.toList());
-                if(operationLog.getOperation().equals(EXCEL_METHOD)){
+                if (operationLog.getOperation().equals(EXCEL_METHOD)) {
                     Device device = deviceDao.query().is(DEVICE_NAME, collect.get(0)).result();
-                    operationLog.setOperation("导出设备:" + device.getName() +",时间"+  collect.get(1) + "的" +  collect.get(2) + "数据");
+                    /**
+                     * TODO 根据类型获取数据   collect.get(3)
+                     */
+                    operationLog.setOperation("导出设备:" + device.getName() + ",时间" + collect.get(1) + "的" +excelExportService.getMsgByType(Integer.parseInt(collect.get(3).toString())) + "数据");
                 }
                 params = new Gson().toJson(collect);
             } else {
@@ -92,7 +98,7 @@ public class SysLogAspect {
             }
             operationLog.setParams(params);
         } catch (Exception e) {
-            log.error("AOP转换字符串错误:{}",e.getMessage());
+            log.error("AOP转换字符串错误:{}", e.getMessage());
         }
         //获取request
         HttpServletRequest request = HttpContextUtils.getHttpServletRequest();
