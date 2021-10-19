@@ -536,23 +536,18 @@ public class KCEssDeviceService {
                 BigDecimal chargeCapacitySumNew = new BigDecimal(chargeCapacitySum);
                 BigDecimal chargeCapacitySubtractResult = chargeCapacitySumNew.subtract(chargeCapacitySumOld);
                 bamsDischargeCapacity.setChargeCapacitySubtract(chargeCapacitySubtractResult);
-                if (bamsDischargeCapacity.getDischargeCapacitySubtract().compareTo(new BigDecimal("0")) == 0 &&
-                        bamsDischargeCapacity.getChargeCapacitySubtract().compareTo(new BigDecimal("0")) == 0) {
-                    return;
-                }
-                bamsDischargeCapacityDao.insert(bamsDischargeCapacity);
             } else {
                 /**
                  * 说明 非第一次上报 但是bams已经有数据了
                  */
                 bamsDischargeCapacity.setDischargeCapacitySubtract(new BigDecimal(dischargeCapacitySum));
                 bamsDischargeCapacity.setChargeCapacitySubtract(new BigDecimal(chargeCapacitySum));
-                if (bamsDischargeCapacity.getDischargeCapacitySubtract().compareTo(new BigDecimal("0")) == 0 &&
-                        bamsDischargeCapacity.getChargeCapacitySubtract().compareTo(new BigDecimal("0")) == 0) {
-                    return;
-                }
-                bamsDischargeCapacityDao.insert(bamsDischargeCapacity);
             }
+            if (bamsDischargeCapacity.getDischargeCapacitySubtract().compareTo(new BigDecimal("0")) == 0 &&
+                    bamsDischargeCapacity.getChargeCapacitySubtract().compareTo(new BigDecimal("0")) == 0) {
+                return;
+            }
+            bamsDischargeCapacityDao.insert(bamsDischargeCapacity);
         }
     }
 
@@ -712,7 +707,7 @@ public class KCEssDeviceService {
                 JSONArray dataArray = (JSONArray) jsonObject.get(Const.DATA);
                 if (!CollectionUtils.isEmpty(dataArray) && !dataArray.isEmpty()) {
                     if (propertiesConfig.isRedisCacheSwitch()) {
-                        chcheBreakdownlog(dataArray, deviceName);
+                        cacheBreakdownLog(dataArray, deviceName);
                     }
                     return JSON.parseArray(dataArray.toJSONString(), BreakDownLog.class);
                 }
@@ -721,7 +716,7 @@ public class KCEssDeviceService {
         return null;
     }
 
-    private void chcheBreakdownlog(JSONArray dataArray, String deviceName) {
+    private void cacheBreakdownLog(JSONArray dataArray, String deviceName) {
         Jedis jedis = redisPoolUtil.getJedis();
         try {
             jedis.set("BREAKDOWNLOG-" + deviceName, dataArray.toString());

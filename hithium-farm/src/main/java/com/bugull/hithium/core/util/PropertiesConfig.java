@@ -2,6 +2,7 @@ package com.bugull.hithium.core.util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -41,6 +42,11 @@ public class PropertiesConfig {
 
     @Value("#{'${mqtt.subtopic}'.split(',')}")
     private List<String> mqttSubtopics;
+
+    @Value("${mqtt.clean.session}")
+    private Boolean mqttCleanSession;
+    @Value("${mqtt.auto.reconnection}")
+    private Boolean mqttAutoReconnect;
 
     @Value("${mqtt.complete.timeout}")
     private long completeTimeout;
@@ -179,5 +185,11 @@ public class PropertiesConfig {
         return retriesBackoff;
     }
 
+    public Boolean getMqttCleanSession() {
+        return mqttCleanSession;
+    }
 
+    public Boolean getMqttAutoReconnect() {
+        return mqttAutoReconnect;
+    }
 }

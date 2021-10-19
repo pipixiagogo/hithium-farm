@@ -8,9 +8,12 @@ import com.mongodb.ServerAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.Banner;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.util.StringUtils;
@@ -62,7 +65,11 @@ public class MqttApplication {
                 .setDatabase(mongoDB)
                 .connect();
         log.info("------------------连接mongodb完成------------------");
-        SpringApplication.run( MqttApplication.class,args );
+//        SpringApplication.run( MqttApplication.class,args );
+        new SpringApplicationBuilder(MqttApplication.class)
+                .web(WebApplicationType.NONE) // .REACTIVE, .SERVLET
+                .bannerMode(Banner.Mode.OFF)
+                .run(args);
     }
 
     private static void loadArgs(String[] args) {

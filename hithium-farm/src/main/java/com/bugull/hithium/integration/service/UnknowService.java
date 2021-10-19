@@ -1,5 +1,6 @@
 package com.bugull.hithium.integration.service;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.bugull.hithium.integration.message.JMessage;
 import org.slf4j.Logger;
@@ -23,13 +24,15 @@ public class UnknowService {
 
     @Resource
     private MessageHandler mqttOutbound;
+
     public void handle(Message<JMessage> messageMessage) {
         JMessage jMessage = messageMessage.getPayload();
-        log.info("未知数据topic:{}",jMessage.getTopic());
+        MsgEntity parseObject = JSON.parseObject(jMessage.getPayloadMsg(), MsgEntity.class);
+        log.info("未知数据主题:{},数据内容:{},时间:{}", jMessage.getTopic(), jMessage.getPayloadMsg(),parseObject.getDate());
     }
 
-//    @Scheduled(cron = "${energy.untrans.report.interval}")
-    public void sendMqttMsg(){
+    //    @Scheduled(cron = "${energy.untrans.report.interval}")
+    public void sendMqttMsg() {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("DATATYPE", "REAL_TIME_DATA");
         jsonObject.put("PROJECTTYPE", "KC_ESS");
@@ -39,6 +42,7 @@ public class UnknowService {
                 .build();
         mqttOutbound.handleMessage(message);
     }
+
     public static final String getEssSendTopic(String deviceName) {
         return SQL_PREFIX + deviceName + S2D_SUFFIX;
     }

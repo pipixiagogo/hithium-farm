@@ -9,6 +9,7 @@ import com.bugull.hithium.integration.message.JMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.integration.mqtt.support.MqttHeaders;
+import sun.misc.CharacterDecoder;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Map;
@@ -21,28 +22,31 @@ public class MessageTransformer {
     private static final Logger log = LoggerFactory.getLogger(MessageTransformer.class);
 
     public static JMessage mqttMessage2JMessage(byte[] payload, Map<String, Object> headers) {
+        String topic = headers.get(MqttHeaders.RECEIVED_TOPIC).toString();
         try {
             //上下线日志也会受到  不处理 或者到时候处理下 存下数据库
-            String topic = headers.get(MqttHeaders.RECEIVED_TOPIC).toString();
+
             if (topic.startsWith("$ESS")) {
                 return doEssMsg(payload, headers, topic);
             } else {
                 JMessage jMessage = new JMessage();
                 jMessage.setTopic(topic);
                 jMessage.setProjectType(ProjectType.UNKNOW);
+                jMessage.setPayloadMsg(new String(payload));
                 return jMessage;
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            log.error("数据解析错误:{}", e);
             log.info(e.getMessage());
             JMessage jMessage = new JMessage();
             jMessage.setProjectType(ProjectType.UNKNOW);
+            jMessage.setTopic(topic);
+            jMessage.setPayloadMsg(new String(payload));
             return jMessage;
         }
     }
     private static JMessage doEssMsg(byte[] payload, Map<String, Object> headers, String topic) throws UnsupportedEncodingException {
         String payLoadMsg = new String(payload, "utf-8");
+        log.info("上报数内容：{}"+payLoadMsg);
         JSONObject jsonObject = JSONObject.parseObject(payLoadMsg);
         String projectType = (String) jsonObject.get(Const.PROJECT_TYPE);
         String dataType = (String) jsonObject.get(Const.DATA_TYPE);
