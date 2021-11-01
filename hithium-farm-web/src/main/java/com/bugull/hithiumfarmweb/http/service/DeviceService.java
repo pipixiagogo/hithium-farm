@@ -303,61 +303,6 @@ public class DeviceService {
         equipmentBoOfBams.setEquipmentBo(bos);
     }
 
-
-    public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> deviceAreaList(Map<String, Object> params) {
-        if (propertiesConfig.verify(params)) {
-            BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
-            if (!queryOfParams(deviceBuguPageQuery, params)) {
-                return ResHelper.pamIll();
-            }
-            String province = (String) params.get(PROVINCE);
-            String city = (String) params.get("city");
-            if (!StringUtils.isEmpty(province)) {
-                deviceBuguPageQuery.is(PROVINCE, province);
-            }
-            if (!StringUtils.isEmpty(city)) {
-                deviceBuguPageQuery.is("city", city);
-            }
-            SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
-            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
-                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                    deviceBuguPageQuery.in(DEVICE_NAME, deviceNames);
-                }
-            }
-            deviceBuguPageQuery.sortDesc("accessTime");
-            BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
-            List<Device> datas = devicePage.getDatas();
-            List<DeviceInfoVo> deviceInfoVos = new ArrayList<>();
-            for (Device data : datas) {
-                DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
-                BeanUtils.copyProperties(data, deviceInfoVo);
-                deviceInfoVo.setAreaCity(data.getProvince() + "-" + data.getCity());
-                deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(data.getApplicationScenarios()));
-                deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(data.getApplicationScenariosItem()));
-                Iterable<DBObject> iterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is(DEVICE_NAME, data.getDeviceName()))
-                        .sort("{generationDataTime:-1}").limit(1).results();
-                Date date = new Date();
-                if (iterable != null) {
-                    for (DBObject dbObject : iterable) {
-                        BamsDataDicBA bamsDataDicBA = MapperUtil.fromDBObject(BamsDataDicBA.class, dbObject);
-                        Date addDateMinutes = DateUtils.addDateMinutes(bamsDataDicBA.getGenerationDataTime(), 30);
-                        if (!addDateMinutes.before(date)) {
-                            deviceInfoVo.setDeviceStatus("正常运行");
-                        } else {
-                            deviceInfoVo.setDeviceStatus("停机");
-                        }
-                    }
-                }
-                deviceInfoVos.add(deviceInfoVo);
-            }
-            BuguPageQuery.Page<DeviceInfoVo> deviceInfoVoPage = new BuguPageQuery.Page<>(devicePage.getPage(), devicePage.getPageSize(),
-                    devicePage.getTotalRecord(), deviceInfoVos);
-            return ResHelper.success("", deviceInfoVoPage);
-        }
-        return ResHelper.pamIll();
-    }
-
     protected String getApplicationScenariosItemMsg(Integer applicationScenariosItem) {
         switch (applicationScenariosItem) {
             case 1:
@@ -400,42 +345,7 @@ public class DeviceService {
         }
     }
 
-    private boolean queryOfParams(BuguPageQuery<?> query, Map<String, Object> params) {
-        String name = (String) params.get("name");
-        if (!StringUtils.isEmpty(name)) {
-            query.regexCaseInsensitive("name", name);
-        }
-        if (!PagetLimitUtil.pageLimit(query, params)) return false;
-        if (!PagetLimitUtil.orderField(query, params, null)) return false;
-        return true;
-    }
 
-    public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDevicesByPage(Map<String, Object> params) {
-        BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
-        if (!queryOfParams(deviceBuguPageQuery, params)) {
-            return ResHelper.pamIll();
-        }
-        SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
-        if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-            List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
-            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                deviceBuguPageQuery.in(DEVICE_NAME, deviceNames);
-            }
-        }
-        deviceBuguPageQuery.sortDesc("accessTime");
-        BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
-        List<Device> deviceList = devicePage.getDatas();
-        if (!CollectionUtils.isEmpty(deviceList) && !deviceList.isEmpty()) {
-            List<DeviceVo> deviceVos = new ArrayList<>();
-            for (Device device : deviceList) {
-                DeviceVo deviceVo = query(device.getDeviceName());
-                deviceVos.add(deviceVo);
-            }
-            BuguPageQuery.Page<DeviceVo> deviceVoPage = new BuguPageQuery.Page<>(devicePage.getPage(), devicePage.getPageSize(), devicePage.getTotalRecord(), deviceVos);
-            return ResHelper.success("", deviceVoPage);
-        }
-        return ResHelper.success("");
-    }
 
     public ResHelper<Void> modifyDeviceInfo(ModifyDeviceBo modifyDeviceBo) {
         List<TimeOfPriceBo> priceOfTime = modifyDeviceBo.getPriceOfTime();
@@ -630,7 +540,7 @@ public class DeviceService {
         for (Equipment equipment : equipmentList) {
             Iterable<DBObject> iterable = pcsChannelDicDao.aggregate().match(pcsChannelDicDao.query().is(DEVICE_NAME, equipment.getDeviceName())
                     .is("equipmentId", equipment.getEquipmentId())).sort("{generationDataTime:-1}").limit(1).results();
-            if(iterable!=null){
+            if (iterable != null) {
                 for (DBObject pcsChannelDic : iterable) {
                     PcsChannelDic channelDic = MapperUtil.fromDBObject(PcsChannelDic.class, pcsChannelDic);
                     pcsChannelDicsList.add(channelDic);
@@ -799,28 +709,6 @@ public class DeviceService {
         return null;
     }
 
-    public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> queryDeviceWithoutBindByPage(Map<String, Object> params) {
-        BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
-        if (!queryOfParams(deviceBuguPageQuery, params)) {
-            return ResHelper.pamIll();
-        }
-        deviceBuguPageQuery.is("bindStation", false);
-        deviceBuguPageQuery.sortDesc("accessTime");
-        BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
-        List<Device> deviceList = devicePage.getDatas();
-        List<DeviceInfoVo> deviceInfoVos = new ArrayList<>();
-        for (Device device : deviceList) {
-            DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
-            BeanUtils.copyProperties(device, deviceInfoVo);
-            deviceInfoVo.setAreaCity(device.getProvince() + "-" + device.getCity());
-            deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(device.getApplicationScenarios()));
-            deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
-            deviceInfoVos.add(deviceInfoVo);
-        }
-        BuguPageQuery.Page<DeviceInfoVo> deviceInfoVoPage = new BuguPageQuery.Page<>(devicePage.getPage(), devicePage.getPageSize(),
-                devicePage.getTotalRecord(), deviceInfoVos);
-        return ResHelper.success("", deviceInfoVoPage);
-    }
 
     public boolean verificationDeviceNameList(List<String> deviceNameList, SysUser user) {
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
@@ -847,5 +735,115 @@ public class DeviceService {
             }
         }
         return ResHelper.pamIll();
+    }
+
+    public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDevicesByPage(Integer page, Integer pageSize, String deviceName) {
+        BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
+        if (!StringUtils.isEmpty(deviceName)) {
+            deviceBuguPageQuery.is(DEVICE_NAME, deviceName);
+        }
+        SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
+        if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+            List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (StringUtils.isEmpty(deviceName)) {
+                    deviceBuguPageQuery.in(DEVICE_NAME, deviceNames);
+                }
+            }
+        }
+        deviceBuguPageQuery.sortDesc("accessTime");
+        BuguPageQuery<Device> deviceBuguQuery = (BuguPageQuery<Device>) deviceBuguPageQuery.pageSize(pageSize).pageNumber(page);
+        BuguPageQuery.Page<Device> devicePage = deviceBuguQuery.resultsWithPage();
+        List<Device> deviceList = devicePage.getDatas();
+        if (!CollectionUtils.isEmpty(deviceList) && !deviceList.isEmpty()) {
+            List<DeviceVo> deviceVos = new ArrayList<>();
+            for (Device device : deviceList) {
+                DeviceVo deviceVo = query(device.getDeviceName());
+                deviceVos.add(deviceVo);
+            }
+            BuguPageQuery.Page<DeviceVo> deviceVoPage = new BuguPageQuery.Page<>(devicePage.getPage(), devicePage.getPageSize(), devicePage.getTotalRecord(), deviceVos);
+            return ResHelper.success("", deviceVoPage);
+        }
+        return ResHelper.success("");
+    }
+
+    public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> queryDeviceWithoutBindByPage(Integer page, Integer pageSize, String deviceName) {
+        BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
+        if (!StringUtils.isEmpty(deviceName)) {
+            deviceBuguPageQuery.is(DEVICE_NAME, deviceName);
+        }
+        deviceBuguPageQuery.is("bindStation", false);
+        deviceBuguPageQuery.sortDesc("accessTime");
+        deviceBuguPageQuery.pageSize(pageSize).pageNumber(page);
+        BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
+        List<Device> deviceList = devicePage.getDatas();
+        List<DeviceInfoVo> deviceInfoVos = new ArrayList<>();
+        for (Device device : deviceList) {
+            DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
+            BeanUtils.copyProperties(device, deviceInfoVo);
+            deviceInfoVo.setAreaCity(device.getProvince() + "-" + device.getCity());
+            deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(device.getApplicationScenarios()));
+            deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
+            deviceInfoVos.add(deviceInfoVo);
+        }
+        BuguPageQuery.Page<DeviceInfoVo> deviceInfoVoPage = new BuguPageQuery.Page<>(devicePage.getPage(), devicePage.getPageSize(),
+                devicePage.getTotalRecord(), deviceInfoVos);
+        return ResHelper.success("", deviceInfoVoPage);
+    }
+
+    public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> deviceAreaList(Integer page, Integer pageSize, String name, String country, String province, String city) {
+        BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
+        if (!StringUtils.isEmpty(province)) {
+            deviceBuguPageQuery.is(PROVINCE, province);
+        }
+        if (!StringUtils.isEmpty(city)) {
+            deviceBuguPageQuery.is("city", city);
+        }
+        if (!StringUtils.isEmpty(name)) {
+            deviceBuguPageQuery.regexCaseInsensitive("name", name);
+        }
+        SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
+        if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+            List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                deviceBuguPageQuery.in(DEVICE_NAME, deviceNames);
+            }
+        }
+        deviceBuguPageQuery.sortDesc("accessTime");
+        deviceBuguPageQuery.pageSize(pageSize).pageNumber(page);
+        BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
+        List<Device> datas = devicePage.getDatas();
+        BuguPageQuery.Page<DeviceInfoVo> deviceInfoVoPage = new BuguPageQuery.Page<>(page, pageSize,
+                devicePage.getTotalRecord(), getResHelperResult(datas));
+        return ResHelper.success("",deviceInfoVoPage);
+
+    }
+
+    private List<DeviceInfoVo> getResHelperResult(List<Device> datas) {
+        List<DeviceInfoVo> deviceInfoVos = new ArrayList<>();
+        for (Device data : datas) {
+            DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
+            BeanUtils.copyProperties(data, deviceInfoVo);
+            deviceInfoVo.setAreaCity(data.getProvince() + "-" + data.getCity());
+            deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(data.getApplicationScenarios()));
+            deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(data.getApplicationScenariosItem()));
+            Iterable<DBObject> iterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is(DEVICE_NAME, data.getDeviceName()))
+                    .sort("{generationDataTime:-1}").limit(1).results();
+            Date date = new Date();
+            if (iterable != null) {
+                for (DBObject dbObject : iterable) {
+                    BamsDataDicBA bamsDataDicBA = MapperUtil.fromDBObject(BamsDataDicBA.class, dbObject);
+                    Date addDateMinutes = DateUtils.addDateMinutes(bamsDataDicBA.getGenerationDataTime(), 30);
+                    if (!addDateMinutes.before(date)) {
+                        deviceInfoVo.setDeviceStatus("正常运行");
+                    } else {
+                        deviceInfoVo.setDeviceStatus("停机");
+                    }
+                }
+            }
+            deviceInfoVos.add(deviceInfoVo);
+        }
+
+        return deviceInfoVos;
     }
 }

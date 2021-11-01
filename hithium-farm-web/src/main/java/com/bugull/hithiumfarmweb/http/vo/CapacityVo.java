@@ -10,5 +10,5 @@ import lombok.NoArgsConstructor;
 public class CapacityVo {
     private String date;
 
-    private Double number;
+    private String number;
 }

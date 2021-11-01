@@ -3,22 +3,15 @@ package com.bugull.hithiumfarmweb.http.controller.pub;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.bugull.hithiumfarmweb.common.Const;
-import com.bugull.hithiumfarmweb.common.exception.ExcelExportWithoutDataException;
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.config.RedisPoolUtil;
 import com.bugull.hithiumfarmweb.http.controller.pub.entity.BcuEntity;
 import com.bugull.hithiumfarmweb.http.controller.pub.entity.BcuEntityDao;
 import com.bugull.hithiumfarmweb.http.dao.BcuDataDicBCUDao;
-import com.bugull.hithiumfarmweb.http.entity.BcuDataDicBCU;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
-import com.bugull.hithiumfarmweb.utils.HttpUtils;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
-import io.swagger.annotations.ApiOperation;
-import org.apache.http.HttpResponse;
-import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -26,9 +19,7 @@ import redis.clients.jedis.Jedis;
 
 import javax.annotation.Resource;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/EmsWebService")
@@ -145,7 +136,6 @@ public class EmsWebController {
 //        return "OK";
 //    }
 
-    @ApiOperation(value = "获取时间设备数据")
     @RequestMapping(method = RequestMethod.GET,value = "getDeviceTimeData")
     public ResHelper<JSONObject> getDeviceTimeData(@RequestParam(value = "deviceName",required = false)String deviceName,
                                        @RequestParam(value = "name",required = false)String name,
@@ -183,7 +173,6 @@ public class EmsWebController {
      * @param deviceName
      * @return
      */
-    @ApiOperation(value = "获取设备状态信息")
     @RequestMapping(method = RequestMethod.GET, value = "/GetEquipmentRealTimeData")
     public JSONObject GetEquipmentRealTimeData(@RequestParam(value = "deviceName", required = false) String deviceName) {
         Jedis jedis = redisPoolUtil.getJedis();
@@ -209,7 +198,6 @@ public class EmsWebController {
     /**
      * 设备列表信息
      */
-    @ApiOperation(value = "获取设备列表信息")
     @RequestMapping(method = RequestMethod.GET, value = "/GetAllEquipmentData")
     public JSONObject GetAllEquipmentData(@RequestParam(value = "deviceName", required = false) String deviceName) {
         Jedis jedis = redisPoolUtil.getJedis();
@@ -238,7 +226,6 @@ public class EmsWebController {
      * @param deviceName
      * @return
      */
-    @ApiOperation("获取告警日志信息")
     @RequestMapping(method = RequestMethod.GET, value = "/GetAlarmRealTimeData")
     public JSONArray GetAlarmRealTimeData(@RequestParam(value = "deviceName", required = false) String deviceName) {
         Jedis jedis = redisPoolUtil.getJedis();

@@ -5,7 +5,6 @@ import com.alibaba.excel.enums.CellDataTypeEnum;
 import com.alibaba.excel.metadata.CellData;
 import com.alibaba.excel.metadata.GlobalConfiguration;
 import com.alibaba.excel.metadata.property.ExcelContentProperty;
-import io.swagger.models.auth.In;
 
 public class BcuChargeDischargeConverter implements Converter<Integer> {
     @Override
@@ -26,8 +25,6 @@ public class BcuChargeDischargeConverter implements Converter<Integer> {
     @Override
     public CellData convertToExcelData(Integer value, ExcelContentProperty contentProperty, GlobalConfiguration globalConfiguration) throws Exception {
         switch (value){
-            case 0:
-                return new CellData("未定义");
             case 1:
                 return new CellData("开路");
             case 2:

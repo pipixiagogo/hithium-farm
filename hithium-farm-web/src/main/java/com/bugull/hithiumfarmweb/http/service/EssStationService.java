@@ -166,8 +166,8 @@ public class EssStationService {
             }
             if (!StringUtils.isEmpty(essStationBo.getUploadImgId())) {
                 BuguQuery<UploadEntity> uploadEntityBuguQuery = uploadEntityDao.query().is("_id", essStationBo.getUploadImgId());
-                if(!uploadEntityBuguQuery.exists()){
-                   return  ResHelper.pamIll();
+                if (!uploadEntityBuguQuery.exists()) {
+                    return ResHelper.pamIll();
                 }
                 UploadEntity uploadEntity = uploadEntityBuguQuery.result();
                 if (uploadEntity == null || !uploadEntity.getType().equals(STATION)) {
@@ -227,53 +227,6 @@ public class EssStationService {
             log.error("修改电站信息失败", e);
             return ResHelper.error("修改电站信息失败");
         }
-    }
-
-    public ResHelper<BuguPageQuery.Page<EssStationVo>> selectStation(Map<String, Object> params, SysUser user) {
-        if (propertiesConfig.verify(params)) {
-            BuguPageQuery<EssStation> query = essStationDao.pageQuery();
-            String province = (String) params.get(PROVINCE);
-            String city = (String) params.get("city");
-            if (!org.springframework.util.StringUtils.isEmpty(province)) {
-                query.is(PROVINCE, province);
-            }
-            if (!org.springframework.util.StringUtils.isEmpty(city)) {
-                query.is("city", city);
-            }
-            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                query.in("_id", user.getStationList());
-            }
-            String stationName = (String) params.get("stationName");
-            if (!StringUtils.isEmpty(stationName)) {
-                query.regexCaseInsensitive("stationName", stationName);
-            }
-            if (!PagetLimitUtil.pageLimit(query, params)) {
-                return ResHelper.pamIll();
-            }
-            query.sortDesc("_id");
-            BuguPageQuery.Page<EssStation> essStationPage = query.resultsWithPage();
-            List<EssStation> essStationList = essStationPage.getDatas();
-            List<EssStationVo> essStationVos = essStationList.stream().map(essStation -> {
-                EssStationVo essStationVo = new EssStationVo();
-                BeanUtils.copyProperties(essStation, essStationVo);
-                essStationVo.setAreaCity(essStation.getProvince() + "-" + essStation.getCity());
-                if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                    List<Device> deviceList = deviceDao.query().in("deviceName", essStation.getDeviceNameList()).results();
-                    List<DeviceInfoVo> deviceVos = deviceList.stream().map(device -> {
-                        DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
-                        BeanUtils.copyProperties(device, deviceInfoVo);
-                        return deviceInfoVo;
-                    }).collect(Collectors.toList());
-                    essStationVo.setDeviceInfoVos(deviceVos);
-                }
-                return essStationVo;
-            }).collect(Collectors.toList());
-            BuguPageQuery.Page<EssStationVo> essStationVoPage = new BuguPageQuery.Page<>(essStationPage.getPage(), essStationPage.getPageSize(), essStationPage.getTotalRecord(), essStationVos);
-            return ResHelper.success("", essStationVoPage);
-        } else {
-            return ResHelper.pamIll();
-        }
-
     }
 
     public ResHelper<Void> deleteStation(List<String> stationIds) {
@@ -429,4 +382,45 @@ public class EssStationService {
     }
 
 
+    public ResHelper<BuguPageQuery.Page<EssStationVo>> selectStation(Integer page, Integer pageSize, String name, String country, String province, String city, String stationName, SysUser user) {
+        BuguPageQuery<EssStation> query = essStationDao.pageQuery();
+        if (!StringUtils.isEmpty(province)) {
+            query.is(PROVINCE, province);
+        }
+        if (!StringUtils.isEmpty(city)) {
+            query.is("city", city);
+        }
+        if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+            query.in("_id", user.getStationList());
+        }
+        if (!StringUtils.isEmpty(stationName)) {
+            query.regexCaseInsensitive("stationName", stationName);
+        }
+        query.pageSize(pageSize).pageNumber(page);
+        query.sortDesc("_id");
+        BuguPageQuery.Page<EssStation> essStationPage = query.resultsWithPage();
+        List<EssStation> essStationList = essStationPage.getDatas();
+        List<EssStationVo> essStationVos=getEssStationVos(essStationList);
+        BuguPageQuery.Page<EssStationVo> essStationVoPage = new BuguPageQuery.Page<>(essStationPage.getPage(), essStationPage.getPageSize(), essStationPage.getTotalRecord(), essStationVos);
+        return ResHelper.success("", essStationVoPage);
+    }
+
+    private List<EssStationVo> getEssStationVos(List<EssStation> essStationList) {
+        List<EssStationVo> essStationVos = essStationList.stream().map(essStation -> {
+            EssStationVo essStationVo = new EssStationVo();
+            BeanUtils.copyProperties(essStation, essStationVo);
+            essStationVo.setAreaCity(essStation.getProvince() + "-" + essStation.getCity());
+            if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
+                List<Device> deviceList = deviceDao.query().in("deviceName", essStation.getDeviceNameList()).results();
+                List<DeviceInfoVo> deviceVos = deviceList.stream().map(device -> {
+                    DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
+                    BeanUtils.copyProperties(device, deviceInfoVo);
+                    return deviceInfoVo;
+                }).collect(Collectors.toList());
+                essStationVo.setDeviceInfoVos(deviceVos);
+            }
+            return essStationVo;
+        }).collect(Collectors.toList());
+        return essStationVos;
+    }
 }

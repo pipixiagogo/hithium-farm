@@ -9,7 +9,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import javax.servlet.MultipartConfigElement;
 
 @Configuration
-public class CorsConfig implements WebMvcConfigurer {
+public class CorsConfig implements WebMvcConfigurer{
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
@@ -28,4 +28,5 @@ public class CorsConfig implements WebMvcConfigurer {
         factory.setMaxRequestSize("25MB");
         return factory.createMultipartConfig();
     }
+
 }

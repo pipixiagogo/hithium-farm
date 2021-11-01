@@ -9,7 +9,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class MaxSizeLimitException {
-    private Logger logger = LoggerFactory.getLogger(getClass());
+    private static  final Logger logger = LoggerFactory.getLogger(MaxSizeLimitException.class);
     @ExceptionHandler({MaxUploadSizeExceededException.class})
     public ResHelper<Void> handleSizeLimitException(MaxUploadSizeExceededException e){
         logger.error(e.getMessage(),e);

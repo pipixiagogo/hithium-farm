@@ -4,7 +4,6 @@ import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import com.bugull.mongo.annotations.Ignore;
-import io.swagger.models.auth.In;
 import lombok.Data;
 
 import java.util.Date;

@@ -14,13 +14,10 @@ import org.apache.shiro.SecurityUtils;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.annotation.Pointcut;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -55,12 +52,9 @@ public class SysLogAspect {
     @Around("logPointCut()")
     public Object around(ProceedingJoinPoint point) throws Throwable {
         long beginTime = System.currentTimeMillis();
-        //执行方法
-        Object result = point.proceed();
-        //执行时长(毫秒)
-        long time = System.currentTimeMillis() - beginTime;
 
-        //保存日志
+        Object result = point.proceed();
+        long time = System.currentTimeMillis() - beginTime;
         saveSysLog(point, time);
 
         return result;
@@ -72,14 +66,11 @@ public class SysLogAspect {
         OperationLog operationLog = new OperationLog();
         SysLog syslog = method.getAnnotation(SysLog.class);
         if (syslog != null) {
-            //注解上的描述
             operationLog.setOperation(syslog.value());
         }
-//		//请求的方法名
         String className = joinPoint.getTarget().getClass().getName();
         String methodName = signature.getName();
         operationLog.setMethod(className + "." + methodName + "()");
-//		//请求的参数
         Object[] args = joinPoint.getArgs();
         String params = "";
         try {
@@ -87,9 +78,6 @@ public class SysLogAspect {
                 List<Object> collect = Arrays.stream(args).skip(2).collect(Collectors.toList());
                 if (operationLog.getOperation().equals(EXCEL_METHOD)) {
                     Device device = deviceDao.query().is(DEVICE_NAME, collect.get(0)).result();
-                    /**
-                     * TODO 根据类型获取数据   collect.get(3)
-                     */
                     operationLog.setOperation("导出设备:" + device.getName() + ",时间" + collect.get(1) + "的" +excelExportService.getMsgByType(Integer.parseInt(collect.get(3).toString())) + "数据");
                 }
                 params = new Gson().toJson(collect);

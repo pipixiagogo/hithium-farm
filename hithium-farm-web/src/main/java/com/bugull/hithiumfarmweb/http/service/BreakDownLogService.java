@@ -20,6 +20,7 @@ import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import com.bugull.mongo.BuguQuery;
+import com.bugull.mongo.utils.StringUtil;
 import org.apache.shiro.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,115 +53,6 @@ public class BreakDownLogService {
     @Resource
     private EssStationService essStationService;
     public static final Logger log = LoggerFactory.getLogger(BreakDownLogService.class);
-
-
-    public ResHelper<BuguPageQuery.Page<BreakDownLogVo>> query(Map<String, Object> params) {
-        BuguPageQuery<BreakDownLog> query = breakDownLogDao.pageQuery();
-        String deviceName = (String) params.get(DEVICE_NAME);
-        if (!StringUtils.isEmpty(deviceName)) {
-            query.is(DEVICE_NAME, deviceName);
-        }
-        String alarmType = (String) params.get("alarmType");
-        if (!StringUtils.isEmpty(alarmType)) {
-            query.is("alarmType", Integer.valueOf(alarmType));
-        }
-        String status = (String) params.get(STATUS);
-        if (status != null) {
-            query.is(STATUS, Boolean.valueOf(status));
-        }
-        String startTime = (String) params.get("startTime");
-        String endTime = (String) params.get("endTime");
-        try {
-            if (!StringUtils.isEmpty(startTime)) {
-                Date end;
-                if (StringUtils.isEmpty(endTime)) {
-                    end = new Date();
-                } else {
-                    end = DateUtils.strToDate(endTime);
-                }
-                Date start = DateUtils.strToDate(startTime);
-                if (startTime != null && endTime != null) {
-                    if (start.getTime() > end.getTime()) {
-                        return ResHelper.pamIll();
-                    } else {
-                        query.greaterThanEquals(GENERATION_DATA_TIME, start);
-                        query.lessThanEquals(GENERATION_DATA_TIME, end);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.error("告警日志查询失败:{}", e);
-            return ResHelper.pamIll();
-        }
-        SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
-        List<EssStation> essStationList = essStationService.getEssStationList(user.getStationList());
-        if (propertiesConfig.verify(params)) {
-            String province = (String) params.get(PROVINCE);
-            String city = (String) params.get("city");
-            BuguQuery<Device> buguQuery = deviceDao.query();
-            if (!StringUtils.isEmpty(province)) {
-                buguQuery.is(PROVINCE, province);
-            }
-            if (!StringUtils.isEmpty(city)) {
-                buguQuery.is("city", city);
-            }
-            if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                List<String> deviceNameList = new ArrayList<>();
-                for (EssStation essStation : essStationList) {
-                    if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                        deviceNameList.addAll(essStation.getDeviceNameList());
-                    }
-                }
-                buguQuery.in(DEVICE_NAME, deviceNameList);
-            }
-            List<String> deviceNames = buguQuery.results().stream().map(Device::getDeviceName).collect(Collectors.toList());
-            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                query.in(DEVICE_NAME, deviceNames);
-            } else {
-                return ResHelper.success("", new BuguPageQuery.Page<>(Integer.parseInt((String) params.get(Const.PAGE)),
-                        Integer.parseInt((String) params.get(Const.PAGESIZE)), 0, null));
-            }
-        } else {
-            return ResHelper.pamIll();
-        }
-        if (!PagetLimitUtil.pageLimit(query, params)) return ResHelper.pamIll();
-        if (!PagetLimitUtil.orderField(query, params, BREAKDOWNLOG_TABLE)) return ResHelper.pamIll();
-        if (!StringUtils.isEmpty(deviceName)) {
-            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                    boolean flag = false;
-                    for (EssStation essStation : essStationList) {
-                        if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                            if (essStation.getDeviceNameList().contains(deviceName)) {
-                                flag = true;
-                            }
-                        }
-                    }
-                    if (!flag) {
-                        return ResHelper.success("", new BuguPageQuery.Page<>(Integer.parseInt((String) params.get(Const.PAGE)),
-                                Integer.parseInt((String) params.get(Const.PAGESIZE)), 0, null));
-                    }
-                }
-            }
-        }
-        query.sortDesc(GENERATION_DATA_TIME);
-        BuguPageQuery.Page<BreakDownLog> downLogPage = query.resultsWithPage();
-        List<BreakDownLog> datas = downLogPage.getDatas();
-        List<BreakDownLogVo> breakDownLogBos = datas.stream().map(data -> {
-            BreakDownLogVo breakDownLogVo = new BreakDownLogVo();
-            BeanUtils.copyProperties(data, breakDownLogVo);
-            breakDownLogVo.setAlarmTypeMsg(getAlarmTypeMsg(data.getAlarmType()));
-            breakDownLogVo.setStatusMsg(data.getStatus() ? "发生" : "消除");
-            Device byName = getDeviceByName(data.getDeviceName());
-            breakDownLogVo.setAreaMsg(byName.getProvince() + "-" + byName.getCity());
-            breakDownLogVo.setDescription(byName.getDescription());
-            breakDownLogVo.setDeviceOfName(byName.getName());
-            return breakDownLogVo;
-        }).collect(Collectors.toList());
-        BuguPageQuery.Page<BreakDownLogVo> breakDownLogBoPage = new BuguPageQuery.Page<>(downLogPage.getPage(),
-                downLogPage.getPageSize(), downLogPage.getTotalRecord(), breakDownLogBos);
-        return ResHelper.success("", breakDownLogBoPage);
-    }
 
     private Device getDeviceByName(String deviceName) {
         return deviceDao.query().is(DEVICE_NAME, deviceName).returnFields(PROVINCE, "city", "name", "description").result();
@@ -224,14 +116,14 @@ public class BreakDownLogService {
         SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
         if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
             List<String> essStationServiceDeviceNames = essStationService.getDeviceNames(user.getStationList());
-            if(!CollectionUtils.isEmpty(essStationServiceDeviceNames) && !essStationServiceDeviceNames.isEmpty()){
-                if(!StringUtils.isEmpty(deviceName) && essStationServiceDeviceNames.contains(deviceName)){
-                    deviceBuguQuery.is(DEVICE_NAME,deviceName);
+            if (!CollectionUtils.isEmpty(essStationServiceDeviceNames) && !essStationServiceDeviceNames.isEmpty()) {
+                if (!StringUtils.isEmpty(deviceName) && essStationServiceDeviceNames.contains(deviceName)) {
+                    deviceBuguQuery.is(DEVICE_NAME, deviceName);
                 }
-                if(!StringUtils.isEmpty(deviceName) &&!essStationServiceDeviceNames.contains(deviceName)){
+                if (!StringUtils.isEmpty(deviceName) && !essStationServiceDeviceNames.contains(deviceName)) {
                     throw new ExcelExportWithoutDataException("该日期暂无数据");
                 }
-                deviceBuguQuery.in(DEVICE_NAME,essStationServiceDeviceNames);
+                deviceBuguQuery.in(DEVICE_NAME, essStationServiceDeviceNames);
             }
         }
         List<String> deviceNames = deviceBuguQuery.results().stream().map(Device::getDeviceName).collect(Collectors.toList());
@@ -245,7 +137,7 @@ public class BreakDownLogService {
         if (status != null) {
             breakDownLogBuguQuery.is(STATUS, status);
         }
-        log.info("EXCEL导出告警日志  告警日志开始时间:{}---告警日志结束时间:{}",startTime,endTime);
+        log.info("EXCEL导出告警日志  告警日志开始时间:{}---告警日志结束时间:{}", startTime, endTime);
         List<BreakDownLog> breakDownLogList = breakDownLogBuguQuery.greaterThanEquals(GENERATION_DATA_TIME, startTime)
                 .lessThanEquals(GENERATION_DATA_TIME, endTime).sort("{generationDataTime:-1}").results();
         if (!CollectionUtils.isEmpty(breakDownLogList) && !breakDownLogList.isEmpty()) {
@@ -273,5 +165,86 @@ public class BreakDownLogService {
         } else {
             throw new ExcelExportWithoutDataException("该日期暂无数据");
         }
+    }
+
+    public ResHelper<BuguPageQuery.Page<BreakDownLogVo>> queryBreakDownlog(Integer page, Integer pageSize, String deviceName, Integer order, String orderField,
+                                                                           Integer alarmType, Date startTime, Date endTime, String province, String city, String country, Boolean status) {
+        BuguPageQuery<BreakDownLog> query = breakDownLogDao.pageQuery();
+        if (!StringUtils.isEmpty(deviceName)) {
+            query.is(DEVICE_NAME, deviceName);
+        }
+        if (alarmType != null) {
+            query.is("alarmType", alarmType);
+        }
+        if (status != null) {
+            query.is(STATUS, status);
+        }
+        if (startTime != null && endTime != null) {
+            query.greaterThanEquals(GENERATION_DATA_TIME, startTime);
+            query.lessThanEquals(GENERATION_DATA_TIME, endTime);
+        }
+        SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
+        List<EssStation> essStationList = essStationService.getEssStationList(user.getStationList());
+        BuguQuery<Device> buguQuery = deviceDao.query();
+        if (!StringUtils.isEmpty(province)) {
+            buguQuery.is(PROVINCE, province);
+        }
+        if (!StringUtils.isEmpty(city)) {
+            buguQuery.is("city", city);
+        }
+        List<String> deviceNameList = new ArrayList<>();
+        if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+            for (EssStation essStation : essStationList) {
+                if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
+                    deviceNameList.addAll(essStation.getDeviceNameList());
+                }
+            }
+            if (StringUtils.isEmpty(deviceName)) {
+                buguQuery.in(DEVICE_NAME, deviceNameList);
+            }
+        }
+        List<String> deviceNames = buguQuery.results().stream().map(Device::getDeviceName).collect(Collectors.toList());
+        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+            if (StringUtils.isEmpty(deviceName)) {
+                query.in(DEVICE_NAME, deviceNames);
+            }
+        } else {
+            return ResHelper.success("", new BuguPageQuery.Page<>(page,
+                    pageSize, 0, null));
+        }
+        if (!StringUtils.isEmpty(deviceName)) {
+            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                if (!deviceNames.contains(deviceName)) {
+                    return ResHelper.success("", new BuguPageQuery.Page<>(page,
+                            pageSize, 0, null));
+                }
+            }
+        }
+        query.pageNumber(page).pageSize(pageSize);
+        if (!StringUtil.isEmpty(orderField)) {
+            if (Const.DESC.equals(order)) {
+                query.sortDesc(orderField);
+            } else {
+                query.sortAsc(orderField);
+            }
+        } else {
+            query.sortDesc(GENERATION_DATA_TIME);
+        }
+        BuguPageQuery.Page<BreakDownLog> downLogPage = query.resultsWithPage();
+        List<BreakDownLog> datas = downLogPage.getDatas();
+        List<BreakDownLogVo> breakDownLogBos = datas.stream().map(data -> {
+            BreakDownLogVo breakDownLogVo = new BreakDownLogVo();
+            BeanUtils.copyProperties(data, breakDownLogVo);
+            breakDownLogVo.setAlarmTypeMsg(getAlarmTypeMsg(data.getAlarmType()));
+            breakDownLogVo.setStatusMsg(data.getStatus() ? "发生" : "消除");
+            Device byName = getDeviceByName(data.getDeviceName());
+            breakDownLogVo.setAreaMsg(byName.getProvince() + "-" + byName.getCity());
+            breakDownLogVo.setDescription(byName.getDescription());
+            breakDownLogVo.setDeviceOfName(byName.getName());
+            return breakDownLogVo;
+        }).collect(Collectors.toList());
+        BuguPageQuery.Page<BreakDownLogVo> breakDownLogBoPage = new BuguPageQuery.Page<>(downLogPage.getPage(),
+                downLogPage.getPageSize(), downLogPage.getTotalRecord(), breakDownLogBos);
+        return ResHelper.success("", breakDownLogBoPage);
     }
 }

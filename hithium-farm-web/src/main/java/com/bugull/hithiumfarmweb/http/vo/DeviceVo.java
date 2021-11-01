@@ -1,7 +1,6 @@
 package com.bugull.hithiumfarmweb.http.vo;
 
 import com.bugull.hithiumfarmweb.http.bo.EquipmentBo;
-import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 import java.util.HashMap;

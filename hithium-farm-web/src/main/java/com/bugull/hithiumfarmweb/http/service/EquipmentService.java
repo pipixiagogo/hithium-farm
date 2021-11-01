@@ -19,20 +19,14 @@ public class EquipmentService {
 
     @Resource
     private EquipmentDao equipmentDao;
-
-    public ResHelper<BuguPageQuery.Page<Equipment>> queryEquipment(Map<String, Object> params) {
+    public ResHelper<BuguPageQuery.Page<Equipment>> queryEquipment(Integer page, Integer pageSize, String deviceName) {
         BuguPageQuery<Equipment> query =  equipmentDao.pageQuery();
-        String deviceName=(String) params.get(Const.DEVICE_NAME);
         if(!StringUtils.isEmpty(deviceName)){
             query.is(Const.DEVICE_NAME,deviceName);
         }
         query.is("enabled",true);
-        if(!PagetLimitUtil.pageLimit(query, params)){
-            return ResHelper.pamIll();
-        }
+        query.pageSize(pageSize).pageNumber(page);
         BuguPageQuery.Page<Equipment> results = query.resultsWithPage();
         return ResHelper.success("", results);
     }
-
-
 }

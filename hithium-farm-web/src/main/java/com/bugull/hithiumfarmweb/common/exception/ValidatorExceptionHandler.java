@@ -37,27 +37,6 @@ public class ValidatorExceptionHandler {
 		logger.error(e.getMessage());
 		return ResHelper.error("参数错误");
 	}
-//    /**
-//     * 处理无此Bean异常
-//     */
-//	@ExceptionHandler(NoSuchBeanDefinitionException.class)
-//    public R hanlderNoSuchBeanDefinitionException(Exception e){
-//	    logger.error(e.getMessage());
-//	    return R.error();
-//    }
-//
-//	@ExceptionHandler(NoHandlerFoundException.class)
-//	public R handlerNoFoundException(Exception e) {
-//		logger.error(e.getMessage(), e);
-//		return R.error(404, "路径不存在，请检查路径是否正确");
-//	}
-//
-//	@ExceptionHandler(DuplicateKeyException.class)
-//	public R handleDuplicateKeyException(DuplicateKeyException e){
-//		logger.error(e.getMessage(), e);
-//		return R.error("数据库中已存在该记录");
-//	}
-//
 	@ExceptionHandler({UnauthorizedException.class,AuthorizationException.class})
 	public ResHelper<Void> handleAuthorizationException(AuthorizationException e){
 		logger.error("没有响应权限",e);

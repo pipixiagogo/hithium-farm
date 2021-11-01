@@ -8,11 +8,6 @@ import com.bugull.hithiumfarmweb.http.service.CaptchaService;
 import com.bugull.hithiumfarmweb.http.service.SysUserService;
 import com.bugull.hithiumfarmweb.http.vo.LoginVo;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
-import com.bugull.mongo.fs.HttpFileGetter;
-import com.bugull.mongo.fs.ImageUploader;
-import com.bugull.mongo.fs.Watermark;
-import io.swagger.annotations.ApiImplicitParam;
-import io.swagger.annotations.ApiOperation;
 import org.apache.commons.io.IOUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -41,9 +36,7 @@ public class LoginController {
     private SysUserService sysUserService;
 
 
-    @ApiOperation("获取验证码")
     @GetMapping("/captcha.jpg")
-    @ApiImplicitParam(name = "uuid", value = "UUID随机码 保证每次请求唯一", required = false)
     public void captcha(HttpServletResponse response, @RequestParam(name = "uuid", required = false) String uuid) throws IOException {
         response.setHeader("Cache-Control", "no-store, no-cache");
         response.setContentType("image/jpeg");
@@ -54,9 +47,7 @@ public class LoginController {
         IOUtils.closeQuietly(out);
     }
 
-    @ApiOperation("登录接口")
     @PostMapping("/login")
-    @ApiImplicitParam(name = "loginFormBo", value = "登录接口", required = true, paramType = "body", dataTypeClass = LoginFormBo.class, dataType = "LoginFormBo")
     public ResHelper<LoginVo> login(@RequestBody LoginFormBo loginFormBo) {
         ValidatorUtils.validateEntity(loginFormBo, UpdateGroup.class);
         String msg = captchaService.validaCaptcha(loginFormBo);
@@ -69,9 +60,7 @@ public class LoginController {
     /**
      * 刷新token接口
      */
-    @ApiOperation(value = "刷新token接口", response = ResHelper.class)
     @PostMapping(value = "/refreshToken")
-    @ApiImplicitParam(name = "refreshToken", value = "刷新的token", required = false)
     public ResHelper<LoginVo> refreshToken(@RequestParam(value = "refreshToken", required = true) String refreshToken) {
         return sysUserService.refreshToken(refreshToken);
     }

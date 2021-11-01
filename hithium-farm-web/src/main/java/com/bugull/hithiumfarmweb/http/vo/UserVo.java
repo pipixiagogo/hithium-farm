@@ -1,11 +1,7 @@
 package com.bugull.hithiumfarmweb.http.vo;
 
-import com.bugull.hithiumfarmweb.common.validator.group.UpdateGroup;
-import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotBlank;
 import java.util.Date;
 
 @Data

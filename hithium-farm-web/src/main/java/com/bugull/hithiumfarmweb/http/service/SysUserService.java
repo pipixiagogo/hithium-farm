@@ -134,9 +134,14 @@ public class SysUserService {
         query.sortDesc("_id");
         BuguPageQuery.Page<SysUser> userResults = query.resultsWithPage();
         List<SysUser> userList = userResults.getDatas();
-        List<InfoUserVo> infoUserVos;
+        List<InfoUserVo> infoUserVos = getInfoUserVoList(userList);
+        BuguPageQuery.Page<InfoUserVo> infoUserVoPage = new BuguPageQuery.Page<>(userResults.getPage(), userResults.getPageSize(), userResults.getTotalRecord(), infoUserVos);
+        return ResHelper.success("", infoUserVoPage);
+    }
+
+    private List<InfoUserVo> getInfoUserVoList(List<SysUser> userList) {
         if (!CollectionUtils.isEmpty(userList) && !userList.isEmpty()) {
-            infoUserVos = userList.stream().map(user -> {
+            return userList.stream().map(user -> {
                 InfoUserVo infoUserVo = new InfoUserVo();
                 List<RoleEntityOfUserBo> roleEntityOfUserBoList = new ArrayList<>();
                 if (user.getId().equals("1")) {
@@ -163,10 +168,8 @@ public class SysUserService {
                 return infoUserVo;
             }).collect(Collectors.toList());
         } else {
-            infoUserVos = new ArrayList<>();
+            return new ArrayList<>();
         }
-        BuguPageQuery.Page<InfoUserVo> infoUserVoPage = new BuguPageQuery.Page<>(userResults.getPage(), userResults.getPageSize(), userResults.getTotalRecord(), infoUserVos);
-        return ResHelper.success("", infoUserVoPage);
     }
 
     public ResHelper<Void> updateById(UpdateUserBo user) {
@@ -284,18 +287,17 @@ public class SysUserService {
         LoginVo loginVo = new LoginVo();
         //生成一个token
         String token = TokenGenerator.generateValue();
-        //当前时间
-        Date now = new Date();
+
         //过期时间
-        Date expireTime = new Date(now.getTime() + propertiesConfig.getTokenExpireTime());
+        Date expireTime = new Date(System.currentTimeMillis() + propertiesConfig.getTokenExpireTime());
         /**
          * 生成一个refreshToken
          */
         String refreshToken = TokenGenerator.generateValue();
-        Date refreshTokenExpireTime = new Date(now.getTime() + 2 * propertiesConfig.getTokenExpireTime());
+        Date refreshTokenExpireTime = new Date(System.currentTimeMillis() + 2 * propertiesConfig.getTokenExpireTime());
         sysUserDao.update().set("token", token)
                 .set("tokenExpireTime", expireTime)
-                .set("createTokenTime", now)
+                .set("createTokenTime", new Date(System.currentTimeMillis()))
                 .set("refreshToken", refreshToken)
                 .set("refreshTokenExpireTime", refreshTokenExpireTime)
                 .execute(sysUserDao.query().is("_id", sysUser.getId()));
@@ -399,4 +401,17 @@ public class SysUserService {
         return ResHelper.error("");
     }
 
+    public ResHelper<BuguPageQuery.Page<InfoUserVo>> list(Integer page, Integer pageSize, String userName) {
+        BuguPageQuery<SysUser> query = sysUserDao.pageQuery();
+        if (!StringUtils.isEmpty(userName)) {
+            query.regexCaseInsensitive("userName", userName);
+        }
+        query.notReturnFields("salt", "password", "token", "tokenExpireTime");
+        query.pageSize(pageSize).pageNumber(page).sortDesc("_id");
+        BuguPageQuery.Page<SysUser> userResults = query.resultsWithPage();
+        List<SysUser> userList = userResults.getDatas();
+        List<InfoUserVo> infoUserVos = getInfoUserVoList(userList);
+        BuguPageQuery.Page<InfoUserVo> infoUserVoPage = new BuguPageQuery.Page<>(userResults.getPage(), userResults.getPageSize(), userResults.getTotalRecord(), infoUserVos);
+        return ResHelper.success("", infoUserVoPage);
+    }
 }

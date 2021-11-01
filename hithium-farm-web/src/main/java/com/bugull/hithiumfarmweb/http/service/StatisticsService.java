@@ -15,7 +15,6 @@ import com.bugull.mongo.utils.StringUtil;
 import com.bugull.mongo.utils.ThreadUtil;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
-import io.swagger.models.auth.In;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -677,7 +676,7 @@ public class StatisticsService {
             this.initData = new TreeMap<>();
             for (int i = 0; i < limit; i++) {
                 String key = i > 9 ? String.valueOf(i) : "0" + i;
-                initData.put(key, new CapacityVo(key, 0D));
+                initData.put(key, new CapacityVo(key, "0"));
             }
             BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
             BuguAggregation<BamsDischargeCapacity> aggregate = bamsDischargeCapacityDao.aggregate();
@@ -695,7 +694,7 @@ public class StatisticsService {
                     String[] id = object.get("_id").toString().split(" ");
                     CapacityVo capacityVo = initData.get(id[1]);
                     if (capacityVo != null) {
-                        capacityVo.setNumber(Double.valueOf(object.get("count").toString()));
+                        capacityVo.setNumber(BigDecimal.valueOf(Double.valueOf(object.get("count").toString())).setScale(2,BigDecimal.ROUND_HALF_UP).toString());
                     }
                 }
             }
@@ -728,7 +727,7 @@ public class StatisticsService {
             this.initData = new HashMap<>();
             for (int i = 1; i <= limit; i++) {
                 String key = i > 9 ? String.valueOf(i) : "0" + i;
-                initData.put(key, new CapacityVo(key, 0D));
+                initData.put(key, new CapacityVo(key, "0"));
             }
             BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
             BuguAggregation<BamsDischargeCapacity> aggregate = bamsDischargeCapacityDao.aggregate();
@@ -746,7 +745,7 @@ public class StatisticsService {
                     String[] idSplit = object.get("_id").toString().split("-");
                     CapacityVo capacityVo = initData.get(idSplit[1]);
                     if (capacityVo != null) {
-                        capacityVo.setNumber(Double.valueOf(object.get("count").toString()));
+                        capacityVo.setNumber(BigDecimal.valueOf(Double.valueOf(object.get("count").toString())).setScale(2,BigDecimal.ROUND_HALF_UP).toString());
                     }
                 }
             }
@@ -771,7 +770,7 @@ public class StatisticsService {
                 startTimeOfDay = cal.getTime();
                 dayOfSevenAgo = cal.getTime();
                 String key = DateUtils.dateToStrMMDD(startTimeOfDay);
-                initData.put(key, new CapacityVo(key, 0D));
+                initData.put(key, new CapacityVo(key, "0"));
             }
             BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
             BuguAggregation<BamsDischargeCapacity> aggregate = bamsDischargeCapacityDao.aggregate();
@@ -789,7 +788,7 @@ public class StatisticsService {
                     String[] id = object.get("_id").toString().split(" ");
                     CapacityVo capacityVo = initData.get(id[1]);
                     if (capacityVo != null) {
-                        capacityVo.setNumber(Double.valueOf(object.get("count").toString()));
+                        capacityVo.setNumber(BigDecimal.valueOf(Double.valueOf(object.get("count").toString())).setScale(2,BigDecimal.ROUND_HALF_UP).toString());
                     }
                 }
             }

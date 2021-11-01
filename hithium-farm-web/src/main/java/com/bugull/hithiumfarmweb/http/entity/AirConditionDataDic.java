@@ -4,7 +4,6 @@ import com.alibaba.excel.annotation.ExcelIgnore;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.bugull.hithiumfarmweb.http.excelConverter.*;
 import com.bugull.mongo.BuguEntity;
-import com.bugull.mongo.SimpleEntity;
 import com.bugull.mongo.annotations.EnsureIndex;
 import com.bugull.mongo.annotations.Entity;
 import com.bugull.mongo.annotations.Id;

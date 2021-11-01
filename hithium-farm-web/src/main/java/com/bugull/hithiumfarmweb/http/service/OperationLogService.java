@@ -26,19 +26,16 @@ public class OperationLogService {
         operationLogDao.insert(operationLog);
     }
 
-    public ResHelper<BuguPageQuery.Page<OperationLogEntity>> query(Map<String, Object> params) {
-        BuguPageQuery<OperationLogEntity> query =  operationLogEntityDao.pageQuery();
-        String username = (String) params.get("username");
-        if (!StringUtils.isBlank(username)) {
+
+    public ResHelper<BuguPageQuery.Page<OperationLogEntity>> query(Integer page, Integer pageSize, String username, String operation) {
+        BuguPageQuery<OperationLogEntity> query = operationLogEntityDao.pageQuery();
+        if (!StringUtils.isEmpty(username)) {
             query.regexCaseInsensitive("username", username);
         }
-        String operation=(String)params.get("operation");
-        if(!StringUtils.isBlank(operation)){
-            query.regexCaseInsensitive("operation",operation);
+        if (!StringUtils.isEmpty(operation)) {
+            query.regexCaseInsensitive("operation", operation);
         }
-        if (!PagetLimitUtil.pageLimit(query, params)) {
-            return ResHelper.pamIll();
-        }
+        query.pageSize(pageSize).pageNumber(page);
         query.sortDesc("_id");
         BuguPageQuery.Page<OperationLogEntity> operationLogPage = query.resultsWithPage();
         return ResHelper.success("", operationLogPage);
