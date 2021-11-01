@@ -46,7 +46,6 @@ public class MessageTransformer {
     }
     private static JMessage doEssMsg(byte[] payload, Map<String, Object> headers, String topic) throws UnsupportedEncodingException {
         String payLoadMsg = new String(payload, "utf-8");
-        log.info("上报数内容：{}"+payLoadMsg);
         JSONObject jsonObject = JSONObject.parseObject(payLoadMsg);
         String projectType = (String) jsonObject.get(Const.PROJECT_TYPE);
         String dataType = (String) jsonObject.get(Const.DATA_TYPE);
