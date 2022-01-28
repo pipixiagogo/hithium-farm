@@ -1,9 +1,5 @@
 package com.bugull.hithium.core.entity;
 
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.util.Date;
@@ -12,9 +8,7 @@ import java.util.Date;
  * 温湿度
  */
 @Data
-@Entity
-@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1}")
-public class TemperatureMeterDataDic extends SimpleEntity{
+public class TemperatureMeterDataDic {
     private String deviceName;
     /**
      * Time	DateTime	时间	默认值DateTime.Now;
@@ -27,7 +21,6 @@ public class TemperatureMeterDataDic extends SimpleEntity{
      */
     private Date generationDataTime;
     private String name;//设备名称
-    @Ignore
     private String time;
     private Integer equipmentId;
     private Integer equipChannelStatus;//前置机连接的设备的通道状态	"0-正常，1-异常 默认值异常

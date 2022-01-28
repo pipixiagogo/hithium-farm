@@ -7,8 +7,11 @@ import com.bugull.hithiumfarmweb.http.dao.CaptchaDao;
 import com.bugull.hithiumfarmweb.http.entity.Captcha;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.google.code.kaptcha.Producer;
+import org.apache.commons.lang.StringUtils;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import java.awt.image.BufferedImage;
@@ -32,10 +35,16 @@ public class CaptchaService {
          * 删除过期的验证码 一次删符合条件的20条
          * 修改重复ID生成统一验证码
          */
-        captchaDao.remove(captchaDao.query().lessThan("expireTime", new Date()).pageNumber(20).pageSize(1));
-        Captcha captcha = captchaDao.query().is("uuid", uuid).result();
+        Query removeQuery = new Query();
+        removeQuery.addCriteria(Criteria.where("expireTime").lt(new Date()))
+                .skip(0).limit(20);
+        captchaDao.remove(removeQuery);
+        Query findQuery=new Query();
+        Captcha captcha =captchaDao.findCaptcha(findQuery);
         if (captcha != null) {
-            captchaDao.update().set("expireTime", dateMinutes).execute(captcha);
+            Update update = new Update();
+            update.set("expireTime", dateMinutes);
+            captchaDao.updateByQuery(findQuery,update);
             return producer.createImage(captcha.getCode());
         } else {
             //生成文字验证码
@@ -45,13 +54,15 @@ public class CaptchaService {
             captchaEntity.setCode(code);
             //5分钟后过期
             captchaEntity.setExpireTime(dateMinutes);
-            captchaDao.insert(captchaEntity);
+            captchaDao.saveCaptcha(captchaEntity);
             return producer.createImage(code);
         }
     }
 
     public String validaCaptcha(LoginFormBo loginFormBo) {
-        Captcha captchaEntity = captchaDao.query().is("uuid", loginFormBo.getUuid()).result();
+        Query findQuery=new Query();
+        findQuery.addCriteria(Criteria.where("uuid").is(loginFormBo.getUuid()));
+        Captcha captchaEntity = captchaDao.findCaptcha(findQuery);
         if (captchaEntity == null) {
             return "登录失败,验证码错误";
         }

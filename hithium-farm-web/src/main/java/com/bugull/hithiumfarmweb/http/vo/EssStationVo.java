@@ -8,13 +8,12 @@ import java.util.List;
 public class EssStationVo {
     private String id;
     private String stationName;
-    private String code;
     private List<DeviceInfoVo> deviceInfoVos;
     private String areaCity;
     private List<String> deviceNameList;
-    private List<String> stationImgUrls;
-    private String uploadImgId;
-
+    private List<String> stationImgIdWithUrls;
+    private String longitude;
+    private String latitude;
     public Integer getNumberOfDevice() {
         return deviceNameList.size();
     }

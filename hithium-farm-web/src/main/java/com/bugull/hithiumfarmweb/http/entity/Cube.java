@@ -1,7 +1,5 @@
 package com.bugull.hithiumfarmweb.http.entity;
 
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.Entity;
 import lombok.Data;
 
 import java.util.List;
@@ -10,8 +8,8 @@ import java.util.List;
  * 储能箱
  */
 @Data
-@Entity
-public class Cube extends SimpleEntity {
+public class Cube {
+    private String id;
     private Integer stationId;
     private Integer pccId;
     private Integer batteryType;
@@ -21,7 +19,7 @@ public class Cube extends SimpleEntity {
     private String cubeCapacity;
     private String cubePower;
     private String batteryManufacturer;
-    private Integer cellCapacity;
+    private Integer cellCapacity=0;
     private Integer coolingMode;
     private String description;
     private String name;

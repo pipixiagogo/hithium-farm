@@ -12,31 +12,26 @@ import com.bugull.hithiumfarmweb.common.exception.ExcelExportWithoutDataExceptio
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
-import com.bugull.hithiumfarmweb.http.excelBo.AirConditionExcelBo;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
-import com.bugull.mongo.BuguQuery;
-import com.bugull.mongo.fs.BuguFS;
-import com.bugull.mongo.fs.BuguFSFactory;
-import com.bugull.mongo.fs.Uploader;
-import com.bugull.mongo.utils.MapperUtil;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBObject;
-import com.mongodb.gridfs.GridFSDBFile;
+import com.mongodb.client.gridfs.GridFSBucket;
+import com.mongodb.client.gridfs.model.GridFSFile;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.text.ParseException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
 
@@ -47,7 +42,7 @@ import static com.bugull.hithiumfarmweb.common.Const.GENERATION_DATA_TIME;
 public class ExcelExportService {
     protected static final List<Integer> AMMETER_EQUIPMENT_IDS = new ArrayList<>();
 
-    protected static final List<Integer> PRODUCTION_EQUIOMENT_IDS = new ArrayList<>();
+    protected static final List<Integer> PRODUCTION_EQUIPMENT_IDS = new ArrayList<>();
 
     protected static final List<Integer> FIRE_AIR_UPS_EQUIPMENT_IDS = new ArrayList<>();
     protected static final List<Integer> PRODUCTION_FIRE_AIR_UPS_EQUIPMENT_IDS = new ArrayList<>();
@@ -62,9 +57,9 @@ public class ExcelExportService {
         AMMETER_EQUIPMENT_IDS.add(6);
         AMMETER_EQUIPMENT_IDS.add(11);
 
-        PRODUCTION_EQUIOMENT_IDS.add(4);
-        PRODUCTION_EQUIOMENT_IDS.add(7);
-        PRODUCTION_EQUIOMENT_IDS.add(12);
+        PRODUCTION_EQUIPMENT_IDS.add(4);
+        PRODUCTION_EQUIPMENT_IDS.add(7);
+        PRODUCTION_EQUIPMENT_IDS.add(12);
 
         FIRE_AIR_UPS_EQUIPMENT_IDS.add(1);
         FIRE_AIR_UPS_EQUIPMENT_IDS.add(12);
@@ -117,9 +112,40 @@ public class ExcelExportService {
     @Resource
     private TemperatureMeterDataDicDao temperatureMeterDataDicDao;
     @Resource
-    private UploadEntityDao uploadEntityDao;
-    @Resource
     private EssStationDao essStationDao;
+    @Resource
+    private ImgUploadsDao imgUploadsDao;
+    @Resource
+    private PowerInstructionsDao powerInstructionsDao;
+    @Resource
+    private GridFsTemplate gridFsTemplate;
+    @Resource
+    private GridFSBucket gridFSBucket;
+
+    /**
+     * TODO  定时修改下发默认指令的值 settingResult
+     */
+    @Scheduled(cron = "${plan.curve.scheduled.time}")
+    public void planCurveSetting() {
+        Date startTime = DateUtils.getStartTime(new Date(System.currentTimeMillis()));
+        Date endTime = DateUtils.addDateDays(startTime, 30);
+        Criteria powerCriteria = new Criteria();
+        powerCriteria.and("strategyTime").gte(startTime).lte(endTime);
+
+        Criteria typeCriteria = new Criteria();
+        typeCriteria.and("type").is(0);
+
+        Criteria criteria = new Criteria();
+        criteria.orOperator(powerCriteria, typeCriteria);
+
+        Query updateQuery = new Query();
+        updateQuery.addCriteria(criteria);
+
+        Update update = new Update();
+        update.set("settingResult", true);
+        powerInstructionsDao.updateQuery(updateQuery, update);
+        log.info("定时任务执行下发设备功率曲线成功:{}", new Date(System.currentTimeMillis()));
+    }
 
     /**
      * 定时删除数据库中超过一段时间的excel文件 释放存储压力
@@ -131,20 +157,16 @@ public class ExcelExportService {
             return;
         }
         Date date = DateUtils.addDateDays(new Date(), -propertiesConfig.getRemoveExcelDate());
-        List<ExportRecord> exportRecords = exportRecordDao.query().lessThanEquals("recordTime", date).results();
+        Query exportQuery = new Query();
+        exportQuery.addCriteria(Criteria.where("recordTime").lte(date));
+        List<ExportRecord> exportRecords = exportRecordDao.findBatch(exportQuery);
         log.info("启动定时删除excel任务,查询到可删除excel文件数量为:{}", exportRecords.size());
-        BuguFS fs = BuguFSFactory.getInstance().create();
-        for (ExportRecord exportRecord : exportRecords) {
-            DBObject query = new BasicDBObject();
-            query.put("filename", exportRecord.getFilename());
-            if (fs.find(query) != null) {
-                fs.remove(exportRecord.getFilename());
-                log.info("删除excel文件,时间为:{},删除文件名称:{}", exportRecord.getRecordTime(), exportRecord.getFilename());
-            }
-            exportRecordDao.remove(exportRecord);
-            log.info("删除excel导出记录,时间为:{},导出结果:{}", exportRecord.getRecordTime(), exportRecord.getFailReason());
-        }
+        Query gridFsRemoveQuery = new Query();
+        gridFsRemoveQuery.addCriteria(Criteria.where("filename").in(exportRecords.stream().map(ExportRecord::getFilename).collect(Collectors.toList())));
+        gridFsTemplate.delete(gridFsRemoveQuery);
+        exportRecordDao.removeQuery(exportQuery);
     }
+
 
     /**
      * 定时删除磁盘中中超过一段时间的  最多 未绑定的2000张图片文件 释放存储压力
@@ -157,44 +179,49 @@ public class ExcelExportService {
         if (!propertiesConfig.isImageRemoveSwitch()) {
             return;
         }
-        Date date = DateUtils.addDateDays(new Date(), -propertiesConfig.getRemovePictureDate());
-        long essStationCount = essStationDao.count();
-        int pageSize = propertiesConfig.getExcelExportPageSize();
-        Set<String> uploadEntityIds = new HashSet<>();
-        for (int i = 0; i < (int) Math.ceil((double) essStationCount / (double) pageSize); i++) {
-            List<EssStation> essStationList = essStationDao.query().pageSize(pageSize).pageNumber(i + 1).results();
-            if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
-                for (EssStation essStation : essStationList) {
-                    uploadEntityIds.add(essStation.getUploadImgId());
+        List<String> fileIds = new ArrayList<>();
+        List<String> filePath = new ArrayList<>();
+        List<EssStation> essStationList = essStationDao.findEssStationBatch(new Query());
+        if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
+            for (EssStation essStation : essStationList) {
+                if (!CollectionUtils.isEmpty(essStation.getStationImgIdWithUrls()) && !essStation.getStationImgIdWithUrls().isEmpty()) {
+                    fileIds.addAll(essStation.getStationImgIdWithUrls().stream().map(img -> {
+                        return img.split("~")[0];
+                    }).collect(Collectors.toList()));
+                }
+
+            }
+        }
+        List<Device> deviceList = deviceDao.findBatchDevices(new Query());
+        if (!CollectionUtils.isEmpty(deviceList) && !deviceList.isEmpty()) {
+            for (Device device : deviceList) {
+                if (CollectionUtils.isEmpty(device.getDeviceImgIdWithUrls()) && !device.getDeviceImgIdWithUrls().isEmpty()) {
+                    fileIds.addAll(device.getDeviceImgIdWithUrls().stream().map(img -> {
+                        return img.split("~")[0];
+                    }).collect(Collectors.toList()));
                 }
             }
         }
-        long deviceCount = deviceDao.count();
-        for (int i = 0; i < (int) Math.ceil((double) deviceCount / (double) pageSize); i++) {
-            List<Device> deviceList = deviceDao.query().pageSize(pageSize).pageNumber(i + 1).results();
-            if (!CollectionUtils.isEmpty(deviceList) && !deviceList.isEmpty()) {
-                for (Device device : deviceList) {
-                    uploadEntityIds.add(device.getUploadImgId());
-                }
+        Query query = new Query().addCriteria(Criteria.where("imgId").nin(fileIds));
+        List<ImgUpload> imgUploads = imgUploadsDao.findBatchImgUploads(query);
+        List<String> originalFilenames = imgUploads.stream().map(ImgUpload::getOriginalFilename).collect(Collectors.toList());
+        imgUploads.stream().forEach(imgUpload -> {
+            filePath.addAll(imgUpload.getImgOfFullPath());
+        });
+        for (String path : filePath) {
+            File file = new File(path);
+            if (file.exists()) {
+                log.info("删除图片,删除图片路径名称:{}", path);
+                file.delete();
             }
         }
-        BuguQuery<UploadEntity> query = uploadEntityDao.query().notIn("_id", new ArrayList(uploadEntityIds)).lessThan("uploadTime", date).pageSize(2000).pageNumber(1);
-        List<UploadEntity> uploadEntities = query.results();
-        log.info("启动定时删除导入图片任务,查询到可删除图片文件数量为:{}", uploadEntities.size());
-        for (UploadEntity uploadEntity : uploadEntities) {
-            List<String> imgOfFullPath = uploadEntity.getImgOfFullPath();
-            if (!CollectionUtils.isEmpty(imgOfFullPath) && !imgOfFullPath.isEmpty()) {
-                for (String path : imgOfFullPath) {
-                    File file = new File(path);
-                    if (file.exists()) {
-                        log.info("删除图片,删除图片路径名称:{}", path);
-                        file.delete();
-                    }
-                }
-                uploadEntityDao.remove(uploadEntity);
-            }
-        }
+        Query removeGrid = new Query().addCriteria(Criteria.where("_id").nin(fileIds));
+        gridFsTemplate.delete(removeGrid);
+        imgUploadsDao.removeBatch(query);
+        log.info("删除图片文件与记录信息->文件名称为:{}", originalFilenames);
+
     }
+
 
     /**
      * 定时导出前一天excel数据
@@ -205,28 +232,30 @@ public class ExcelExportService {
             return;
         }
         //当前分页查询导出200个设备 可根据线上情况 实时查看导出情况在决定该设备数量
-        long count = deviceDao.count();
+        long count = deviceDao.count(new Query());
         int pageSize = propertiesConfig.getExcelExportPageSize();
         Date date = new Date();
         Date beforeDate = DateUtils.addDateDays(date, -1);
         String time = DateUtils.format(beforeDate);
         log.info("定时执行excel导出任务:设备总数量{},导出时间:{}", count, time);
         for (int i = 0; i < (int) Math.ceil((double) count / (double) pageSize); i++) {
-            List<Device> deviceList = deviceDao.query().pageSize(pageSize).pageNumber(i + 1).results();
+            Query findBatchQuery = new Query();
+            findBatchQuery.skip(i).limit(pageSize);
+            List<Device> deviceList = deviceDao.findBatchDevices(findBatchQuery);
             for (Device device : deviceList) {
                 for (int type : EXPORT_DATA_TYPE) {
                     threadPoolExecutor.execute(() -> {
                         long exportStart = System.currentTimeMillis();
                         String filename = device.getDeviceName() + "_" + time + "_" + type;
+                        log.info("导出deviceName :{}", device.getDeviceName());
                         String filePath = propertiesConfig.getRealTimeDataExcelTempDir() + File.separator + device.getDeviceName() + "_" + time + "_" + type + ".xlsx";
-                        DBObject query = new BasicDBObject();
-                        query.put("filename", filename);
-                        BuguFS fs = BuguFSFactory.getInstance().create();
-                        GridFSDBFile f = fs.findOne(query);
-                        if (f != null) {
+                        Query fileNameQuery = new Query();
+                        fileNameQuery.addCriteria(Criteria.where("filename").is(filename));
+                        GridFSFile gridFSFile = gridFsTemplate.findOne(fileNameQuery);
+                        if (gridFSFile != null) {
                             return;
                         }
-                        if (exportRecordDao.query().is("filename", filename).exists()) {
+                        if (exportRecordDao.exists(new Query().addCriteria(Criteria.where("filename").is(filename)))) {
                             return;
                         }
                         File file = new File(filePath);
@@ -235,17 +264,16 @@ public class ExcelExportService {
                         try {
                             makeSureFileExist(file);
                             outputStream = new FileOutputStream(file);
-                            Date nowDate = new Date();
+                            Date nowDate = new Date(System.currentTimeMillis());
                             exportRecord.setRecordTime(nowDate);
                             exportRecord.setFilename(filename);
                             exportStationOfBattery(device.getDeviceName(), time, type, outputStream);
                             exportRecord.setExporting(true);
-                            exportRecord.setFailReason("导出Excel成功");
                             outputStream.close();
-                            if (!exportRecordDao.query().is("filename", filename).exists()) {
-                                Uploader uploader = new Uploader(file, exportRecord.getFilename(), false);
-                                uploader.save();
-                                exportRecordDao.insert(exportRecord);
+                            if (!exportRecordDao.exists(new Query().addCriteria(Criteria.where("filename").is(filename)))) {
+                                gridFsTemplate.store(new FileInputStream(file), exportRecord.getFilename());
+                                exportRecord.setFailReason("导出Excel成功");
+                                exportRecordDao.saveExportRecord(exportRecord);
                             }
                             long exportEnd = System.currentTimeMillis();
                             log.info("导出excel花费时间:{},设备名称:{},导出设备类型:{}", (exportEnd - exportStart), device.getDeviceName(), getMsgByType(type));
@@ -253,7 +281,7 @@ public class ExcelExportService {
                             log.error("定时执行导出excel失败:{},导出excel数据时间为:{},设备名称:{},导出设备类型:{}", e.getMessage(), time, device.getDeviceName(), getMsgByType(type));
                             exportRecord.setExporting(false);
                             exportRecord.setFailReason(e.getMessage());
-                            exportRecordDao.insert(exportRecord);
+                            exportRecordDao.saveExportRecord(exportRecord);
                         } finally {
                             if (outputStream != null) {
                                 try {
@@ -295,6 +323,7 @@ public class ExcelExportService {
             }
         }
     }
+
 
     /**
      * @param deviceName
@@ -355,7 +384,9 @@ public class ExcelExportService {
                 writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
                 WriteSheet writeSheet = EasyExcelFactory.writerSheet(0, PCS_DATA_SHEET_NAME).head(PcsCabinetDic.class).build();
                 writer.write(pcsCabinData, writeSheet);
-                List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).greaterThan("equipmentId", 15).lessThan("equipmentId", 33).results();
+                Query equipmentIdQuery = new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and("enabled").is(true)
+                        .and(EQUIPMENT_ID).gte(15).lte(33));
+                List<Equipment> equipmentList = equipmentDao.findBatchEquipment(equipmentIdQuery);
                 if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
                     int i = 1;
                     for (int z = 0; i < equipmentList.size() + 1; i++, z++) {
@@ -385,17 +416,17 @@ public class ExcelExportService {
     }
 
     private List getPcsCabinEquipmentData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
-        return temperatureMeterDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId)
-                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).sort("{generationDataTime:-1}").results();
+        Query query = new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentId).and(GENERATION_DATA_TIME)
+                .gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME)));
+        return temperatureMeterDataDicDao.findBatchTemperature(query);
     }
 
     private void exportAmmeterData(OutputStream outputStream, String deviceName, Date startTime, Date endTime) {
         List<Equipment> equipmentList;
         if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
-            equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", PRODUCTION_EQUIOMENT_IDS).results();
+            equipmentList = equipmentDao.findBatchEquipment(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and("enabled").is(true).and(EQUIPMENT_ID).in(PRODUCTION_EQUIPMENT_IDS)));
         } else {
-            equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", AMMETER_EQUIPMENT_IDS).results();
+            equipmentList = equipmentDao.findBatchEquipment(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and("enabled").is(true).and(EQUIPMENT_ID).in(AMMETER_EQUIPMENT_IDS)));
         }
         if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
             ExcelWriter writer = null;
@@ -425,10 +456,9 @@ public class ExcelExportService {
             endTime) {
         List<Equipment> equipmentList;
         if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
-            equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", PRODUCTION_FIRE_AIR_UPS_EQUIPMENT_IDS).results();
+            equipmentList = equipmentDao.findBatchEquipment(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and("enabled").is(true).and(EQUIPMENT_ID).in(PRODUCTION_FIRE_AIR_UPS_EQUIPMENT_IDS)));
         } else {
-            equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", FIRE_AIR_UPS_EQUIPMENT_IDS)
-                    .results();
+            equipmentList = equipmentDao.findBatchEquipment(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and("enabled").is(true).and(EQUIPMENT_ID).in(FIRE_AIR_UPS_EQUIPMENT_IDS)));
         }
         if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
             ExcelWriter writer = null;
@@ -436,9 +466,10 @@ public class ExcelExportService {
                 for (int i = 0; i < equipmentList.size(); i++) {
                     if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
                         if (equipmentList.get(i).getEquipmentId() == 2) {
-                            List<FireControlDataDic> fireControlDataDics = fireControlDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
-                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
-                                    .sort("{generationDataTime:-1}").results();
+                            List<FireControlDataDic> fireControlDataDics = fireControlDataDicDao.findBatchFireControl(
+                                    new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentList.get(i).getEquipmentId())
+                                            .and(GENERATION_DATA_TIME).gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME)))
+                            );
                             if (!CollectionUtils.isEmpty(fireControlDataDics) && !fireControlDataDics.isEmpty()) {
                                 if (writer == null) {
                                     writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
@@ -447,9 +478,8 @@ public class ExcelExportService {
                                 writer.write(fireControlDataDics, writeSheet);
                             }
                         } else if (equipmentList.get(i).getEquipmentId() == 13) {
-                            List<UpsPowerDataDic> upsPowerDataDics = upsPowerDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
-                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
-                                    .sort("{generationDataTime:-1}").results();
+                            List<UpsPowerDataDic> upsPowerDataDics = upsPowerDataDicDao.findBatchUpsPower(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentList.get(i).getEquipmentId())
+                                    .and(GENERATION_DATA_TIME).gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME))));
                             if (!CollectionUtils.isEmpty(upsPowerDataDics) && !upsPowerDataDics.isEmpty()) {
                                 if (writer == null) {
                                     writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
@@ -458,9 +488,8 @@ public class ExcelExportService {
                                 writer.write(upsPowerDataDics, writeSheet);
                             }
                         } else if (equipmentList.get(i).getEquipmentId() == 14 || equipmentList.get(i).getEquipmentId() == 55) {
-                            List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
-                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
-                                    .sort("{generationDataTime:-1}").results();
+                            List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.findBatchAirCondition(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentList.get(i).getEquipmentId())
+                                    .and(GENERATION_DATA_TIME).gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME))));
                             if (!CollectionUtils.isEmpty(airConditionDataDics) && !airConditionDataDics.isEmpty()) {
                                 if (writer == null) {
                                     writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
@@ -471,9 +500,8 @@ public class ExcelExportService {
                         }
                     } else {
                         if (equipmentList.get(i).getEquipmentId() == 1) {
-                            List<FireControlDataDic> fireControlDataDics = fireControlDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
-                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
-                                    .sort("{generationDataTime:-1}").results();
+                            List<FireControlDataDic> fireControlDataDics = fireControlDataDicDao.findBatchFireControl(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentList.get(i).getEquipmentId())
+                                    .and(GENERATION_DATA_TIME).gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME))));
                             if (!CollectionUtils.isEmpty(fireControlDataDics) && !fireControlDataDics.isEmpty()) {
                                 if (writer == null) {
                                     writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
@@ -482,9 +510,8 @@ public class ExcelExportService {
                                 writer.write(fireControlDataDics, writeSheet);
                             }
                         } else if (equipmentList.get(i).getEquipmentId() == 12) {
-                            List<UpsPowerDataDic> upsPowerDataDics = upsPowerDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
-                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
-                                    .sort("{generationDataTime:-1}").results();
+                            List<UpsPowerDataDic> upsPowerDataDics = upsPowerDataDicDao.findBatchUpsPower(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentList.get(i).getEquipmentId())
+                                    .and(GENERATION_DATA_TIME).gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME))));
                             if (!CollectionUtils.isEmpty(upsPowerDataDics) && !upsPowerDataDics.isEmpty()) {
                                 if (writer == null) {
                                     writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
@@ -493,9 +520,8 @@ public class ExcelExportService {
                                 writer.write(upsPowerDataDics, writeSheet);
                             }
                         } else if (equipmentList.get(i).getEquipmentId() == 13) {
-                            List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentList.get(i).getEquipmentId())
-                                    .greaterThanEquals(GENERATION_DATA_TIME, startTime).lessThanEquals(GENERATION_DATA_TIME, endTime)
-                                    .sort("{generationDataTime:-1}").results();
+                            List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.findBatchAirCondition(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentList.get(i).getEquipmentId())
+                                    .and(GENERATION_DATA_TIME).gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME))));
                             if (!CollectionUtils.isEmpty(airConditionDataDics) && !airConditionDataDics.isEmpty()) {
                                 if (writer == null) {
                                     writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
@@ -520,22 +546,7 @@ public class ExcelExportService {
 
 
     private List<List<String>> getVolHeard(String deviceName, Integer equipmentId) {
-        Iterable<DBObject> cellVolIte = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId))
-                .sort("{generationDataTime:-1}").limit(1).results();
-        BmsCellVoltDataDic bmsCellVoltDataDic = null;
-        if (cellVolIte != null) {
-            for (DBObject object : cellVolIte) {
-                bmsCellVoltDataDic = MapperUtil.fromDBObject(BmsCellVoltDataDic.class, object);
-                Map<String, Integer> volMap = bmsCellVoltDataDic.getVolMap();
-                Iterator<Map.Entry<String, Integer>> iterator = volMap.entrySet().iterator();
-                while (iterator.hasNext()) {
-                    Map.Entry<String, Integer> next = iterator.next();
-                    if (next.getValue() == 0) {
-                        iterator.remove();
-                    }
-                }
-            }
-        }
+        BmsCellVoltDataDic bmsCellVoltDataDic = bmsCellVoltDataDicDao.findBmsCellVol(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentId)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME))));
         List<List<String>> list = new ArrayList<>();
         List<String> head0 = new ArrayList<>();
         head0.add("设备名称");
@@ -546,23 +557,25 @@ public class ExcelExportService {
         list.add(head0);
         list.add(head1);
         list.add(head2);
-        if (bmsCellVoltDataDic != null) {
-            for (Map.Entry<String, Integer> entry : bmsCellVoltDataDic.getVolMap().entrySet()) {
+        Map<String, Integer> volMap = bmsCellVoltDataDic.getVolMap();
+        Iterator<Map.Entry<String, Integer>> iterator = volMap.entrySet().iterator();
+        boolean flag = false;
+        while (iterator.hasNext() && !flag) {
+            Map.Entry<String, Integer> next = iterator.next();
+            if (next.getValue() != 0) {
                 List<String> head3 = new ArrayList<>();
-                head3.add(entry.getKey());
+                head3.add(next.getKey());
                 list.add(head3);
+            } else {
+                flag = true;
             }
         }
         return list;
     }
 
     private List getVolData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
-        List<BmsCellVoltDataDic> bmsCellVoltDataDics = bmsCellVoltDataDicDao.query().
-                is(DEVICE_NAME, deviceName)
-                .is("equipmentId", equipmentId)
-                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime)
-                .sort("{generationDataTime:-1}").results();
+        List<BmsCellVoltDataDic> bmsCellVoltDataDics = bmsCellVoltDataDicDao.findBatchQuery(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentId)
+                .and(GENERATION_DATA_TIME).gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME))));
         List<List<Object>> list = new ArrayList<>();
         if (!CollectionUtils.isEmpty(bmsCellVoltDataDics) && !bmsCellVoltDataDics.isEmpty()) {
             for (BmsCellVoltDataDic bmsCellVoltDataDic : bmsCellVoltDataDics) {
@@ -572,14 +585,14 @@ public class ExcelExportService {
                 data.add(bmsCellVoltDataDic.getEquipChannelStatus() == 0 ? "正常" : "异常");
                 Map<String, Integer> volMap = bmsCellVoltDataDic.getVolMap();
                 Iterator<Map.Entry<String, Integer>> iterator = volMap.entrySet().iterator();
-                while (iterator.hasNext()) {
+                boolean flag = false;
+                while (iterator.hasNext() && !flag) {
                     Map.Entry<String, Integer> next = iterator.next();
-                    if (next.getValue() == 0) {
-                        iterator.remove();
+                    if (next.getValue() != 0) {
+                        data.add(next.getValue());
+                    } else {
+                        flag = true;
                     }
-                }
-                for (Map.Entry<String, Integer> entry : volMap.entrySet()) {
-                    data.add(entry.getValue());
                 }
                 list.add(data);
             }
@@ -588,31 +601,29 @@ public class ExcelExportService {
     }
 
     private List getBcuData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
-        return bcuDataDicBCUDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId)
-                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime)
-                .sort("{generationDataTime:-1}")
-                .results();
+        Query query = new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentId).and(GENERATION_DATA_TIME).gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME)));
+        return bcuDataDicBCUDao.findBatchBcuData(query);
     }
 
     private void exportBamsData(OutputStream outputStream, String deviceName, Date startTime, Date endTime) {
-        List bamsData = getDataBams(deviceName, startTime, endTime);
-        if (!CollectionUtils.isEmpty(bamsData) && !bamsData.isEmpty()) {
+        List bamData = getDataBams(deviceName, startTime, endTime);
+        if (!CollectionUtils.isEmpty(bamData) && !bamData.isEmpty()) {
             ExcelWriter writer = null;
             try {
                 writer = EasyExcelFactory.write(outputStream).excelType(ExcelTypeEnum.XLSX).build();
                 WriteSheet writeSheet = EasyExcelFactory.writerSheet(0, BAMS_DATA_SHEET_NAME).head(BamsDataDicBA.class).build();
-                writer.write(bamsData, writeSheet);
+                writer.write(bamData, writeSheet);
                 List<Equipment> equipmentList;
                 if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
-                    equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).greaterThan("equipmentId", 36).lessThan("equipmentId", 53).results();
+                    equipmentList = equipmentDao.findBatchEquipment(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and("enabled").is(true).and(EQUIPMENT_ID).gte(36).lte(53)));
                 } else {
-                    equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).greaterThan("equipmentId", 35).lessThan("equipmentId", 54).results();
+                    equipmentList = equipmentDao.findBatchEquipment(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and("enabled").is(true).and(EQUIPMENT_ID).gte(35).lte(54)));
                 }
                 if (!CollectionUtils.isEmpty(equipmentList) && !equipmentList.isEmpty()) {
                     int z = 0;
                     int j;
                     for (j = 1; j <= equipmentList.size(); j++, z++) {
+
                         List data = getBcuData(deviceName, equipmentList.get(z).getEquipmentId(), startTime, endTime);
                         WriteSheet writeSheet1 = EasyExcelFactory.writerSheet(j, equipmentList.get(z).getName()).head(BcuDataDicBCU.class).build();
                         if (!CollectionUtils.isEmpty(data) && !data.isEmpty()) {
@@ -650,7 +661,8 @@ public class ExcelExportService {
                         }
                     }
                     if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
-                        List<Equipment> equipmentCabinBattery = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).in("equipmentId", PRODUCTION_CABIN_IDS).results();
+                        List<Equipment> equipmentCabinBattery = equipmentDao.findBatchEquipment(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)
+                                .and("enabled").is(true).and(EQUIPMENT_ID).in(PRODUCTION_CABIN_IDS)));
                         if (!CollectionUtils.isEmpty(equipmentCabinBattery) && !equipmentCabinBattery.isEmpty()) {
                             int k = y + 1;
                             for (Equipment equipment : equipmentCabinBattery) {
@@ -674,47 +686,34 @@ public class ExcelExportService {
         } else {
             throw new ExcelExportWithoutDataException("该日期暂无数据");
         }
+
     }
 
     public List<BamsDataDicBA> getDataBams(String deviceName, Date startTime, Date endTime) {
-        return bamsDataDicBADao.query().is(DEVICE_NAME, deviceName)
-                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime)
-                .sort("{generationDataTime:-1}").results();
+        Query query = new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(GENERATION_DATA_TIME).gte(startTime).lte(endTime))
+                .with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME)));
+        return bamsDataDicBADao.findBatchBamData(query);
     }
 
-    public List<AirConditionExcelBo> getAirConditionData(String deviceName, Date startTime, Date endTime) {
-        List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is(DEVICE_NAME, deviceName)
-                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
-        return airConditionDataDics.stream().map(airConditionDataDic -> {
-            AirConditionExcelBo airConditionExcelBo = new AirConditionExcelBo();
-            BeanUtils.copyProperties(airConditionDataDic, airConditionExcelBo);
-            //TODO 直接这样类型转换
-            airConditionExcelBo.setSensorFaultMsg(airConditionDataDic.getSensorFault() == 1 ? "故障" : "正常");
-            airConditionExcelBo.setArefactionOnhumidity(airConditionDataDic.getArefactionOnhumidity());
-            airConditionExcelBo.setArefactionOffhumidity(airConditionDataDic.getArefactionOffhumidity());
-            return airConditionExcelBo;
-        }).collect(Collectors.toList());
-    }
-
+    //
+//    public List<AirConditionExcelBo> getAirConditionData(String deviceName, Date startTime, Date endTime) {
+//        List<AirConditionDataDic> airConditionDataDics = airConditionDataDicDao.query().is(DEVICE_NAME, deviceName)
+//                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
+//                .lessThanEquals(GENERATION_DATA_TIME, endTime).results();
+//        return airConditionDataDics.stream().map(airConditionDataDic -> {
+//            AirConditionExcelBo airConditionExcelBo = new AirConditionExcelBo();
+//            BeanUtils.copyProperties(airConditionDataDic, airConditionExcelBo);
+//            //TODO 直接这样类型转换
+//            airConditionExcelBo.setSensorFaultMsg(airConditionDataDic.getSensorFault() == 1 ? "故障" : "正常");
+//            airConditionExcelBo.setArefactionOnhumidity(airConditionDataDic.getArefactionOnhumidity());
+//            airConditionExcelBo.setArefactionOffhumidity(airConditionDataDic.getArefactionOffhumidity());
+//            return airConditionExcelBo;
+//        }).collect(Collectors.toList());
+//    }
+//
     public List<List<String>> getTempHeard(String deviceName, Integer equipmentId) {
-        Iterable<DBObject> cellTempIte = bmsCellTempDataDicDao.aggregate().match(bmsCellTempDataDicDao.query().is(DEVICE_NAME, deviceName)
-                .is("equipmentId", equipmentId)).sort("{generationDataTime:-1}").limit(1).results();
-        BmsCellTempDataDic bmsCellTempDataDic = null;
-        if (cellTempIte != null) {
-            for (DBObject object : cellTempIte) {
-                bmsCellTempDataDic = MapperUtil.fromDBObject(BmsCellTempDataDic.class, object);
-                Map<String, Integer> tempMap = bmsCellTempDataDic.getTempMap();
-                Iterator<Map.Entry<String, Integer>> iterator = tempMap.entrySet().iterator();
-                while (iterator.hasNext()) {
-                    Map.Entry<String, Integer> next = iterator.next();
-                    if (next.getValue() == 0) {
-                        iterator.remove();
-                    }
-                }
-            }
-        }
+        BmsCellTempDataDic bmsCellTempDataDic = bmsCellTempDataDicDao.findBmsCellTemp(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentId))
+                .with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME))));
         List<List<String>> list = new ArrayList<>();
         List<String> head0 = new ArrayList<>();
         head0.add("设备名称");
@@ -725,24 +724,25 @@ public class ExcelExportService {
         list.add(head0);
         list.add(head1);
         list.add(head2);
-        if (bmsCellTempDataDic != null) {
-            for (Map.Entry<String, Integer> entry : bmsCellTempDataDic.getTempMap().entrySet()) {
+        Map<String, Integer> tempMap = bmsCellTempDataDic.getTempMap();
+        Iterator<Map.Entry<String, Integer>> iterator = tempMap.entrySet().iterator();
+        boolean flag = false;
+        while (iterator.hasNext() && !flag) {
+            Map.Entry<String, Integer> next = iterator.next();
+            if (next.getValue() != 0) {
                 List<String> head3 = new ArrayList<>();
-                head3.add(entry.getKey());
+                head3.add(next.getKey());
                 list.add(head3);
+            } else {
+                flag = true;
             }
         }
         return list;
     }
 
-
     public List<List<Object>> getTempData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
-        List<BmsCellTempDataDic> bmsCellTempDataDics = bmsCellTempDataDicDao.query().
-                is(DEVICE_NAME, deviceName)
-                .is("equipmentId", equipmentId)
-                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime)
-                .sort("{generationDataTime:-1}").results();
+        List<BmsCellTempDataDic> bmsCellTempDataDics = bmsCellTempDataDicDao.findBatchBmsCellTemp(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentId)
+                .and(GENERATION_DATA_TIME).gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME))));
         List<List<Object>> list = new ArrayList<>();
         if (!CollectionUtils.isEmpty(bmsCellTempDataDics) && !bmsCellTempDataDics.isEmpty()) {
             for (BmsCellTempDataDic bmsCellTempDataDic : bmsCellTempDataDics) {
@@ -752,42 +752,34 @@ public class ExcelExportService {
                 data.add(bmsCellTempDataDic.getEquipChannelStatus() == 0 ? "正常" : "异常");
                 Map<String, Integer> tempMap = bmsCellTempDataDic.getTempMap();
                 Iterator<Map.Entry<String, Integer>> iterator = tempMap.entrySet().iterator();
-                while (iterator.hasNext()) {
+                boolean flag = false;
+                while (iterator.hasNext() && !flag) {
                     Map.Entry<String, Integer> next = iterator.next();
-                    if (next.getValue() == 0) {
-                        iterator.remove();
+                    if (next.getValue() != 0) {
+                        data.add(next.getValue());
+                    } else {
+                        flag = true;
                     }
-                }
-                for (Map.Entry<String, Integer> entry : tempMap.entrySet()) {
-                    data.add(entry.getValue());
                 }
                 list.add(data);
             }
         }
-
         return list;
     }
 
-
     private List getAmmeData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
-        return ammeterDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId)
-                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime)
-                .sort("{generationDataTime:-1}").results();
+        return ammeterDataDicDao.findBatchAmmeter(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentId).and(GENERATION_DATA_TIME).gte(startTime).lt(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME))));
     }
 
-
     private List getPcsChannelData(String deviceName, Integer equipmentId, Date startTime, Date endTime) {
-        return pcsChannelDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId)
-                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).sort("{generationDataTime:-1}").results();
+        Query query = new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentId)
+                .and(GENERATION_DATA_TIME).gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME)));
+        return pcsChannelDicDao.findBatchPcsChannel(query);
     }
 
     private List getPcsCabinData(String deviceName, Date startTime, Date endTime) {
-        return pcsCabinetDicDao.query().is(DEVICE_NAME, deviceName)
-                .is("equipmentId", 15)
-                .greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime)
-                .sort("{generationDataTime:-1}").results();
+        Query query = new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(15)
+                .and(GENERATION_DATA_TIME).gte(startTime).lte(endTime)).with(Sort.by(Sort.Order.desc(GENERATION_DATA_TIME)));
+        return pcsCabinetDicDao.findBatchPcsCabinet(query);
     }
 }

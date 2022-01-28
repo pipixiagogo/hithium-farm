@@ -1,7 +1,5 @@
 package com.bugull.hithium.core.entity;
 
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.Entity;
 import lombok.Data;
 
 import java.util.List;
@@ -10,9 +8,8 @@ import java.util.List;
 /**
  * 舱信息
  */
-@Entity
 @Data
-public class Cabin extends SimpleEntity {
+public class Cabin {
     private Integer stationId;
     private Integer pccId;
     private Integer cabinType;

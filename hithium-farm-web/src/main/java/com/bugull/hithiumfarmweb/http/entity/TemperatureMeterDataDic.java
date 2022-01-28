@@ -3,12 +3,6 @@ package com.bugull.hithiumfarmweb.http.entity;
 import com.alibaba.excel.annotation.ExcelIgnore;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.bugull.hithiumfarmweb.http.excelConverter.EquipStatusConverter;
-import com.bugull.mongo.BuguEntity;
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Id;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.util.Date;
@@ -17,11 +11,8 @@ import java.util.Date;
  * 温湿度
  */
 @Data
-@Entity
-@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1}")
-public class TemperatureMeterDataDic implements BuguEntity {
+public class TemperatureMeterDataDic  {
     @ExcelIgnore
-    @Id
     private String id;
     @ExcelIgnore
     private String deviceName;
@@ -38,7 +29,6 @@ public class TemperatureMeterDataDic implements BuguEntity {
     private Date generationDataTime;
     @ExcelProperty(value = "设备名称")
     private String name;//设备名称
-    @Ignore
     @ExcelIgnore
     private String time;
     @ExcelIgnore

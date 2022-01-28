@@ -17,7 +17,47 @@ public class PropertyUtil {
     public static final String CONFIG = "application.properties";
     public static final String CONFIG_SPLIT_TOKEN = ",";
     private static final Properties PROPERTIES = new Properties();
+    public  static String getApplicationScenariosItemMsg(Integer applicationScenariosItem) {
+        switch (applicationScenariosItem) {
+            case 1:
+                return "防逆流控制";
+            case 2:
+                return "削峰填谷";
+            case 8:
+                return "需量控制";
+            case 16:
+                return "AGC联合调频";
+            case 32:
+                return "需求响应";
+            case 64:
+                return "动态扩容";
+            case 128:
+                return "微网监控管理";
+            case 256:
+                return "备用电源";
+            default:
+                return "未知应用场景下策略";
+        }
+    }
 
+    public static String getApplicationScenariosMsg(Integer applicationScenarios) {
+        switch (applicationScenarios) {
+            case 0:
+                return "调峰";
+            case 1:
+                return "调频";
+            case 2:
+                return "风光储充";
+            case 3:
+                return "微网";
+            case 4:
+                return "备用电源";
+            case 5:
+                return "台区";
+            default:
+                return "未知应用场景";
+        }
+    }
 //    static {
 //        String configFile =.getProperty("configFile");
 //        configFile = StringUtils.isEmpty(configFile) ? CONFIG : configFile;

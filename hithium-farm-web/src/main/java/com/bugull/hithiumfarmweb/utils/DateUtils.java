@@ -1,24 +1,15 @@
-/**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
- * <p>
- * https://www.renren.io
- * <p>
- * 版权所有，侵权必究！
- */
+
 
 package com.bugull.hithiumfarmweb.utils;
 
-
-import org.apache.commons.lang.StringUtils;
-import org.joda.time.DateTime;
-import org.joda.time.LocalDate;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+
+import static java.util.Calendar.DATE;
+import static java.util.Calendar.MONTH;
 
 /**
  * 日期处理
@@ -50,6 +41,12 @@ public class DateUtils {
     /** 时间格式(yyyy) */
     public final static String DATE_PATTERN_YYYY = "yyyy";
     private static ThreadLocal<SimpleDateFormat> sdf = new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat(DATE_PATTERN);
+        }
+    };
+    private static ThreadLocal<SimpleDateFormat> sdfYYYY = new ThreadLocal<SimpleDateFormat>() {
         @Override
         protected SimpleDateFormat initialValue() {
             return new SimpleDateFormat(DATE_PATTERN);
@@ -131,6 +128,11 @@ public class DateUtils {
         SimpleDateFormat formatter = sdfDate.get();
         return formatter.parse(dateDateStr);
     }
+    public static Date strToDateYYYY(String dateDateStr) throws ParseException {
+        SimpleDateFormat formatter = sdfYYYY.get();
+        return formatter.parse(dateDateStr);
+    }
+
 
     public static String strToDateWithDATE_TIME_PATTERN(Date date) throws ParseException {
         SimpleDateFormat formatter = sdfDateWithImg.get();
@@ -202,119 +204,6 @@ public class DateUtils {
         return null;
     }
 
-    /**
-     * 字符串转换成日期
-     * @param strDate 日期字符串
-     * @param pattern 日期的格式，如：DateUtils.DATE_TIME_PATTERN
-     */
-    public static Date stringToDate(String strDate, String pattern) {
-        if (StringUtils.isBlank(strDate)) {
-            return null;
-        }
-
-        DateTimeFormatter fmt = DateTimeFormat.forPattern(pattern);
-        return fmt.parseLocalDateTime(strDate).toDate();
-    }
-
-    /**
-     * 根据周数，获取开始日期、结束日期
-     * @param week  周期  0本周，-1上周，-2上上周，1下周，2下下周
-     * @return 返回date[0]开始日期、date[1]结束日期
-     */
-    public static Date[] getWeekStartAndEnd(int week) {
-        DateTime dateTime = new DateTime();
-        LocalDate date = new LocalDate(dateTime.plusWeeks(week));
-
-        date = date.dayOfWeek().withMinimumValue();
-        Date beginDate = date.toDate();
-        Date endDate = date.plusDays(6).toDate();
-        return new Date[]{beginDate, endDate};
-    }
-
-    /**
-     * 对日期的【秒】进行加/减
-     *
-     * @param date 日期
-     * @param seconds 秒数，负数为减
-     * @return 加/减几秒后的日期
-     */
-    public static Date addDateSeconds(Date date, int seconds) {
-        DateTime dateTime = new DateTime(date);
-        return dateTime.plusSeconds(seconds).toDate();
-    }
-
-    /**
-     * 对日期的【分钟】进行加/减
-     *
-     * @param date 日期
-     * @param minutes 分钟数，负数为减
-     * @return 加/减几分钟后的日期
-     */
-    public static Date addDateMinutes(Date date, int minutes) {
-        DateTime dateTime = new DateTime(date);
-        return dateTime.plusMinutes(minutes).toDate();
-    }
-
-    /**
-     * 对日期的【小时】进行加/减
-     *
-     * @param date 日期
-     * @param hours 小时数，负数为减
-     * @return 加/减几小时后的日期
-     */
-    public static Date addDateHours(Date date, int hours) {
-        DateTime dateTime = new DateTime(date);
-        return dateTime.plusHours(hours).toDate();
-    }
-
-    /**
-     * 对日期的【天】进行加/减
-     *
-     * @param date 日期
-     * @param days 天数，负数为减
-     * @return 加/减几天后的日期
-     */
-    public static Date addDateDays(Date date, int days) {
-        DateTime dateTime = new DateTime(date);
-        return dateTime.plusDays(days).toDate();
-    }
-
-    /**
-     * 对日期的【周】进行加/减
-     *
-     * @param date 日期
-     * @param weeks 周数，负数为减
-     * @return 加/减几周后的日期
-     */
-    public static Date addDateWeeks(Date date, int weeks) {
-        DateTime dateTime = new DateTime(date);
-        return dateTime.plusWeeks(weeks).toDate();
-    }
-
-    /**
-     * 对日期的【月】进行加/减
-     *
-     * @param date 日期
-     * @param months 月数，负数为减
-     * @return 加/减几月后的日期
-     */
-    public static Date addDateMonths(Date date, int months) {
-        DateTime dateTime = new DateTime(date);
-        return dateTime.plusMonths(months).toDate();
-    }
-
-    /**
-     * 对日期的【年】进行加/减
-     *
-     * @param date 日期
-     * @param years 年数，负数为减
-     * @return 加/减几年后的日期
-     */
-    public static Date addDateYears(Date date, int years) {
-        DateTime dateTime = new DateTime(date);
-        return dateTime.plusYears(years).toDate();
-    }
-
     public static String dateToStryyyy(Date dateDate) {
         SimpleDateFormat formatter = sdfWithYYYY.get();
         String dateString = formatter.format(dateDate);
@@ -353,8 +242,8 @@ public class DateUtils {
 
     public static Date getCurrentYearStartTime() {
         Calendar c = Calendar.getInstance();
-        c.set(Calendar.MONTH, 0);
-        c.set(Calendar.DATE, 1);
+        c.set(MONTH, 0);
+        c.set(DATE, 1);
         c.set(Calendar.HOUR_OF_DAY, 0);
         c.set(Calendar.MINUTE, 0);
         c.set(Calendar.SECOND, 0);
@@ -364,14 +253,56 @@ public class DateUtils {
 
     public static Date getCurrentYearEndTime() {
         Calendar c = Calendar.getInstance();
-        c.set(Calendar.MONTH, 11);
-        c.set(Calendar.DATE, 31);
+        c.set(MONTH, 11);
+        c.set(DATE, 31);
         c.set(Calendar.HOUR_OF_DAY, 23);
         c.set(Calendar.MINUTE, 59);
         c.set(Calendar.SECOND, 59);
         c.set(Calendar.MILLISECOND, 999);
         return c.getTime();
     }
+
+    public static Date getPreviousYearStartTime(Date current){
+        Calendar c = Calendar.getInstance();
+        c.setTime(current);
+        c.add(Calendar.YEAR, -1);
+        c.add(MONTH,1);
+        c.set(Calendar.HOUR_OF_DAY, 0);
+        c.set(Calendar.MINUTE, 0);
+        c.set(Calendar.SECOND, 0);
+        c.set(Calendar.MILLISECOND, 0);
+        return c.getTime();
+    }
+    public static Date addDateMinutes(Date current,int minute){
+        Calendar c = Calendar.getInstance();
+        c.setTime(current);
+        c.add(Calendar.MINUTE,minute);
+        return c.getTime();
+    }
+    public static Date addDateDays(Date current,int date){
+        Calendar c = Calendar.getInstance();
+        c.setTime(current);
+        c.add(DATE,date);
+        return c.getTime();
+    }
+
+    public static Date addDateMonths(Date current,int month){
+        Calendar c = Calendar.getInstance();
+        c.setTime(current);
+        c.add(MONTH,month);
+        return c.getTime();
+    }
+
+    public static Date addDateYears(Date current,int year){
+        Calendar c = Calendar.getInstance();
+        c.setTime(current);
+        c.add(Calendar.YEAR,year);
+        return c.getTime();
+    }
+
+
+
+
 
 
 }

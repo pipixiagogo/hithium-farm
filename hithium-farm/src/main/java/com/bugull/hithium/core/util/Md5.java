@@ -1,17 +1,7 @@
-/**
- * Alibaba.com Inc.
- * Copyright (c) 2004-2016 All Rights Reserved.
- */
+
 package com.bugull.hithium.core.util;
 
 
-/**
- * 总体说明
- *
- * <p>具体说明</p>
- *
- * @version $Id: Md5.java,v 0.1 2016年1月19日 下午5:55:16  Exp $
- */
 public class Md5 {
     /*
      * 下面这些S11-S44实际上是一个4*4的矩阵，在原始的C实现中是用#define 实现的， 这里把它们实现成为static

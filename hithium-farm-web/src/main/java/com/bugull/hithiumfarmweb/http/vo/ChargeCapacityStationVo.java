@@ -2,6 +2,8 @@ package com.bugull.hithiumfarmweb.http.vo;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
+
 @Data
 public class ChargeCapacityStationVo {
 
@@ -11,9 +13,9 @@ public class ChargeCapacityStationVo {
 
     private String stationName;
 
-    private String totalStationIncome;
+    private String totalStationIncome = new BigDecimal(0).toString();
 
-    private String dayStationIncome;
+    private String dayStationIncome = new BigDecimal(0).toString();
 
 
 }

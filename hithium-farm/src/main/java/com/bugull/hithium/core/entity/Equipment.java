@@ -1,15 +1,10 @@
 package com.bugull.hithium.core.entity;
 
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
 import lombok.Data;
-import lombok.ToString;
 
 @Data
-@Entity
-@EnsureIndex("{deviceName:1}")
-public class Equipment extends SimpleEntity {
+public class Equipment  {
+    private String id;
 
     private Boolean isHasData=false;
     /**
@@ -34,6 +29,8 @@ public class Equipment extends SimpleEntity {
     private String description;
     private String name;
     private Integer equipmentId;
+
+    private String equipmentTypeInfo;
 
     private String deviceName;
 }

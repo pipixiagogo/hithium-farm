@@ -4,38 +4,40 @@ import com.alibaba.excel.EasyExcelFactory;
 import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.support.ExcelTypeEnum;
 import com.alibaba.excel.write.metadata.WriteSheet;
-import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.common.Const;
+import com.bugull.hithiumfarmweb.common.Page;
 import com.bugull.hithiumfarmweb.common.exception.ExcelExportWithoutDataException;
 import com.bugull.hithiumfarmweb.common.exception.ParamsValidateException;
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.dao.BreakDownLogDao;
+import com.bugull.hithiumfarmweb.http.dao.CorpDao;
 import com.bugull.hithiumfarmweb.http.dao.DeviceDao;
 import com.bugull.hithiumfarmweb.http.entity.BreakDownLog;
 import com.bugull.hithiumfarmweb.http.entity.Device;
 import com.bugull.hithiumfarmweb.http.entity.EssStation;
 import com.bugull.hithiumfarmweb.http.entity.SysUser;
+import com.bugull.hithiumfarmweb.http.entity.thirdPartyEntity.AlarmThirdPartyVo;
+import com.bugull.hithiumfarmweb.http.entity.thirdPartyEntity.AlarmTime;
+import com.bugull.hithiumfarmweb.http.entity.thirdPartyEntity.Corp;
 import com.bugull.hithiumfarmweb.http.vo.BreakDownLogVo;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
-import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
-import com.bugull.mongo.BuguQuery;
-import com.bugull.mongo.utils.StringUtil;
+import com.bugull.hithiumfarmweb.utils.SecretUtil;
+import org.apache.commons.lang.StringUtils;
 import org.apache.shiro.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import java.io.OutputStream;
 import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.bugull.hithiumfarmweb.common.Const.*;
@@ -52,10 +54,15 @@ public class BreakDownLogService {
     private PropertiesConfig propertiesConfig;
     @Resource
     private EssStationService essStationService;
+    @Resource
+    private CorpDao corpDao;
     public static final Logger log = LoggerFactory.getLogger(BreakDownLogService.class);
 
     private Device getDeviceByName(String deviceName) {
-        return deviceDao.query().is(DEVICE_NAME, deviceName).returnFields(PROVINCE, "city", "name", "description").result();
+        Query query = new Query();
+        query.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).fields().include(PROVINCE).include("city")
+                .include("name").include("description");
+        return deviceDao.findDevice(query);
     }
 
     private String getAlarmTypeMsg(Integer alarmType) {
@@ -91,9 +98,9 @@ public class BreakDownLogService {
         }
     }
 
-    public void exportBreakDownlog(String time, String province, String city, Boolean status, OutputStream outputStream, String deviceName) throws ParseException {
-        Date startTime = null;
-        Date endTime = null;
+    public void exportBreakDownLog(String time, String province, String city, Boolean status, OutputStream outputStream, String deviceName) throws ParseException {
+        Date startTime;
+        Date endTime;
         if (StringUtils.isEmpty(time)) {
             Date date = new Date();
             startTime = DateUtils.getStartTime(date);
@@ -106,40 +113,41 @@ public class BreakDownLogService {
             startTime = DateUtils.dateToStrWithHHmm(time);
             endTime = DateUtils.getEndTime(startTime);
         }
-        BuguQuery<Device> deviceBuguQuery = deviceDao.query();
+        Query query = new Query();
         if (!StringUtils.isEmpty(province)) {
-            deviceBuguQuery.is(PROVINCE, province);
+            query.addCriteria(Criteria.where(PROVINCE).is(province));
         }
         if (!StringUtils.isEmpty(city)) {
-            deviceBuguQuery.is("city", city);
+            query.addCriteria(Criteria.where("city").is(city));
         }
         SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
         if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
             List<String> essStationServiceDeviceNames = essStationService.getDeviceNames(user.getStationList());
             if (!CollectionUtils.isEmpty(essStationServiceDeviceNames) && !essStationServiceDeviceNames.isEmpty()) {
                 if (!StringUtils.isEmpty(deviceName) && essStationServiceDeviceNames.contains(deviceName)) {
-                    deviceBuguQuery.is(DEVICE_NAME, deviceName);
+                    query.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
                 }
                 if (!StringUtils.isEmpty(deviceName) && !essStationServiceDeviceNames.contains(deviceName)) {
                     throw new ExcelExportWithoutDataException("该日期暂无数据");
                 }
-                deviceBuguQuery.in(DEVICE_NAME, essStationServiceDeviceNames);
+                query.addCriteria(Criteria.where(DEVICE_NAME).in(essStationServiceDeviceNames));
             }
         }
-        List<String> deviceNames = deviceBuguQuery.results().stream().map(Device::getDeviceName).collect(Collectors.toList());
-        BuguQuery<BreakDownLog> breakDownLogBuguQuery = breakDownLogDao.query();
+        List<String> deviceNames = deviceDao.findBatchDevices(query).stream().map(Device::getDeviceName).collect(Collectors.toList());
+        Query breakDownQuery = new Query();
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-            breakDownLogBuguQuery.in(DEVICE_NAME, deviceNames);
+            breakDownQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
         if (!StringUtils.isEmpty(province) && !StringUtils.isEmpty(city) && CollectionUtils.isEmpty(deviceNames)) {
             throw new ExcelExportWithoutDataException("该日期暂无数据");
         }
         if (status != null) {
-            breakDownLogBuguQuery.is(STATUS, status);
+            breakDownQuery.addCriteria(Criteria.where(STATUS).is(status));
         }
         log.info("EXCEL导出告警日志  告警日志开始时间:{}---告警日志结束时间:{}", startTime, endTime);
-        List<BreakDownLog> breakDownLogList = breakDownLogBuguQuery.greaterThanEquals(GENERATION_DATA_TIME, startTime)
-                .lessThanEquals(GENERATION_DATA_TIME, endTime).sort("{generationDataTime:-1}").results();
+        breakDownQuery.addCriteria(Criteria.where(GENERATION_DATA_TIME).gte(startTime).lte(endTime))
+                .with(Sort.by(Sort.Order.desc("generationDataTime")));
+        List<BreakDownLog> breakDownLogList = breakDownLogDao.findBatchBreakDownLogs(breakDownQuery);
         if (!CollectionUtils.isEmpty(breakDownLogList) && !breakDownLogList.isEmpty()) {
             List<BreakDownLogVo> breakDownLogBos = breakDownLogList.stream().map(data -> {
                 BreakDownLogVo breakDownLogVo = new BreakDownLogVo();
@@ -167,30 +175,30 @@ public class BreakDownLogService {
         }
     }
 
-    public ResHelper<BuguPageQuery.Page<BreakDownLogVo>> queryBreakDownlog(Integer page, Integer pageSize, String deviceName, Integer order, String orderField,
-                                                                           Integer alarmType, Date startTime, Date endTime, String province, String city, String country, Boolean status) {
-        BuguPageQuery<BreakDownLog> query = breakDownLogDao.pageQuery();
+    public ResHelper<Page<BreakDownLogVo>> queryBreakdownLog(Integer page, Integer pageSize, String deviceName, Integer order, String orderField,
+                                                             Integer alarmType, Date startTime, Date endTime, String province, String city, String country, Boolean status) {
+        Query breakDownQuery = new Query();
         if (!StringUtils.isEmpty(deviceName)) {
-            query.is(DEVICE_NAME, deviceName);
+            breakDownQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (alarmType != null) {
-            query.is("alarmType", alarmType);
+            breakDownQuery.addCriteria(Criteria.where("alarmType").is(alarmType));
         }
         if (status != null) {
-            query.is(STATUS, status);
+            breakDownQuery.addCriteria(Criteria.where(STATUS).is(status));
         }
         if (startTime != null && endTime != null) {
-            query.greaterThanEquals(GENERATION_DATA_TIME, startTime);
-            query.lessThanEquals(GENERATION_DATA_TIME, endTime);
+            breakDownQuery.addCriteria(Criteria.where(GENERATION_DATA_TIME).gte(startTime))
+                    .addCriteria(Criteria.where(GENERATION_DATA_TIME).lte(endTime));
         }
         SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
         List<EssStation> essStationList = essStationService.getEssStationList(user.getStationList());
-        BuguQuery<Device> buguQuery = deviceDao.query();
+        Query deviceQuery = new Query();
         if (!StringUtils.isEmpty(province)) {
-            buguQuery.is(PROVINCE, province);
+            deviceQuery.addCriteria(Criteria.where(PROVINCE).is(province));
         }
         if (!StringUtils.isEmpty(city)) {
-            buguQuery.is("city", city);
+            deviceQuery.addCriteria(Criteria.where("city").is(city));
         }
         List<String> deviceNameList = new ArrayList<>();
         if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
@@ -200,39 +208,37 @@ public class BreakDownLogService {
                 }
             }
             if (StringUtils.isEmpty(deviceName)) {
-                buguQuery.in(DEVICE_NAME, deviceNameList);
+                deviceQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNameList));
             }
         }
-        List<String> deviceNames = buguQuery.results().stream().map(Device::getDeviceName).collect(Collectors.toList());
+        List<String> deviceNames = deviceDao.findBatchDevices(deviceQuery).stream().map(Device::getDeviceName).collect(Collectors.toList());
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
             if (StringUtils.isEmpty(deviceName)) {
-                query.in(DEVICE_NAME, deviceNames);
+                breakDownQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
             }
         } else {
-            return ResHelper.success("", new BuguPageQuery.Page<>(page,
-                    pageSize, 0, null));
+            return ResHelper.success("", new Page<>(page, pageSize, 0, null));
         }
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", new BuguPageQuery.Page<>(page,
-                            pageSize, 0, null));
+                    return ResHelper.success("", new Page<>(page, pageSize, 0, null));
                 }
             }
         }
-        query.pageNumber(page).pageSize(pageSize);
-        if (!StringUtil.isEmpty(orderField)) {
+        Long totalRecord = breakDownLogDao.countNumber(breakDownQuery);
+        breakDownQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
+        if (!org.apache.commons.lang.StringUtils.isEmpty(orderField)) {
             if (Const.DESC.equals(order)) {
-                query.sortDesc(orderField);
+                breakDownQuery.with(Sort.by(Sort.Order.desc("generationDataTime")));
             } else {
-                query.sortAsc(orderField);
+                breakDownQuery.with(Sort.by(Sort.Order.asc("generationDataTime")));
             }
         } else {
-            query.sortDesc(GENERATION_DATA_TIME);
+            breakDownQuery.with(Sort.by(Sort.Order.desc("generationDataTime")));
         }
-        BuguPageQuery.Page<BreakDownLog> downLogPage = query.resultsWithPage();
-        List<BreakDownLog> datas = downLogPage.getDatas();
-        List<BreakDownLogVo> breakDownLogBos = datas.stream().map(data -> {
+        List<BreakDownLog> batchBreakDownLogs = breakDownLogDao.findBatchBreakDownLogs(breakDownQuery);
+        List<BreakDownLogVo> breakDownLogBos = batchBreakDownLogs.stream().map(data -> {
             BreakDownLogVo breakDownLogVo = new BreakDownLogVo();
             BeanUtils.copyProperties(data, breakDownLogVo);
             breakDownLogVo.setAlarmTypeMsg(getAlarmTypeMsg(data.getAlarmType()));
@@ -243,8 +249,30 @@ public class BreakDownLogService {
             breakDownLogVo.setDeviceOfName(byName.getName());
             return breakDownLogVo;
         }).collect(Collectors.toList());
-        BuguPageQuery.Page<BreakDownLogVo> breakDownLogBoPage = new BuguPageQuery.Page<>(downLogPage.getPage(),
-                downLogPage.getPageSize(), downLogPage.getTotalRecord(), breakDownLogBos);
-        return ResHelper.success("", breakDownLogBoPage);
+        Page<BreakDownLogVo> breakDownLogVoPage = new Page<>(page, pageSize, totalRecord, breakDownLogBos);
+        return ResHelper.success("", breakDownLogVoPage);
+    }
+
+    public Map<String, Object> queryBreakDownLogByTime(AlarmTime alarmTime) {
+        String corpSecret = SecretUtil.decryptWithBase64(alarmTime.getAccessToken().replaceAll(" ", "+"), propertiesConfig.getSecretKey()).split("-")[1];
+        Query corpQuery = new Query();
+        corpQuery.addCriteria(Criteria.where("corpAccessSecret").is(corpSecret));
+        Corp corp = corpDao.findCorp(corpQuery);
+        Query breakDownLogQuery = new Query();
+        breakDownLogQuery.addCriteria(Criteria.where(DEVICE_NAME).in(corp.getDeviceName()).and(GENERATION_DATA_TIME).gte(alarmTime.getStartTime()).lte(alarmTime.getEndTime()));
+        List<BreakDownLog> breakDownLogs = breakDownLogDao.findBatchBreakDownLogs(breakDownLogQuery);
+        Map<String, Object> result = new HashMap<>();
+        List<AlarmThirdPartyVo> alarmThirdPartyVos = breakDownLogs.stream().map(breakDownLog -> {
+            AlarmThirdPartyVo alarmThirdPartyVo = new AlarmThirdPartyVo();
+            BeanUtils.copyProperties(breakDownLog, alarmThirdPartyVo);
+            alarmThirdPartyVo.setDetailInformation(breakDownLog.getDetailInfomation());
+            if (breakDownLog.getRemoveData() != null) {
+                alarmThirdPartyVo.setRemoveDate(breakDownLog.getRemoveData().getTime());
+            }
+            alarmThirdPartyVo.setGenerationDataTime(breakDownLog.getGenerationDataTime().getTime());
+            return alarmThirdPartyVo;
+        }).collect(Collectors.toList());
+        result.put("data", alarmThirdPartyVos);
+        return result;
     }
 }

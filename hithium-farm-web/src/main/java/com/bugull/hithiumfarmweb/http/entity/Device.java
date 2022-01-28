@@ -2,11 +2,6 @@ package com.bugull.hithiumfarmweb.http.entity;
 
 import com.bugull.hithiumfarmweb.http.bo.TimeOfPowerBo;
 import com.bugull.hithiumfarmweb.http.bo.TimeOfPriceBo;
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EmbedList;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.RefList;
 import lombok.Data;
 import org.omg.CORBA.PRIVATE_MEMBER;
 
@@ -18,11 +13,10 @@ import java.util.Map;
 /**
  * 储能站
  */
-@Entity
 @Data
-@EnsureIndex("{deviceName:1}")
-public class Device extends SimpleEntity {
+public class Device  {
 
+    private String id;
     //设备唯一名称
     private String deviceName;
 
@@ -62,10 +56,8 @@ public class Device extends SimpleEntity {
 
     private Date accessTime;
 
-    @EmbedList
     private List<TimeOfPriceBo> priceOfTime;
 
-    @EmbedList
     private List<TimeOfPowerBo> timeOfPower;
     //收益
     private String income = "0";
@@ -78,8 +70,6 @@ public class Device extends SimpleEntity {
     //是否已经绑定电站 true绑定 false未绑定
     private Boolean bindStation = false;
 
-    private List<String> imgUrl;
-
-    private String uploadImgId;
+    private List<String> deviceImgIdWithUrls;
 
 }

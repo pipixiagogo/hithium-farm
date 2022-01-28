@@ -1,18 +1,12 @@
 package com.bugull.hithiumfarmweb.http.entity;
 
-import com.bugull.mongo.BuguEntity;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Id;
-import com.bugull.mongo.annotations.IdType;
 import lombok.Data;
 
 import java.util.Objects;
 
 @Data
-@Entity
-public class MenuEntity implements BuguEntity {
+public class MenuEntity  {
 
-    @Id(type = IdType.AUTO_INCREASE)
     private String id;
     //菜单名称
     private String name;

@@ -2,23 +2,15 @@ package com.bugull.hithiumfarmweb.http.entity;
 
 import com.bugull.hithiumfarmweb.common.validator.group.AddGroup;
 import com.bugull.hithiumfarmweb.common.validator.group.UpdateGroup;
-import com.bugull.mongo.BuguEntity;
-import com.bugull.mongo.annotations.*;
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
 import java.util.Date;
 import java.util.List;
 
 @Data
-@Entity
-public class RoleEntity implements BuguEntity {
-    @Id(type = IdType.AUTO_GENERATE)
-    @NotBlank(message = "角色ID不能为空",groups = {UpdateGroup.class})
+public class RoleEntity  {
     private String id;
     //角色名称
-    @NotBlank(message = "角色名称不能为空", groups = {AddGroup.class, UpdateGroup.class})
     private String roleName;
     //备注
     private String remark;
@@ -36,6 +28,5 @@ public class RoleEntity implements BuguEntity {
     private String updateId;
 
     //接受前端参数  menuIds
-    @NotEmpty(message = "菜单栏ID为空", groups = {AddGroup.class, UpdateGroup.class})
     private List<String> menuIdList;
 }

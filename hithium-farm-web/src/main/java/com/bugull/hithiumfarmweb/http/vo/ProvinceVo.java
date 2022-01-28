@@ -9,7 +9,7 @@ public class ProvinceVo {
 
     private String province;
 
-    private Integer num;
+    private Long num;
 
     private List<CityVo> cityVoList;
 

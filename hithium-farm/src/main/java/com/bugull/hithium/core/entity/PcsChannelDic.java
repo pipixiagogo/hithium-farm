@@ -1,9 +1,5 @@
 package com.bugull.hithium.core.entity;
 
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.util.Date;
@@ -12,14 +8,11 @@ import java.util.Date;
  * 通道
  */
 @Data
-@Entity
-@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1}")
-public class PcsChannelDic extends SimpleEntity {
+public class PcsChannelDic  {
 
     private String deviceName;
    
     private String name;//设备名称
-    @Ignore
     private String time; //时间
     private Integer equipmentId;//设备ID
     //0-正常，1-异常

@@ -1,17 +1,11 @@
 package com.bugull.hithium.core.entity;
 
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.util.Date;
 
 @Data
-@Entity
-@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1},{deviceName:1,generationDataTime:-1}")
-public class BamsDataDicBA extends SimpleEntity {
+public class BamsDataDicBA {
    
     private String deviceName;
     //设备名称
@@ -22,7 +16,6 @@ public class BamsDataDicBA extends SimpleEntity {
      * EquipChannelStatus	int	前置机连接的设备的通道状态
      * RunningState	int	电池堆运行状态
      */
-    @Ignore
     private String time;
     private Date generationDataTime;
     private Integer equipmentId;

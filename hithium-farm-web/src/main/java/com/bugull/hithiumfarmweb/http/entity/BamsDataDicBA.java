@@ -4,24 +4,15 @@ import com.alibaba.excel.annotation.ExcelIgnore;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.bugull.hithiumfarmweb.http.excelConverter.BamsRunningStateConverter;
 import com.bugull.hithiumfarmweb.http.excelConverter.EquipStatusConverter;
-import com.bugull.mongo.BuguEntity;
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Id;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.util.Date;
 
 @Data
-@Entity
-@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1},{deviceName:1,generationDataTime:-1}")
-public class BamsDataDicBA implements BuguEntity {
+public class BamsDataDicBA  {
 
 
     @ExcelIgnore
-    @Id
     private String id;
     @ExcelIgnore
     private String deviceName;
@@ -34,7 +25,6 @@ public class BamsDataDicBA implements BuguEntity {
      * EquipChannelStatus	int	前置机连接的设备的通道状态
      * RunningState	int	电池堆运行状态
      */
-    @Ignore
     @ExcelIgnore
     private String time;
     @ExcelProperty(value = "时间")

@@ -1,14 +1,7 @@
-/*
- * Copyright (c) www.bugull.com
- */
 package com.bugull.hithium.core.util;
 
 import java.util.Arrays;
 
-/**
- *
- * @author Frank Wen(xbwen@hotmail.com)
- */
 public final class ByteUtil {
 
     /**

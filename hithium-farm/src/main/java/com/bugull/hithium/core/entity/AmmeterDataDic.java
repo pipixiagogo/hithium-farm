@@ -1,10 +1,5 @@
 package com.bugull.hithium.core.entity;
 
-import com.bugull.mongo.BuguEntity;
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.util.Date;
@@ -13,9 +8,7 @@ import java.util.Date;
  * 电表
  */
 @Data
-@Entity
-@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1}")
-public class AmmeterDataDic extends SimpleEntity {
+public class AmmeterDataDic {
 
    
     /**
@@ -42,7 +35,6 @@ public class AmmeterDataDic extends SimpleEntity {
      */
     private String deviceName;
    
-    @Ignore
     private String time;
     private Date generationDataTime;
     //设备ID

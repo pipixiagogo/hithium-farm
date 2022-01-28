@@ -1,15 +1,13 @@
 package com.bugull.hithium.core.entity;
 
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.Entity;
 import lombok.Data;
 
 import java.util.List;
 
 @Data
-@Entity
-public class Pccs extends SimpleEntity {
+public class Pccs  {
 
+    private String id;
     private  Integer pccsId;
 
     private String name;

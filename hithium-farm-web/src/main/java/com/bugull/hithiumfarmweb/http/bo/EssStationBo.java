@@ -1,6 +1,7 @@
 package com.bugull.hithiumfarmweb.http.bo;
 
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,7 +13,4 @@ public class EssStationBo {
     private List<String> deviceNameList=new ArrayList<>();
     private String province;
     private String city;
-    private String uploadImgId;
-    private String id;
-
 }

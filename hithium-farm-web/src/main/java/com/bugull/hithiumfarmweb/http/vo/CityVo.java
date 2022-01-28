@@ -1,7 +1,7 @@
 package com.bugull.hithiumfarmweb.http.vo;
 
 
-import com.bugull.hithiumfarmweb.http.vo.entity.DeviceAreaEntity;
+import com.bugull.hithiumfarmweb.http.entity.DeviceAreaEntity;
 import lombok.Data;
 
 import java.util.List;
@@ -10,7 +10,7 @@ import java.util.List;
 public class CityVo {
     private String city;
 
-    private Integer num;
+    private Long num;
 
 
     private List<DeviceAreaEntity> deviceAreaEntities;

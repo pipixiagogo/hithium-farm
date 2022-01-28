@@ -1,39 +1,47 @@
 package com.bugull.hithiumfarmweb.http.service;
 
-import com.bugull.hithiumfarmweb.common.BuguPageQuery;
+import com.alibaba.fastjson.JSONObject;
+import com.bugull.hithiumfarmweb.common.Page;
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.bo.*;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
+import com.bugull.hithiumfarmweb.http.entity.thirdPartyEntity.Corp;
 import com.bugull.hithiumfarmweb.http.vo.*;
-import com.bugull.hithiumfarmweb.http.vo.dao.DeviceAreaEntityDao;
-import com.bugull.hithiumfarmweb.http.vo.entity.DeviceAreaEntity;
+import com.bugull.hithiumfarmweb.http.entity.DeviceAreaEntity;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
-import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
+import com.bugull.hithiumfarmweb.utils.PropertyUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
-import com.bugull.mongo.BuguAggregation;
-import com.bugull.mongo.BuguQuery;
-import com.bugull.mongo.utils.MapperUtil;
+import com.bugull.hithiumfarmweb.utils.SecretUtil;
+import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.SecurityUtils;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationOperation;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.ParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.bugull.hithiumfarmweb.common.Const.*;
-import static com.bugull.hithiumfarmweb.utils.DateUtils.DAY_OF_SECONDS;
-import static com.bugull.hithiumfarmweb.utils.DateUtils.HOUR_OF_SECONDS;
-import static com.mongodb.client.model.Filters.in;
+import static com.bugull.hithiumfarmweb.utils.DateUtils.*;
 
 @Service
 public class DeviceService {
@@ -42,8 +50,6 @@ public class DeviceService {
     private DeviceDao deviceDao;
     @Resource
     private PccsDao pccsDao;
-    @Resource
-    private DeviceAreaEntityDao deviceAreaEntityDao;
     @Resource
     private EquipmentDao equipmentDao;
     @Resource
@@ -55,70 +61,88 @@ public class DeviceService {
     @Resource
     private PcsChannelDicDao pcsChannelDicDao;
     @Resource
-    private EssStationService essStationService;
+    private EssStationService  essStationService;
     @Resource
-    private UploadEntityDao uploadEntityDao;
+    private CorpDao corpDao;
+    @Resource
+    private ImgUploadsDao imgUploadsDao;
+    @Resource
+    private CubeDao cubeDao;
+    @Resource
+    private GridFsTemplate gridFsTemplate;
 
     private static final Logger log = LoggerFactory.getLogger(DeviceService.class);
 
-    public ResHelper<List<ProvinceVo>> aggrationArea() {
-        BuguAggregation<Device> aggregate = deviceDao.aggregate();
+    public ResHelper<List<ProvinceVo>> aggregationArea() {
+        List<AggregationOperation> aggregationOperations = new ArrayList<>();
+
         SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                aggregate.match(deviceDao.query().in(DEVICE_NAME, deviceNames));
+                Criteria criteria = new Criteria();
+                criteria.andOperator(Criteria.where("deviceNameList").in(deviceNames));
+                aggregationOperations.add(Aggregation.match(criteria));
             }
         }
-        aggregate.group("{_id:'$province', count:{$sum:1}}");
-        aggregate.sort("{count:-1}");
-        Iterable<DBObject> results = aggregate.results();
+        aggregationOperations.add(Aggregation.group(PROVINCE).count().as("count"));
+        aggregationOperations.add(Aggregation.sort(Sort.by(Sort.Order.desc("count"))));
+        List<BasicDBObject> aggregation = essStationService.aggregation(Aggregation.newAggregation(aggregationOperations));
         List<ProvinceVo> provinceVos = new ArrayList<>();
-        results.forEach(res -> {
-            ProvinceVo provinceVo = new ProvinceVo();
-            String province = (String) res.get("_id");
-            Integer count = (Integer) res.get("count");
-            BuguQuery<Device> deviceBuguQuery = deviceDao.query().is(PROVINCE, province);
-            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                    deviceBuguQuery.in(DEVICE_NAME, deviceNames);
-                }
-            }
-            Iterable<DBObject> iterable = deviceDao.aggregate().match(deviceBuguQuery).group("{_id:'$city', count:{$sum:1}}").sort("{count:-1}").results();
-            List<CityVo> cityVoList = new ArrayList<>();
-            if (iterable != null) {
-                iterable.forEach(it -> {
-                    CityVo cityVo = new CityVo();
-                    String city = (String) it.get("_id");
-                    Integer num = (Integer) it.get("count");
-                    cityVo.setCity(city);
-                    cityVo.setNum(num);
-                    BuguQuery<DeviceAreaEntity> deviceAreaEntityBuguQuery = deviceAreaEntityDao.query().is(PROVINCE, province).is("city", city);
-                    if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                        if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                            deviceAreaEntityBuguQuery.in(DEVICE_NAME, deviceNames);
-                        }
+        if (!CollectionUtils.isEmpty(aggregation) && !aggregation.isEmpty()) {
+            for(BasicDBObject object : aggregation){
+                ProvinceVo provinceVo = new ProvinceVo();
+                String province = object.get("_id").toString();
+                long count = (long)object.get("count");
+                Criteria matchCriteria = new Criteria();
+                matchCriteria.andOperator(Criteria.where(PROVINCE).is(province));
+                if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+                    if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                        matchCriteria.andOperator(Criteria.where(DEVICE_NAME).in(deviceNames));
                     }
-                    List<DeviceAreaEntity> deviceAreaEntities = deviceAreaEntityBuguQuery.results();
-                    cityVo.setDeviceAreaEntities(deviceAreaEntities);
-                    cityVoList.add(cityVo);
-                });
-            }
-            provinceVo.setProvince(province);
-            provinceVo.setNum(count);
-            provinceVo.setCityVoList(cityVoList);
-            provinceVos.add(provinceVo);
-        });
+                }
+                Aggregation deviceAggregation = Aggregation.newAggregation(
+                        Aggregation.match(matchCriteria),
+                        Aggregation.group("city").count().as("count"),
+                        Aggregation.sort(Sort.by(Sort.Order.desc("count"))));
+                List<BasicDBObject> areaAggregationCityResults = deviceDao.aggregationResult(deviceAggregation);
+                List<CityVo> cityVoList = new ArrayList<>();
+                if (!CollectionUtils.isEmpty(areaAggregationCityResults) && !areaAggregationCityResults.isEmpty()) {
+                    areaAggregationCityResults.forEach(areaAggregationCityResult -> {
+                        CityVo cityVo = new CityVo();
+                        String city = areaAggregationCityResult.get("_id").toString();
+                        long cityResultCount = (long) areaAggregationCityResult.get("count");
+                        cityVo.setCity(city);
+                        cityVo.setNum(cityResultCount);
+                        Query deviceQuery = new Query();
+                        deviceQuery.addCriteria(Criteria.where(PROVINCE).is(province)).addCriteria(Criteria.where("city").is(city));
+                        if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+                            if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                                deviceQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
+                            }
+                        }
+                        List<DeviceAreaEntity> deviceAreaEntities = deviceDao.findBatchDevicesArea(deviceQuery);
+                        cityVo.setDeviceAreaEntities(deviceAreaEntities);
+                    });
+                }
+                provinceVo.setProvince(province);
+                provinceVo.setNum(count);
+                provinceVo.setCityVoList(cityVoList);
+                provinceVos.add(provinceVo);
+            };
+        }
         return ResHelper.success("", provinceVos);
     }
 
     public ResHelper<List<Device>> queryDetailAreaByCity(String city) {
-        List<Device> deviceList = deviceDao.query().is("city", city).returnFields("longitude", "latitude").results();
+        Query query = new Query();
+        query.addCriteria(Criteria.where("city").is(city)).fields().include("longitude").include("latitude");
+        List<Device> deviceList = deviceDao.findBatchDevices(query);
         return ResHelper.success("", deviceList);
     }
 
     public DeviceVo query(String deviceName) {
-        Device device = deviceDao.query().is(DEVICE_NAME, deviceName).result();
+        Device device = deviceDao.findDevice(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)));
         DeviceVo deviceVo = new DeviceVo();
         if (device != null) {
             deviceVo.setDeviceName(device.getDeviceName());
@@ -129,7 +153,9 @@ public class DeviceService {
             equipmentBo.setId(device.getId());
             List<EquipmentBo> equipmentBos = new ArrayList<>();
             equipmentBo.setEquipmentBo(equipmentBos);
-            List<Pccs> pccsList = pccsDao.query().is(DEVICE_NAME, deviceName).is("stationId", device.getStationId()).results();
+            Query pccsQuery = new Query();
+            pccsQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).addCriteria(Criteria.where("stationId").is(device.getStationId()));
+            List<Pccs> pccsList = pccsDao.findBatchPccs(pccsQuery);
             pccsList.stream().forEach(pccs -> {
                 EquipmentBo equipment = new EquipmentBo();
                 equipment.setName(pccs.getName());
@@ -139,7 +165,9 @@ public class DeviceService {
                 /**
                  * 并网口后下级目录   电池堆、PCS、其他、电表
                  */
-                List<Equipment> equipments = equipmentDao.query().is(DEVICE_NAME, deviceName).is("enabled", true).results();
+                Query batchEquipmentQuery = new Query();
+                batchEquipmentQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).addCriteria(Criteria.where("enabled").is(true));
+                List<Equipment> equipments = equipmentDao.findBatchEquipment(batchEquipmentQuery);
                 EquipmentBo equipmentBoOfBams = new EquipmentBo();
                 /**
                  * 电池堆
@@ -188,8 +216,10 @@ public class DeviceService {
         }).collect(Collectors.toList());
         subsidiaryBo.setEquipmentBo(subsidiaryEquipBo);
         equipmentBoList.add(subsidiaryBo);
-        List<Equipment> equips = equipmentDao.query().is("enabled", true).in("_id", pccs.getEquipmentIds())
-                .returnFields("name", "equipmentId", "_id").results();
+        Query findBatchEquipmentQuery = new Query();
+        findBatchEquipmentQuery.addCriteria(Criteria.where("enabled").is(true))
+                .addCriteria(Criteria.where("id").in(pccs.getEquipmentIds())).fields().include("name").include("id").include("equipmentId");
+        List<Equipment> equips = equipmentDao.findBatchEquipment(findBatchEquipmentQuery);
         equips.stream().forEach(ip -> {
             EquipmentBo mentBo = new EquipmentBo();
             mentBo.setName(ip.getName());
@@ -232,6 +262,7 @@ public class DeviceService {
         EquipmentBo ammeterBo = new EquipmentBo();
         ammeterBo.setName("电表");
         List<Equipment> ammeterEquipments;
+
         if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
             ammeterEquipments = equipments.stream().
                     filter(equip -> equip.getEquipmentId() == 4 || equip.getEquipmentId() == 7 || equip.getEquipmentId() == 12)
@@ -253,7 +284,7 @@ public class DeviceService {
     private void getBoOfPcsData(List<Equipment> equipments, List<EquipmentBo> equipmentBoList) {
         List<Equipment> pcsCabinetEquipments = equipments.stream().
                 filter(equip -> equip.getEquipmentId() == 15).collect(Collectors.toList());
-        Equipment pcsCabnet = pcsCabinetEquipments.get(0);
+        Equipment pcsCabinet = pcsCabinetEquipments.get(0);
         List<Equipment> pcsChannelEquipments = equipments.stream()
                 .filter(equip -> equip.getEquipmentId() > 15 && equip.getEquipmentId() < 34).collect(Collectors.toList());
         List<EquipmentBo> boList = pcsChannelEquipments.stream().map(pcsChannelEquipment -> {
@@ -262,88 +293,47 @@ public class DeviceService {
             return equip;
         }).collect(Collectors.toList());
         EquipmentBo pcsCabinetBo = new EquipmentBo();
-        BeanUtils.copyProperties(pcsCabnet, pcsCabinetBo);
+        BeanUtils.copyProperties(pcsCabinet, pcsCabinetBo);
         pcsCabinetBo.setEquipmentBo(boList);
         equipmentBoList.add(pcsCabinetBo);
     }
 
     private void getBoOfBamsData(List<Equipment> equipments, String deviceName, EquipmentBo equipmentBoOfBams, List<EquipmentBo> equipmentBoList) {
-        List<Equipment> bamsEquipments;
+        List<Equipment> bamEquipments;
         if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
-            bamsEquipments = equipments.stream().
+            bamEquipments = equipments.stream().
                     filter(equip -> equip.getEquipmentId() == 36).collect(Collectors.toList());
         } else {
-            bamsEquipments = equipments.stream().
+            bamEquipments = equipments.stream().
                     filter(equip -> equip.getEquipmentId() == 14).collect(Collectors.toList());
         }
-        Equipment bamsEquipment = bamsEquipments.get(0);
+        Equipment bamsEquipment = bamEquipments.get(0);
         BeanUtils.copyProperties(bamsEquipment, equipmentBoOfBams);
         equipmentBoList.add(equipmentBoOfBams);
         List<Equipment> bamsClusterEquipment = new ArrayList<>();
+        List<Equipment> clusterEquipment;
+        List<Equipment> cabinEquipment;
         if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
-            List<Equipment> clusterEquipment = equipments.stream().
+            clusterEquipment = equipments.stream().
                     filter(equip -> equip.getEquipmentId() > 36 && equip.getEquipmentId() < 53).collect(Collectors.toList());
-            List<Equipment> cabinEquipment = equipments.stream().
+            cabinEquipment = equipments.stream().
                     filter(equip -> equip.getEquipmentId() == 34 || equip.getEquipmentId() == 35 || equip.getEquipmentId() == 53 || equip.getEquipmentId() == 54).collect(Collectors.toList());
-            bamsClusterEquipment.addAll(clusterEquipment);
-            bamsClusterEquipment.addAll(cabinEquipment);
         } else {
-            List<Equipment> clusterEquipment = equipments.stream().
+            clusterEquipment = equipments.stream().
                     filter(equip -> equip.getEquipmentId() > 35 && equip.getEquipmentId() < 54 && equip.getEquipmentId() != 44 && equip.getEquipmentId() != 45).collect(Collectors.toList());
-            List<Equipment> cabinEquipment = equipments.stream().
+            cabinEquipment = equipments.stream().
                     filter(equip -> equip.getEquipmentId() == 34 || equip.getEquipmentId() == 35 || equip.getEquipmentId() == 44 || equip.getEquipmentId() == 45).collect(Collectors.toList());
-            bamsClusterEquipment.addAll(clusterEquipment);
-            bamsClusterEquipment.addAll(cabinEquipment);
         }
-        List<EquipmentBo> bos = bamsClusterEquipment.stream().map(clusterEquipment -> {
+        bamsClusterEquipment.addAll(clusterEquipment);
+        bamsClusterEquipment.addAll(cabinEquipment);
+        List<EquipmentBo> bos = bamsClusterEquipment.stream().map(clusterEquip -> {
             EquipmentBo equipOfBo = new EquipmentBo();
-            BeanUtils.copyProperties(clusterEquipment, equipOfBo);
+            BeanUtils.copyProperties(clusterEquip, equipOfBo);
             return equipOfBo;
         }).collect(Collectors.toList());
         equipmentBoOfBams.setEquipmentBo(bos);
     }
 
-    protected String getApplicationScenariosItemMsg(Integer applicationScenariosItem) {
-        switch (applicationScenariosItem) {
-            case 1:
-                return "防逆流控制";
-            case 2:
-                return "削峰填谷";
-            case 8:
-                return "需量控制";
-            case 16:
-                return "AGC联合调频";
-            case 32:
-                return "需求响应";
-            case 64:
-                return "动态扩容";
-            case 128:
-                return "微网监控管理";
-            case 256:
-                return "备用电源";
-            default:
-                return "未知应用场景下策略";
-        }
-    }
-
-    protected String getApplicationScenariosMsg(Integer applicationScenarios) {
-        switch (applicationScenarios) {
-            case 0:
-                return "调峰";
-            case 1:
-                return "调频";
-            case 2:
-                return "风光储充";
-            case 3:
-                return "微网";
-            case 4:
-                return "备用电源";
-            case 5:
-                return "台区";
-            default:
-                return "未知应用场景";
-        }
-    }
 
 
 
@@ -415,11 +405,13 @@ public class DeviceService {
                 return ResHelper.pamIll();
             }
             for (String deviceName : deviceNames) {
-                if (!deviceDao.query().is(DEVICE_NAME, deviceName).exists()) {
+                if (!deviceDao.exists(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)))) {
                     return ResHelper.error("设备不存在");
                 }
             }
-            deviceDao.update().set("priceOfTime", priceOfTime).execute(deviceDao.query().in(DEVICE_NAME, Arrays.asList(arrayDeviceNames)));
+            Update deviceUpdate = new Update();
+            deviceUpdate.set("priceOfTime", priceOfTime);
+            deviceDao.updateByQuery(new Query().addCriteria(Criteria.where(DEVICE_NAME).in(Arrays.asList(arrayDeviceNames))), deviceUpdate);
             return ResHelper.success("修改成功");
         }
         return ResHelper.pamIll();
@@ -448,27 +440,27 @@ public class DeviceService {
                     String[] split = priceBo.getTime().split(",");
                     map.put(priceBo.getType(), Arrays.asList(split));
                 }
-                List<PriceOfPercenVo> priceOfPercenVoList = new ArrayList<>();
+                List<PriceOfPercenVo> priceOfPercentVoList = new ArrayList<>();
                 List<String> outOfDay = new ArrayList<>();
                 for (Map.Entry<Integer, List<String>> entry : map.entrySet()) {
                     List<String> entryValue = entry.getValue();
                     for (String value : entryValue) {
-                        createPriceOfPercenVo(value, entry.getKey(), priceOfPercenVoList, outOfDay);
+                        createPriceOfPercentVo(value, entry.getKey(), priceOfPercentVoList, outOfDay);
                     }
                 }
                 if (!CollectionUtils.isEmpty(outOfDay) && !outOfDay.isEmpty()) {
                     for (String day : outOfDay) {
                         String[] typeStr = day.split("_");
-                        createPriceOfPercenVo(typeStr[1], Integer.valueOf(typeStr[0]), priceOfPercenVoList, outOfDay);
+                        createPriceOfPercentVo(typeStr[1], Integer.valueOf(typeStr[0]), priceOfPercentVoList, outOfDay);
                     }
                 }
-                return priceOfPercenVoList;
+                return priceOfPercentVoList;
             }
         }
         return new ArrayList<>();
     }
 
-    private void createPriceOfPercenVo(String value, Integer type, List<PriceOfPercenVo> priceOfPercenVoList, List<String> outOfDay) {
+    private void createPriceOfPercentVo(String value, Integer type, List<PriceOfPercenVo> priceOfPercenVoList, List<String> outOfDay) {
         try {
             PriceOfPercenVo priceOfPercenVo = new PriceOfPercenVo();
             String[] split = value.split("-");
@@ -494,29 +486,33 @@ public class DeviceService {
     }
 
 
-    public Map<String, Object> getPriceOfPercenAndTime(String deviceName) {
+    public Map<String, Object> getPriceOfPercentAndTime(String deviceName) {
         Map<String, Object> result = new HashMap<>();
-        Device device = deviceDao.query().is(DEVICE_NAME, deviceName).returnFields("priceOfTime", "timeOfPower").result();
+        Query deviceQuery = new Query();
+        deviceQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).fields().include("priceOfTime").include("timeOfPower");
+        Device device = deviceDao.findDevice(deviceQuery);
         result.put("PERCENT", selectPriceOfPercentage(device));
         result.put("PRICE", selectPriceOfTime(device));
         result.put("POWER", selectPowerOfTypeTime(device));
         return result;
     }
 
-    public List<TimeOfPriceBo> selectPriceOfTimeBydevice(String deviceName) {
-        Device device = deviceDao.query().is(DEVICE_NAME, deviceName).returnFields("priceOfTime").result();
+    public List<TimeOfPriceBo> selectPriceOfTimeByDevice(String deviceName) {
+        Query deviceQuery = new Query();
+        deviceQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).fields().include("priceOfTime");
+        Device device = deviceDao.findDevice(deviceQuery);
         return selectPriceOfTime(device);
     }
 
     public DeviceInfoVo queryDeviceName(String deviceName) {
-        Device device = deviceDao.query().is(DEVICE_NAME, deviceName).result();
+        Device device = deviceDao.findDevice(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)));
         if (device != null) {
             DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
             BeanUtils.copyProperties(device, deviceInfoVo);
             deviceInfoVo.setAreaCity(device.getProvince() + "-" + device.getCity());
-            deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(device.getApplicationScenarios()));
-            deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
-            getDeviceRunstatusMsg(deviceInfoVo);
+            deviceInfoVo.setApplicationScenariosMsg(PropertyUtil.getApplicationScenariosMsg(device.getApplicationScenarios()));
+            deviceInfoVo.setApplicationScenariosItemMsg(PropertyUtil.getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
+            getDeviceRunStatusMsg(deviceInfoVo);
             getDeviceIncome(deviceInfoVo);
             getDeviceDayIncome(deviceInfoVo);
             getPcsDataMsg(deviceInfoVo);
@@ -527,7 +523,10 @@ public class DeviceService {
 
     private void getDeviceDayIncome(DeviceInfoVo deviceInfoVo) {
         String dateToStr = DateUtils.dateToStr(new Date());
-        IncomeEntity incomeEntity = incomeEntityDao.query().is("deviceName", deviceInfoVo.getDeviceName()).is("incomeOfDay", dateToStr).result();
+        Query incomeQuery = new Query();
+        incomeQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceInfoVo.getDeviceName()))
+                .addCriteria(Criteria.where("incomeOfDay").is(dateToStr));
+        IncomeEntity incomeEntity = incomeEntityDao.findIncome(incomeQuery);
         if (incomeEntity != null) {
             BigDecimal incomeBigDecimal = incomeEntity.getIncome().setScale(4, BigDecimal.ROUND_HALF_UP);
             deviceInfoVo.setDayDeviceIncome(incomeBigDecimal.toString());
@@ -535,17 +534,23 @@ public class DeviceService {
     }
 
     private void getPcsDataMsg(DeviceInfoVo deviceInfoVo) {
-        List<Equipment> equipmentList = equipmentDao.query().is(DEVICE_NAME, deviceInfoVo.getDeviceName()).results();
+        Query batchEquipmentQuery = new Query();
+        batchEquipmentQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceInfoVo.getDeviceName()));
+        List<Equipment> equipmentList = equipmentDao.findBatchEquipment(batchEquipmentQuery);
         List<PcsChannelDic> pcsChannelDicsList = new ArrayList<>();
         for (Equipment equipment : equipmentList) {
-            Iterable<DBObject> iterable = pcsChannelDicDao.aggregate().match(pcsChannelDicDao.query().is(DEVICE_NAME, equipment.getDeviceName())
-                    .is("equipmentId", equipment.getEquipmentId())).sort("{generationDataTime:-1}").limit(1).results();
-            if (iterable != null) {
-                for (DBObject pcsChannelDic : iterable) {
-                    PcsChannelDic channelDic = MapperUtil.fromDBObject(PcsChannelDic.class, pcsChannelDic);
-                    pcsChannelDicsList.add(channelDic);
-                }
+            Criteria criteria = new Criteria();
+            criteria.and(DEVICE_NAME).is(equipment.getDeviceName());
+            criteria.and(EQUIPMENT_ID).is(equipment.getEquipmentId());
+            Query pcsQuery = new Query();
+            pcsQuery.addCriteria(criteria);
+            pcsQuery.with(Sort.by(Sort.Order.desc("generationDataTime")));
+            pcsQuery.limit(1);
+            PcsChannelDic channelDic = pcsChannelDicDao.findPcsChannel(pcsQuery);
+            if(channelDic != null){
+                pcsChannelDicsList.add(channelDic);
             }
+
         }
         if (!CollectionUtils.isEmpty(pcsChannelDicsList) && !pcsChannelDicsList.isEmpty()) {
             List<PcsStatusVo> pcsStatusVos = pcsChannelDicsList.stream().sorted(Comparator.comparing(PcsChannelDic::getEquipmentId))
@@ -571,31 +576,38 @@ public class DeviceService {
     }
 
     private void getDeviceIncome(DeviceInfoVo deviceInfoVo) {
-        Iterable<DBObject> incomeIterable = incomeEntityDao.aggregate().match(incomeEntityDao.query().is("deviceName", deviceInfoVo.getDeviceName()))
-                .group("{_id:null,count:{$sum:{$toDouble:'$income'}}}").limit(1).results();
-        if (incomeIterable != null) {
-            for (DBObject object : incomeIterable) {
-                Double count = (Double) object.get("count");
-                BigDecimal incomeBigDecimal = BigDecimal.valueOf(count).setScale(4, BigDecimal.ROUND_HALF_UP);
-                deviceInfoVo.setIncome(incomeBigDecimal.toString());
+        Criteria criteria = new Criteria();
+        criteria.and(DEVICE_NAME).is(deviceInfoVo.getDeviceName());
+        Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(criteria),
+                Aggregation.group().sum("income").as("count"),
+                Aggregation.limit(1)
+        );
+        List<BasicDBObject> basicDBObjects = incomeEntityDao.aggregate(aggregation);
+        if(!CollectionUtils.isEmpty(basicDBObjects) && !basicDBObjects.isEmpty()){
+            for (DBObject obj : basicDBObjects) {
+                String count = obj.get("count").toString();
+                deviceInfoVo.setIncome(new BigDecimal(count).setScale(4, BigDecimal.ROUND_HALF_UP).toString());
             }
         }
     }
 
-    private void getDeviceRunstatusMsg(DeviceInfoVo deviceInfoVo) {
-        Iterable<DBObject> bamsDataIterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is(DEVICE_NAME, deviceInfoVo.getDeviceName()))
-                .sort("{generationDataTime:-1}").limit(1).results();
-        Date date = new Date();
-        if (bamsDataIterable != null) {
-            for (DBObject dbObject : bamsDataIterable) {
-                BamsDataDicBA bamsDataDicBA = MapperUtil.fromDBObject(BamsDataDicBA.class, dbObject);
-                Date addDateMinutes = DateUtils.addDateMinutes(bamsDataDicBA.getGenerationDataTime(), 30);
-                if (!addDateMinutes.before(date)) {
-                    deviceInfoVo.setDeviceStatus("正常运行");
-                } else {
-                    deviceInfoVo.setDeviceStatus("停机");
-                }
-            }
+
+    private void getDeviceRunStatusMsg(DeviceInfoVo deviceInfoVo) {
+        Criteria criteria = new Criteria();
+        criteria.andOperator(Criteria.where(DEVICE_NAME).is(deviceInfoVo.getDeviceName()));
+        Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(criteria),
+                Aggregation.sort(Sort.by(Sort.Order.desc("generationDataTime"))),
+                Aggregation.limit(1)
+        );
+        BamsDataDicBA dataDicBA = bamsDataDicBADao.aggregationResult(aggregation);
+        Date date = new Date(System.currentTimeMillis());
+        Date addDateMinutes = DateUtils.addDateMinutes(dataDicBA.getGenerationDataTime(), 30);
+        if (!addDateMinutes.before(date)) {
+            deviceInfoVo.setDeviceStatus("正常运行");
+        } else {
+            deviceInfoVo.setDeviceStatus("停机");
         }
     }
 
@@ -684,13 +696,16 @@ public class DeviceService {
                 timeOfPowerBos.addAll(entry.getValue());
             }
             for (String deviceName : deviceNames) {
-                if (!deviceDao.query().is(DEVICE_NAME, deviceName).exists()) {
+                if (!deviceDao.exists(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)))) {
                     return ResHelper.error("设备不存在");
                 }
             }
-            BuguQuery<Device> deviceBuguQuery = deviceDao.query().in(DEVICE_NAME, deviceNames);
+            Query updateQuery = new Query();
+            Update update = new Update();
+            updateQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
             if (!CollectionUtils.isEmpty(timeOfPowerBos) && !timeOfPowerBos.isEmpty()) {
-                deviceDao.update().set("timeOfPower", timeOfPowerBos).execute(deviceBuguQuery);
+                update.set("timeOfPower", timeOfPowerBos);
+                deviceDao.updateByQuery(updateQuery, update);
             }
             return ResHelper.success("修改成功");
         }
@@ -698,7 +713,9 @@ public class DeviceService {
     }
 
     public Map<Integer, List<TimeOfPowerBo>> selectPowerOfTypeTimeByDeviceName(String deviceName) {
-        Device device = deviceDao.query().is(DEVICE_NAME, deviceName).returnFields("priceOfTime").result();
+        Query query = new Query();
+        query.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
+        Device device = deviceDao.findDevice(query);
         if (!CollectionUtils.isEmpty(device.getTimeOfPower()) && !device.getTimeOfPower().isEmpty()) {
             List<TimeOfPowerBo> timeOfPower = device.getTimeOfPower();
             Map<Integer, List<TimeOfPowerBo>> listMap = timeOfPower.stream().collect(Collectors.groupingBy(
@@ -720,102 +737,88 @@ public class DeviceService {
         return false;
     }
 
-    public ResHelper<Void> saveDeviceImg(DeviceImgBo deviceImgBo) {
-        List<String> deviceNameList = Arrays.asList(deviceImgBo.getDeviceNames().split(","));
-        UploadEntity uploadEntity = uploadEntityDao.query().is("_id", deviceImgBo.getUploadImgId()).result();
-        if (uploadEntity == null || !uploadEntity.getType().equals(ENERGY_STORAGE)) {
-            return ResHelper.pamIll();
-        }
-        if (!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()) {
-            if (uploadEntityDao.update().set("bindImg", true).execute(uploadEntity).isUpdateOfExisting()
-                    && deviceDao.update().set("imgUrl", uploadEntity.getImgUrl()).set("uploadImgId", deviceImgBo.getUploadImgId()).execute(deviceDao.query().in(DEVICE_NAME, deviceNameList)).isUpdateOfExisting()) {
-                return ResHelper.success("上传图片成功");
-            } else {
-                return ResHelper.error("上传图片失败");
-            }
-        }
-        return ResHelper.pamIll();
-    }
 
-    public ResHelper<BuguPageQuery.Page<DeviceVo>> queryDevicesByPage(Integer page, Integer pageSize, String deviceName) {
-        BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
+    public ResHelper<Page<DeviceVo>> queryDevicesByPage(Integer page, Integer pageSize, String deviceName) {
+        Query deviceQuery = new Query();
         if (!StringUtils.isEmpty(deviceName)) {
-            deviceBuguPageQuery.is(DEVICE_NAME, deviceName);
+            deviceQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
         if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
             List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (StringUtils.isEmpty(deviceName)) {
-                    deviceBuguPageQuery.in(DEVICE_NAME, deviceNames);
+                    deviceQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
                 }
             }
         }
-        deviceBuguPageQuery.sortDesc("accessTime");
-        BuguPageQuery<Device> deviceBuguQuery = (BuguPageQuery<Device>) deviceBuguPageQuery.pageSize(pageSize).pageNumber(page);
-        BuguPageQuery.Page<Device> devicePage = deviceBuguQuery.resultsWithPage();
-        List<Device> deviceList = devicePage.getDatas();
+        deviceQuery.with(Sort.by(Sort.Order.desc("accessTime")));
+        long totalRecord = deviceDao.count(deviceQuery);
+        deviceQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
+        List<Device> deviceList = deviceDao.findBatchDevices(deviceQuery);
+
         if (!CollectionUtils.isEmpty(deviceList) && !deviceList.isEmpty()) {
             List<DeviceVo> deviceVos = new ArrayList<>();
             for (Device device : deviceList) {
                 DeviceVo deviceVo = query(device.getDeviceName());
                 deviceVos.add(deviceVo);
             }
-            BuguPageQuery.Page<DeviceVo> deviceVoPage = new BuguPageQuery.Page<>(devicePage.getPage(), devicePage.getPageSize(), devicePage.getTotalRecord(), deviceVos);
+            Page<DeviceVo> deviceVoPage = new Page<>(page, pageSize, totalRecord, deviceVos);
             return ResHelper.success("", deviceVoPage);
         }
         return ResHelper.success("");
     }
 
-    public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> queryDeviceWithoutBindByPage(Integer page, Integer pageSize, String deviceName) {
-        BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
+    public ResHelper<Page<DeviceInfoVo>> queryDeviceWithoutBindByPage(Integer page, Integer pageSize, String deviceName) {
+        Query deviceQuery = new Query();
         if (!StringUtils.isEmpty(deviceName)) {
-            deviceBuguPageQuery.is(DEVICE_NAME, deviceName);
+            deviceQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
-        deviceBuguPageQuery.is("bindStation", false);
-        deviceBuguPageQuery.sortDesc("accessTime");
-        deviceBuguPageQuery.pageSize(pageSize).pageNumber(page);
-        BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
-        List<Device> deviceList = devicePage.getDatas();
+        deviceQuery.addCriteria(Criteria.where("bindStation").is(false));
+        deviceQuery.with(Sort.by(Sort.Order.desc("accessTime")));
+        long totalRecord = deviceDao.count(deviceQuery);
+        deviceQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
+        List<Device> deviceList = deviceDao.findBatchDevices(deviceQuery);
+
         List<DeviceInfoVo> deviceInfoVos = new ArrayList<>();
         for (Device device : deviceList) {
             DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
             BeanUtils.copyProperties(device, deviceInfoVo);
             deviceInfoVo.setAreaCity(device.getProvince() + "-" + device.getCity());
-            deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(device.getApplicationScenarios()));
-            deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
+            deviceInfoVo.setApplicationScenariosMsg(PropertyUtil.getApplicationScenariosMsg(device.getApplicationScenarios()));
+            deviceInfoVo.setApplicationScenariosItemMsg(PropertyUtil.getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
             deviceInfoVos.add(deviceInfoVo);
         }
-        BuguPageQuery.Page<DeviceInfoVo> deviceInfoVoPage = new BuguPageQuery.Page<>(devicePage.getPage(), devicePage.getPageSize(),
-                devicePage.getTotalRecord(), deviceInfoVos);
+        Page<DeviceInfoVo> deviceInfoVoPage = new Page<>(page, pageSize, totalRecord, deviceInfoVos);
         return ResHelper.success("", deviceInfoVoPage);
     }
 
-    public ResHelper<BuguPageQuery.Page<DeviceInfoVo>> deviceAreaList(Integer page, Integer pageSize, String name, String country, String province, String city) {
-        BuguPageQuery<Device> deviceBuguPageQuery = deviceDao.pageQuery();
+    public ResHelper<Page<DeviceInfoVo>> deviceAreaList(Integer page, Integer pageSize, String name, String country, String province, String city) {
+        Query deviceQuery = new Query();
         if (!StringUtils.isEmpty(province)) {
-            deviceBuguPageQuery.is(PROVINCE, province);
+            deviceQuery.addCriteria(Criteria.where(PROVINCE).is(province));
         }
         if (!StringUtils.isEmpty(city)) {
-            deviceBuguPageQuery.is("city", city);
+            deviceQuery.addCriteria(Criteria.where("city").is(city));
         }
         if (!StringUtils.isEmpty(name)) {
-            deviceBuguPageQuery.regexCaseInsensitive("name", name);
+            deviceQuery.addCriteria(Criteria.where("name").regex(name));
         }
         SysUser user = (SysUser) SecurityUtils.getSubject().getPrincipal();
         if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
             List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                deviceBuguPageQuery.in(DEVICE_NAME, deviceNames);
+                deviceQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
             }
         }
-        deviceBuguPageQuery.sortDesc("accessTime");
-        deviceBuguPageQuery.pageSize(pageSize).pageNumber(page);
-        BuguPageQuery.Page<Device> devicePage = deviceBuguPageQuery.resultsWithPage();
-        List<Device> datas = devicePage.getDatas();
-        BuguPageQuery.Page<DeviceInfoVo> deviceInfoVoPage = new BuguPageQuery.Page<>(page, pageSize,
-                devicePage.getTotalRecord(), getResHelperResult(datas));
-        return ResHelper.success("",deviceInfoVoPage);
+        deviceQuery.with(Sort.by(Sort.Order.desc("accessTime")));
+        long totalRecord = deviceDao.count(deviceQuery);
+        deviceQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
+        List<Device> data = deviceDao.findBatchDevices(deviceQuery);
+
+        Page<DeviceInfoVo> deviceInfoVoPage = new Page<>(page, pageSize,
+                totalRecord, getResHelperResult(data));
+        return ResHelper.success("", deviceInfoVoPage);
 
     }
 
@@ -825,25 +828,233 @@ public class DeviceService {
             DeviceInfoVo deviceInfoVo = new DeviceInfoVo();
             BeanUtils.copyProperties(data, deviceInfoVo);
             deviceInfoVo.setAreaCity(data.getProvince() + "-" + data.getCity());
-            deviceInfoVo.setApplicationScenariosMsg(getApplicationScenariosMsg(data.getApplicationScenarios()));
-            deviceInfoVo.setApplicationScenariosItemMsg(getApplicationScenariosItemMsg(data.getApplicationScenariosItem()));
-            Iterable<DBObject> iterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is(DEVICE_NAME, data.getDeviceName()))
-                    .sort("{generationDataTime:-1}").limit(1).results();
+            deviceInfoVo.setApplicationScenariosMsg(PropertyUtil.getApplicationScenariosMsg(data.getApplicationScenarios()));
+            deviceInfoVo.setApplicationScenariosItemMsg(PropertyUtil.getApplicationScenariosItemMsg(data.getApplicationScenariosItem()));
+            Criteria criteria = new Criteria();
+            criteria.andOperator(Criteria.where(DEVICE_NAME).is(data.getDeviceName()));
+            Aggregation aggregation = Aggregation.newAggregation(Aggregation.match(criteria), Aggregation.sort(Sort.by(Sort.Order.desc("generationDataTime"))), Aggregation.limit(1));
+            BamsDataDicBA dataDicBA = bamsDataDicBADao.aggregationResult(aggregation);
             Date date = new Date();
-            if (iterable != null) {
-                for (DBObject dbObject : iterable) {
-                    BamsDataDicBA bamsDataDicBA = MapperUtil.fromDBObject(BamsDataDicBA.class, dbObject);
-                    Date addDateMinutes = DateUtils.addDateMinutes(bamsDataDicBA.getGenerationDataTime(), 30);
-                    if (!addDateMinutes.before(date)) {
-                        deviceInfoVo.setDeviceStatus("正常运行");
-                    } else {
-                        deviceInfoVo.setDeviceStatus("停机");
-                    }
-                }
+            Date addDateMinutes = DateUtils.addDateMinutes(dataDicBA.getGenerationDataTime(), 30);
+            if (!addDateMinutes.before(date)) {
+                deviceInfoVo.setDeviceStatus("正常运行");
+            } else {
+                deviceInfoVo.setDeviceStatus("停机");
             }
             deviceInfoVos.add(deviceInfoVo);
         }
-
         return deviceInfoVos;
+    }
+
+    public Map<String, Object> allEquipmentData(String accessToken) {
+        String corpSecret = SecretUtil.decryptWithBase64(accessToken.replaceAll(" ", "+"), propertiesConfig.getSecretKey()).split("-")[1];
+        Corp corp = corpDao.findCorp(new Query().addCriteria(Criteria.where("corpAccessSecret").is(corpSecret)));
+        List<Device> deviceList = deviceDao.findBatchDevices(new Query().addCriteria(Criteria.where(DEVICE_NAME).in(corp.getDeviceName())));
+        List<JSONObject> resultObject = new ArrayList<>();
+        JSONObject jsonObject = new JSONObject();
+        for (Device device : deviceList) {
+            jsonObject.put("deviceName", device.getDeviceName());
+            jsonObject.put("province", device.getProvince());
+            jsonObject.put("city", device.getCity());
+            jsonObject.put("stationCapacity", device.getStationCapacity());
+            jsonObject.put("stationPower", device.getStationPower());
+            jsonObject.put("applicationScenariosInfo", PropertyUtil.getApplicationScenariosMsg(device.getApplicationScenarios()));
+            jsonObject.put("applicationScenariosItemInfo", PropertyUtil.getApplicationScenariosItemMsg(device.getApplicationScenariosItem()));
+            jsonObject.put("description", device.getDescription());
+            jsonObject.put("name", device.getName());
+            jsonObject.put("equipment", getEquipmentJsonObjectList(device, device.getDeviceName()));
+        }
+        resultObject.add(jsonObject);
+        Map<String, Object> result = new HashMap<>();
+        result.put("data", resultObject);
+        return result;
+    }
+
+    private List<JSONObject> getEquipmentJsonObjectList(Device device, String deviceName) {
+        List<JSONObject> equipmentJsonObjectList = new ArrayList<>();
+        DeviceVo deviceVo = new DeviceVo();
+        if (device != null) {
+            deviceVo.setDeviceName(device.getDeviceName());
+            deviceVo.setName(device.getName());
+            deviceVo.setDescription(device.getDescription());
+            EquipmentBo equipmentBo = new EquipmentBo();
+            equipmentBo.setName(device.getName());
+            equipmentBo.setId(device.getId());
+            List<EquipmentBo> equipmentBos = new ArrayList<>();
+            equipmentBo.setEquipmentBo(equipmentBos);
+            Query pccsQuery = new Query();
+            pccsQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and("stationId").is(device.getStationId()));
+            List<Pccs> pccList = pccsDao.findBatchPccs(pccsQuery);
+            pccList.stream().forEach(pcc -> {
+                Query cubeQuery = new Query();
+                cubeQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName).and("pccId").is(pcc.getPccsId()).and("stationId").is(pcc.getStationId()));
+                Cube cube = cubeDao.findCube(cubeQuery);
+                EquipmentBo equipment = new EquipmentBo();
+                equipment.setName(cube.getName());
+                equipment.setId(cube.getId());
+                List<EquipmentBo> equipmentBoList = new ArrayList<>();
+                equipment.setEquipmentBo(equipmentBoList);
+                JSONObject equipmentObject = new JSONObject();
+                equipmentObject.put("cubeModel", cube.getCubeModel());
+                equipmentObject.put("cubePower", cube.getCubePower());
+                equipmentObject.put("batteryManufacturer", cube.getBatteryManufacturer());
+                equipmentObject.put("cellCapacity", cube.getCellCapacity());
+                equipmentObject.put("coolingModeInfo", getCoolingModeInfo(cube.getCoolingMode()));
+                equipmentObject.put("description", cube.getDescription());
+                equipmentObject.put("name", cube.getName());
+                List<JSONObject> equipmentOfBam = new ArrayList<>();
+                equipmentObject.put("equipmentOfSbmu", equipmentOfBam);
+                List<JSONObject> equipmentOfPcs = new ArrayList<>();
+                equipmentObject.put("equipmentOfPcs", equipmentOfPcs);
+                equipmentJsonObjectList.add(equipmentObject);
+                /**
+                 * 并网口后下级目录   电池堆、PCS、其他、电表
+                 */
+                Query equipmentQuery = new Query();
+                equipmentQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName))
+                        .addCriteria(Criteria.where("enabled").is(true))
+                        .addCriteria(Criteria.where("cubeId").is(cube.getCubeId()));
+                List<Equipment> equipments =equipmentDao.findBatchEquipment(equipmentQuery);
+                List<Equipment> bamEquipments = equipments.stream().
+                        filter(equip -> equip.getEquipmentId() == 36).collect(Collectors.toList());
+                for (Equipment bam : bamEquipments) {
+                    JSONObject jsonObjectBam = new JSONObject();
+                    jsonObjectBam.put("name", bam.getName());
+                    jsonObjectBam.put("description", bam.getDescription());
+                    jsonObjectBam.put("manufacturer", bam.getManufacturer());
+                    jsonObjectBam.put("model", bam.getModel());
+                    jsonObjectBam.put("equipmentId", bam.getEquipmentId());
+                    List<JSONObject> jsonObjectBcusList = new ArrayList<>();
+                    List<Equipment> clusterEquipment = equipments.stream().
+                            filter(equip -> equip.getEquipmentId() > 36 && equip.getEquipmentId() < 53).collect(Collectors.toList());
+                    for (Equipment bcuEquipment : clusterEquipment) {
+                        JSONObject bcuJsonObject = new JSONObject();
+                        bcuJsonObject.put("name", bcuEquipment.getName());
+                        bcuJsonObject.put("description", bcuEquipment.getDescription());
+                        bcuJsonObject.put("manufacturer", bcuEquipment.getManufacturer());
+                        bcuJsonObject.put("model", bcuEquipment.getModel());
+                        bcuJsonObject.put("equipmentId", bcuEquipment.getEquipmentId());
+                        jsonObjectBcusList.add(bcuJsonObject);
+                    }
+                    jsonObjectBam.put("equipmentOfCbmu", jsonObjectBcusList);
+                    equipmentOfBam.add(jsonObjectBam);
+                }
+                List<Equipment> pcsCabinetEquipments = equipments.stream().
+                        filter(equip -> equip.getEquipmentId() == 15).collect(Collectors.toList());
+
+                for (Equipment pcsCabinetEquipment : pcsCabinetEquipments) {
+                    JSONObject pcsCabinetJsonObject = new JSONObject();
+                    pcsCabinetJsonObject.put("name", pcsCabinetEquipment.getName());
+                    pcsCabinetJsonObject.put("description", pcsCabinetEquipment.getDescription());
+                    pcsCabinetJsonObject.put("manufacturer", pcsCabinetEquipment.getManufacturer());
+                    pcsCabinetJsonObject.put("model", pcsCabinetEquipment.getModel());
+                    pcsCabinetJsonObject.put("equipmentId", pcsCabinetEquipment.getEquipmentId());
+                    List<JSONObject> jsonObjectPcsChannelList = new ArrayList<>();
+                    List<Equipment> pcsChannelEquipments = equipments.stream()
+                            .filter(equip -> equip.getEquipmentId() > 15 && equip.getEquipmentId() < 32).collect(Collectors.toList());
+                    for (Equipment pcsChannelEquipment : pcsChannelEquipments) {
+                        JSONObject pcsChannelJSONObject = new JSONObject();
+                        pcsChannelJSONObject.put("name", pcsChannelEquipment.getName());
+                        pcsChannelJSONObject.put("description", pcsChannelEquipment.getDescription());
+                        pcsChannelJSONObject.put("manufacturer", pcsChannelEquipment.getManufacturer());
+                        pcsChannelJSONObject.put("model", pcsChannelEquipment.getModel());
+                        pcsChannelJSONObject.put("equipmentId", pcsChannelEquipment.getEquipmentId());
+                        jsonObjectPcsChannelList.add(pcsChannelJSONObject);
+                    }
+                    pcsCabinetJsonObject.put("equipmentOfPcsChannel", jsonObjectPcsChannelList);
+                    equipmentOfPcs.add(pcsCabinetJsonObject);
+                }
+                EquipmentBo equipmentBoOfBam = new EquipmentBo();
+                /**
+                 * 电池堆
+                 */
+                getBoOfBamsData(equipments, deviceName, equipmentBoOfBam, equipmentBoList);
+                /**
+                 * PCS
+                 */
+                getBoOfPcsData(equipments, equipmentBoList);
+                equipmentBos.add(equipment);
+            });
+            deviceVo.setEquipmentBo(equipmentBo);
+        }
+        return equipmentJsonObjectList;
+    }
+
+    private String getCoolingModeInfo(Integer coolingMode) {
+        switch (coolingMode) {
+            case 0:
+                return "风冷";
+            case 1:
+                return "水冷";
+            default:
+                return "其他";
+        }
+    }
+
+    public ResHelper<Void> updateDeviceImg(MultipartFile[] files, String deviceName, List<String> imgFiles) {
+
+        try {
+            List<String> deviceImgIdWithUrls = new ArrayList<>();
+            List<ImgUpload> imgUploads = new ArrayList<>();
+            if (files.length > 0) {
+                for (int i = 0; i < files.length; i++) {
+                    List<String> fullPath = new ArrayList<>();
+                    String filename = files[i].getOriginalFilename();
+                    ImgUpload imgUpload = new ImgUpload();
+                    imgUpload.setOriginalFilename(filename);
+                    imgUpload.setType(ENERGY_STORAGE);
+                    Date date = new Date(System.currentTimeMillis());
+                    String dateToStr = DateUtils.dateToStr(date);
+                    String fileF = filename.substring(filename.lastIndexOf("."), filename.length());
+                    String imgUrlStr = System.currentTimeMillis() + "_" + ENERGY_STORAGE + "_" + i + fileF;
+                    String deviceNameImgUrlPC = propertiesConfig.getImageGenerationLocationPc() + dateToStr + File.separator + imgUrlStr;
+                    File f = new File(deviceNameImgUrlPC);
+                    makeSureFileExist(f);
+                    files[i].transferTo(f);
+                    String deviceNameImgUrlPh = propertiesConfig.getImageGenerationLocationPh() + dateToStr + File.separator + imgUrlStr;
+                    File fPh = new File(deviceNameImgUrlPh);
+                    makeSureFileExist(fPh);
+                    files[i].transferTo(fPh);
+                    ObjectId objectId = gridFsTemplate.store(files[i].getInputStream(), files[i].getOriginalFilename(),files[i].getContentType());
+                    String deviceImgIdWithUrl = objectId + "~" + File.separator + dateToStr + File.separator + imgUrlStr;
+                    imgUpload.setImgId(objectId.toString());
+                    fullPath.add(deviceNameImgUrlPC);
+                    fullPath.add(deviceNameImgUrlPh);
+                    imgUpload.setImgOfFullPath(fullPath);
+                    deviceImgIdWithUrls.add(deviceImgIdWithUrl);
+                    imgUploads.add(imgUpload);
+                }
+                if (!CollectionUtils.isEmpty(imgFiles) && !imgFiles.isEmpty()) {
+                    imgFiles.addAll(deviceImgIdWithUrls);
+                } else {
+                    imgFiles = deviceImgIdWithUrls;
+                }
+            }
+            imgUploadsDao.saveImgUploads(imgUploads);
+            Query deviceQuery = new Query();
+            deviceQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
+            Update deviceUpdate= new Update();
+            deviceUpdate.set("deviceImgIdWithUrls", imgFiles);
+            deviceDao.updateByQuery(deviceQuery,deviceUpdate);
+            log.info("修改设备图片成功:deviceName{}", deviceName);
+        } catch (Exception e) {
+            log.error("修改设备图片失败:{}", e);
+            return ResHelper.error("修改设备图片失败");
+        }
+        return ResHelper.success("修改设备图片成功");
+    }
+
+    private void makeSureFileExist(File file) throws IOException {
+        if (file.exists()) {
+            return;
+        }
+        synchronized (Thread.currentThread()) {
+            if (!file.getParentFile().exists()) {
+                file.getParentFile().mkdir();
+            }
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+        }
     }
 }

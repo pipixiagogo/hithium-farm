@@ -1,10 +1,3 @@
-/**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
- *
- * https://www.renren.io
- *
- * 版权所有，侵权必究！
- */
 
 package com.bugull.hithiumfarmweb.config;
 
@@ -58,7 +51,7 @@ public class ShiroConfig {
         filterMap.put("/captcha.jpg", "anon");
         filterMap.put("/refreshToken", "anon");
         filterMap.put("/auth_verify/**", "anon");
-        filterMap.put("/EmsWebService/**", "anon");
+        filterMap.put("/access/**", "anon");
         filterMap.put("/**", "oauth2");
         shiroFilter.setFilterChainDefinitionMap(filterMap);
         return shiroFilter;

@@ -22,14 +22,6 @@ import static com.bugull.hithiumfarmweb.common.Const.COUNTRY;
 @EnableConfigurationProperties
 public class PropertiesConfig {
 
-    public static final String MONGO_HOST = "mongo.host";
-    public static final String MONGO_PORT = "mongo.port";
-
-    public static final String MONGO_DB = "mongo.database";
-    public static final String MONGO_USERNAME = "mongo.username";
-    public static final String MONGO_PASSWORD = "mongo.password";
-
-
     public static final String CITYS = "city.json";
     private Map<String, String> citys = null;
     private Map<String, Set<String>> proToCitys = null;
@@ -89,9 +81,17 @@ public class PropertiesConfig {
     @Value("${remove.picture.date}")
     private Integer removePictureDate;
 
+    @Value("${secretKey}")
+    private String secretKey;
+
 
     @Value("#{'${production.equipment.devicename:}'.empty ? null : '${production.equipment.devicename:}'.split(',')}")
     private List<String> productionDeviceNameList;   //判断空 null
+
+
+    public String getSecretKey() {
+        return secretKey;
+    }
 
     public Integer getRemovePictureDate() {
         return removePictureDate;

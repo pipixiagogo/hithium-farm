@@ -1,14 +1,11 @@
 package com.bugull.hithiumfarmweb.http.entity;
 
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.Entity;
 import lombok.Data;
 
 import java.util.Date;
 
-@Entity
 @Data
-public class ConnetDevice extends SimpleEntity {
+public class ConnetDevice {
 
     /**
      * 连接的用户名称

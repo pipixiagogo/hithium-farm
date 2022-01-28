@@ -1,10 +1,5 @@
 package com.bugull.hithium.core.entity;
 
-import com.bugull.mongo.BuguEntity;
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.util.Date;
@@ -13,9 +8,8 @@ import java.util.Date;
  * 设备告警日志
  */
 @Data
-@Entity
-@EnsureIndex("{deviceName:1},{generationDataTime:1}")
-public class BreakDownLog extends SimpleEntity {
+public class BreakDownLog {
+    private String id;
     private String deviceName;
     //设备ID
     private Integer equipmentId;
@@ -37,7 +31,6 @@ public class BreakDownLog extends SimpleEntity {
     /**
      * 发生时间
      */
-    @Ignore
     private String time;
 
     //告警消息
@@ -53,7 +46,6 @@ public class BreakDownLog extends SimpleEntity {
     private String removeReason;
 
     //恢复时间
-    @Ignore
     private String removeTime;
     private Date removeData;
     //备注

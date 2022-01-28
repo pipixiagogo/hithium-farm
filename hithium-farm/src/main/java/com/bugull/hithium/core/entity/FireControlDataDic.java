@@ -1,9 +1,5 @@
 package com.bugull.hithium.core.entity;
 
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.util.Date;
@@ -12,9 +8,7 @@ import java.util.Date;
  * 消防
  */
 @Data
-@Entity
-@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1}")
-public class FireControlDataDic extends SimpleEntity {
+public class FireControlDataDic {
 
     //储能站设备唯一标识
     private String deviceName;
@@ -39,7 +33,6 @@ public class FireControlDataDic extends SimpleEntity {
      * IsZoneValveOpen2	bool	主控1分区阀2开关状态
      */
     private Date generationDataTime;
-    @Ignore
     private String time;//时间
     private Integer equipmentId;//设备ID
     private Integer equipChannelStatus;//前置机连接的设备的通道状态 "0-正常，1-异常

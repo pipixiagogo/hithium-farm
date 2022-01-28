@@ -10,14 +10,14 @@ import java.util.List;
 @Data
 public class InfoUserVo {
 
-    private String id;
+    private Long id;
     private String userName;
     private Date createTime;
 
     private String mobile;
     private String email;
 
-    private List<RoleEntityOfUserBo> roleEntityLsit;
+    private List<RoleEntityOfUserBo> roleEntityList;
     //    账号状态  0：禁用   1：正常
     private Integer status;
     private String remarks;

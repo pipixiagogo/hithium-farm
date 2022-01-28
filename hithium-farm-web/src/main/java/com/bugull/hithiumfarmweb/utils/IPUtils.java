@@ -1,10 +1,4 @@
-/**
- * Copyright (c) 2016-2019 人人开源 All rights reserved.
- *
- * https://www.renren.io
- *
- * 版权所有，侵权必究！
- */
+
 
 package com.bugull.hithiumfarmweb.utils;
 
@@ -44,6 +38,9 @@ public class IPUtils {
             }
             if (StringUtils.isEmpty(ip) || "unknown".equalsIgnoreCase(ip)) {
                 ip = request.getRemoteAddr();
+            }
+            if (ip.equals("0:0:0:0:0:0:0:1")) {
+                ip = "127.0.0.1";
             }
         } catch (Exception e) {
         	logger.error("IPUtils ERROR ", e);

@@ -2,7 +2,7 @@ package com.bugull.hithiumfarmweb.utils;
 
 
 import com.bugull.hithiumfarmweb.common.Const;
-import com.bugull.mongo.utils.StringUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,13 +126,13 @@ public class ResHelper<T> {
     }
 
     public static boolean checkOrder(Integer order, String orderField, String table) {
-        if (StringUtil.isEmpty(orderField) && order == null) {
+        if (StringUtils.isEmpty(orderField) && order == null) {
             return true;
         }
-        if (StringUtil.isEmpty(orderField) && order != null) {
+        if (StringUtils.isEmpty(orderField) && order != null) {
             return true;
         }
-        if (!StringUtil.isEmpty(orderField) && order == null) {
+        if (!StringUtils.isEmpty(orderField) && order == null) {
             return true;
         }
         if (!DESC.equals(order) && !Const.ASC.equals(order)) {

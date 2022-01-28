@@ -8,6 +8,8 @@ import com.bugull.hithiumfarmweb.http.entity.RoleEntity;
 import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -83,6 +85,6 @@ public class ShiroService {
 //    }
 
     public SysUser queryByToken(String accessToken) {
-        return sysUserDao.query().is("token", accessToken).result();
+        return sysUserDao.findUser(new Query().addCriteria(Criteria.where("token").is(accessToken)));
     }
 }

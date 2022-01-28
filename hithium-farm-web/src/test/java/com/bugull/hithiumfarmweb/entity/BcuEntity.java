@@ -1,18 +1,11 @@
 package com.bugull.hithiumfarmweb.entity;
 
-import com.alibaba.excel.annotation.ExcelProperty;
-import com.bugull.mongo.BuguEntity;
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Id;
 import lombok.Data;
 
 import java.util.Date;
 
-@Entity(name = "bcudatadicbcu")
 @Data
-public class BcuEntity implements BuguEntity {
-    @Id
+public class BcuEntity  {
     private String id;
     private String name;
     private String deviceName;

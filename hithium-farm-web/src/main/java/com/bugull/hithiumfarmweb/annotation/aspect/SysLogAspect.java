@@ -5,7 +5,7 @@ import com.bugull.hithiumfarmweb.http.dao.DeviceDao;
 import com.bugull.hithiumfarmweb.http.entity.Device;
 import com.bugull.hithiumfarmweb.http.entity.OperationLog;
 import com.bugull.hithiumfarmweb.http.entity.SysUser;
-import com.bugull.hithiumfarmweb.http.service.ExcelExportService;
+//import com.bugull.hithiumfarmweb.http.service.ExcelExportService;
 import com.bugull.hithiumfarmweb.http.service.OperationLogService;
 import com.bugull.hithiumfarmweb.utils.HttpContextUtils;
 import com.bugull.hithiumfarmweb.utils.IPUtils;
@@ -18,6 +18,8 @@ import org.aspectj.lang.annotation.Pointcut;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -39,8 +41,8 @@ public class SysLogAspect {
     private OperationLogService operationLogService;
     @Resource
     private DeviceDao deviceDao;
-    @Resource
-    private ExcelExportService excelExportService;
+//    @Resource
+//    private ExcelExportService excelExportService;
 
     private static final Logger log = LoggerFactory.getLogger(SysLogAspect.class);
 
@@ -77,8 +79,8 @@ public class SysLogAspect {
             if (!StringUtils.isEmpty(operationLog.getOperation()) && operationLog.getOperation().contains("导出")) {
                 List<Object> collect = Arrays.stream(args).skip(2).collect(Collectors.toList());
                 if (operationLog.getOperation().equals(EXCEL_METHOD)) {
-                    Device device = deviceDao.query().is(DEVICE_NAME, collect.get(0)).result();
-                    operationLog.setOperation("导出设备:" + device.getName() + ",时间" + collect.get(1) + "的" +excelExportService.getMsgByType(Integer.parseInt(collect.get(3).toString())) + "数据");
+                    Device device =  deviceDao.findDevice(new Query().addCriteria(Criteria.where(DEVICE_NAME).is(collect.get(0))));
+//                    operationLog.setOperation("导出设备:" + device.getName() + ",时间" + collect.get(1) + "的" +excelExportService.getMsgByType(Integer.parseInt(collect.get(3).toString())) + "数据");
                 }
                 params = new Gson().toJson(collect);
             } else {

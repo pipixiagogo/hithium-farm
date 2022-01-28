@@ -3,12 +3,6 @@ package com.bugull.hithiumfarmweb.http.entity;
 import com.alibaba.excel.annotation.ExcelIgnore;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.bugull.hithiumfarmweb.http.excelConverter.EquipStatusConverter;
-import com.bugull.mongo.BuguEntity;
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Id;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.util.Date;
@@ -17,9 +11,7 @@ import java.util.Date;
  * 电表
  */
 @Data
-@Entity
-@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1}")
-public class AmmeterDataDic implements BuguEntity {
+public class AmmeterDataDic {
 
 
     /**
@@ -40,7 +32,6 @@ public class AmmeterDataDic implements BuguEntity {
      * 设备名称
      */
     @ExcelIgnore
-    @Id
     private String id;
     @ExcelProperty(value = "设备名称")
     private String name;
@@ -52,7 +43,6 @@ public class AmmeterDataDic implements BuguEntity {
     @ExcelIgnore
     private String deviceName;
 
-    @Ignore
     @ExcelIgnore
     private String time;
     @ExcelProperty(value = "时间")

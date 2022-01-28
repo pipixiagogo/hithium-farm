@@ -14,7 +14,7 @@ public class LoginVo {
 
     private Date refreshTokenExpireTime;
 
-    private String id;
+    private Long id;
 
     private Integer userType;
 }

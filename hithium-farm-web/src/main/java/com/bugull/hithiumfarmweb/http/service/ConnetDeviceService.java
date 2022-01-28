@@ -8,6 +8,8 @@ import com.bugull.hithiumfarmweb.http.entity.ConnetDevice;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
 
@@ -36,7 +38,9 @@ public class ConnetDeviceService {
                 /**
                  * redis为空
                  */
-                if (!connetDeviceDao.query().is("connetName", connetDeviceBo.getConnetName()).exists()) {
+                Query existsQuery = new Query();
+                existsQuery.addCriteria(Criteria.where("connetName").is(connetDeviceBo.getConnetName()));
+                if (!connetDeviceDao.exists(existsQuery)) {
                     ConnetDevice connetDevice = new ConnetDevice();
                     BeanUtils.copyProperties(connetDeviceBo, connetDevice);
                     connetDevice.setClientId(connetDevice.getConnetName());
@@ -48,7 +52,7 @@ public class ConnetDeviceService {
                         connetDevice.setSTDtopic(Const.getS2DTopic(connetDevice.getProjectType(), connetDevice.getConnetName()));
                         connetDevice.setDTStopic(Const.getD2STopic(connetDevice.getProjectType(), connetDevice.getConnetName()));
                     }
-                    connetDeviceDao.insert(connetDevice);
+                    connetDeviceDao.saveConnetDevice(connetDevice);
                     String deviceInfo = connetDevice.getClientId() + "," + connetDevice.getDTStopic() + "," + connetDevice.getSTDtopic();
                     jedis.set(PROJECT_TYPE_ESS + connetDevice.getConnetName(), deviceInfo);
                     return ResHelper.success("添加设备白名单成功");
@@ -56,7 +60,9 @@ public class ConnetDeviceService {
                     /**
                      * 数据库存在 取出存入redis
                      */
-                    ConnetDevice connetDevice = connetDeviceDao.query().is("connetName", connetDeviceBo.getConnetName()).result();
+                    Query findQuery=new Query();
+                    findQuery.addCriteria(Criteria.where("connetName").is(connetDeviceBo.getConnetName()));
+                    ConnetDevice connetDevice =connetDeviceDao.findConnetDevice(findQuery);
                     String deviceInfo = connetDevice.getClientId() + "," + connetDevice.getDTStopic() + "," + connetDevice.getSTDtopic();
                     jedis.set(PROJECT_TYPE_ESS + connetDevice.getConnetName(), deviceInfo);
                 }
@@ -76,13 +82,15 @@ public class ConnetDeviceService {
             if (jedis.exists(username)) {
                 return true;
             }
-            ConnetDevice connetName = connetDeviceDao.query().is("connetName", username).result();
+            Query findQuery=new Query();
+            findQuery.addCriteria(Criteria.where("connectName").is(username));
+            ConnetDevice connetName = connetDeviceDao.findConnetDevice(findQuery);
             if (connetName != null) {
                 String deviceInfo = connetName.getClientId() + "," + connetName.getDTStopic() + "," + connetName.getSTDtopic();
                 jedis.set(PROJECT_TYPE_ESS + connetName.getConnetName(), deviceInfo);
                 return true;
             }
-            return connetDeviceDao.query().is("connetName", username).exists();
+            return connetDeviceDao.exists(findQuery);
         } finally {
             if (jedis != null) {
                 jedis.close();
@@ -103,7 +111,9 @@ public class ConnetDeviceService {
                 connetDevice.setDTStopic(str[1]);
                 return connetDevice;
             }
-            return connetDeviceDao.query().is("connetName", username).result();
+            Query findQuery=new Query();
+            findQuery.addCriteria(Criteria.where("connetName").is(username));
+           return connetDeviceDao.findConnetDevice(findQuery);
         } finally {
             if (jedis != null) {
                 jedis.close();

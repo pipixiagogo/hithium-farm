@@ -13,7 +13,15 @@ import java.util.regex.Pattern;
  * 常量类
  */
 public class Const {
+    public static final String MATCH_PREFIX="{ $match : {";
+    public static final String MATCH_SUFFIX="},";
+    public static final String CARBON_DIOXIDE="CO2";
+    public static final String SULFUR_DIOXIDE="SO2";
+    public static final String NOX="NOX";
+    public static final String SMOKE="SMOKE";
 
+
+    public static final String CROP_KEY="CROP_KEY";
     public static final String EXCEL_METHOD="Excel导出数据";
     public static final Long DAY_OF_MILLISECONDS=60*60*24*1000L;
     public static final String SAFE_OF_DAY="SAFE_DAYS";
@@ -40,12 +48,12 @@ public class Const {
     public static final String BAMS_DATA_SHEET_NAME="电池堆";
     public static final String PCS_DATA_SHEET_NAME="PCS主控";
     public static final String BREAKDOWNLOG_DATA_SHEET_NAME="告警日志";
-    public static final String INCOMEOFDAY="{_id:'$incomeOfDay',count:{$sum:{$toDouble:'$income'}}}";
+    public static final String INCOME_OF_DAY="{_id:'$incomeOfDay',count:{$sum:{$toDouble:'$income'}}}";
 //    {_id:{ $dateToString: { format: '%Y-%m', date: '$accessTime' } }
 //    "{_id:{ $dateToString: { format: '%Y-%m', date: '$accessTime' } },count:{$sum:{$toDouble:'$stationPower'}}}"
-    public static final String INCOMEOFMONTH="{_id:{$substrCP:['$incomeOfDay',0,7]},count:{$sum:{$toDouble:'$income'}}}";
-    public static final String INCOMEOFYEAR="{_id:{$substrCP:['$incomeOfDay',0,4]},count:{$sum:{$toDouble:'$income'}}}";
-
+    public static final String INCOME_OF_MONTH="{_id:{$substrCP:['$incomeOfDay',0,7]},count:{$sum:{$toDouble:'$income'}}}";
+    public static final String INCOME_OF_YEAR="{_id:{$substrCP:['$incomeOfDay',0,4]},count:{$sum:{$toDouble:'$income'}}}";
+    public static final String INCOME_TOTAL="{_id:null,count:{$sum:{$toDouble:'$income'}}}";
     public static final String DISCHARGECAPACITY_HOUR="{_id:{$dateToString:{format:'%Y-%m-%d %H',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}";
     public static final String DISCHARGECAPACITY_DAY="{_id:{$dateToString:{format:'%Y %m-%d',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}";
     public static final String DISCHARGECAPACITY_MONTH="{_id:{$dateToString:{format:'%Y-%m',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}";
@@ -55,6 +63,7 @@ public class Const {
 
     public static final String DAY="DAY";
     public static final String YEAR="YEAR";
+    public static final String TOTAL="TOTAL";
 
     public static final String CHECK_TIME_FORMAT="(0\\d{1}|1\\d{1}|2[0-3]):([0-5]\\d{1})";
     public static final String COUNTRY="china";

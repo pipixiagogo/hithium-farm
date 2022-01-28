@@ -1,24 +1,26 @@
 package com.bugull.hithiumfarmweb.http.service;
 
-import com.bugull.hithiumfarmweb.common.BuguPageDao;
-import com.bugull.hithiumfarmweb.common.BuguPageQuery;
+import com.alibaba.fastjson.JSONObject;
+import com.bugull.hithiumfarmweb.common.Page;
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.bo.*;
 import com.bugull.hithiumfarmweb.http.dao.*;
 import com.bugull.hithiumfarmweb.http.entity.*;
+import com.bugull.hithiumfarmweb.http.entity.thirdPartyEntity.Corp;
 import com.bugull.hithiumfarmweb.http.vo.BcuDataVolTemVo;
-import com.bugull.hithiumfarmweb.utils.DateUtils;
-import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
-import com.bugull.mongo.utils.MapperUtil;
-import com.mongodb.DBObject;
-import org.bson.types.ObjectId;
+import com.bugull.hithiumfarmweb.utils.SecretUtil;
+import com.mongodb.BasicDBObject;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import java.util.*;
@@ -57,20 +59,29 @@ public class RealTimeDataService {
     private PropertiesConfig propertiesConfig;
     @Resource
     private EssStationService essStationService;
+    @Resource
+    private CorpDao corpDao;
 
 
     public ResHelper<List<BmsTempMsgBo>> bmsTempMsg(String deviceName) {
-        Iterable<DBObject> iterable = temperatureMeterDataDicDao.aggregate().match(temperatureMeterDataDicDao.query().is(DEVICE_NAME, deviceName))
-                .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
-                .sort("{generationDataTime:-1}").limit(3).results();
-        List<String> queryIds = new ArrayList<>();
-        for (DBObject object : iterable) {
-            ObjectId dataId = (ObjectId) object.get("dataId");
-            queryIds.add(dataId.toString());
-        }
-        if (!CollectionUtils.isEmpty(queryIds) && !queryIds.isEmpty()) {
-            List<TemperatureMeterDataDic> temperatureMeterDataDics = temperatureMeterDataDicDao.query().in("_id", queryIds).results();
-            List<BmsTempMsgBo> tempMsgBos = temperatureMeterDataDics.stream().map(temperatureMeterDataDic -> {
+        Criteria criteria = new Criteria();
+        criteria.and(DEVICE_NAME).is(deviceName);
+        Aggregation aggregation = Aggregation.newAggregation(Aggregation.match(criteria),
+                Aggregation.group("equipmentId").first("equipmentId").as("equipmentId"));
+        List<BasicDBObject> aggregationResults = temperatureMeterDataDicDao.aggregation(aggregation);
+        if (!CollectionUtils.isEmpty(aggregationResults) && !aggregationResults.isEmpty()) {
+            List<TemperatureMeterDataDic> temperatureMeterList = new ArrayList<>();
+            for (BasicDBObject aggregationResult : aggregationResults) {
+                Query findQuery = new Query();
+                Integer equipmentId = (Integer) aggregationResult.get("equipmentId");
+                Criteria criteriaTemperature=new Criteria();
+                criteriaTemperature.and(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentId);
+                findQuery.addCriteria(criteriaTemperature);
+                findQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+                TemperatureMeterDataDic temperatureMeterDataDic = temperatureMeterDataDicDao.findTemperatureMeterData(findQuery);
+                temperatureMeterList.add(temperatureMeterDataDic);
+            }
+            List<BmsTempMsgBo> tempMsgBos = temperatureMeterList.stream().map(temperatureMeterDataDic -> {
                 BmsTempMsgBo msgBo = new BmsTempMsgBo();
                 BeanUtils.copyProperties(temperatureMeterDataDic, msgBo);
                 return msgBo;
@@ -81,19 +92,15 @@ public class RealTimeDataService {
     }
 
 
-    public ResHelper<BamsLatestBo> bamsLatestData(String deviceName) {
-        Iterable<DBObject> iterable = bamsDataDicBADao.aggregate().match(bamsDataDicBADao.query().is(DEVICE_NAME, deviceName))
-                .sort("{generationDataTime:-1}").limit(1).results();
-        if (iterable != null) {
-            for (DBObject object : iterable) {
-                BamsDataDicBA bamsDataDicBA = MapperUtil.fromDBObject(BamsDataDicBA.class, object);
-                BamsLatestBo bamsLatestBo = new BamsLatestBo();
-                BeanUtils.copyProperties(bamsDataDicBA, bamsLatestBo);
-                bamsLatestBo.setRunningStateMsg(getStateMsg(bamsDataDicBA.getRunningState()));
-                return ResHelper.success("", bamsLatestBo);
-            }
-        }
-        return ResHelper.success("");
+    public ResHelper<BamsLatestBo> bamLatestData(String deviceName) {
+        Query bamQuery = new Query();
+        bamQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
+        bamQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+        BamsDataDicBA bamsDataDicBA = bamsDataDicBADao.findBamData(bamQuery);
+        BamsLatestBo bamsLatestBo = new BamsLatestBo();
+        BeanUtils.copyProperties(bamsDataDicBA, bamsLatestBo);
+        bamsLatestBo.setRunningStateMsg(getStateMsg(bamsDataDicBA.getRunningState()));
+        return ResHelper.success("", bamsLatestBo);
     }
 
     private String getStateMsg(Integer runningState) {
@@ -121,21 +128,23 @@ public class RealTimeDataService {
         }
     }
 
-    public ResHelper<List<BcuDataBo>> bcuDataqueryByName(String deviceName) {
-        Iterable<DBObject> iterable = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is(DEVICE_NAME, deviceName))
-                .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
-                .sort("{generationDataTime:-1}").limit(16).results();
-        List<String> queryIds = new ArrayList<>();
-        if (iterable != null) {
-            for (DBObject object : iterable) {
-                ObjectId dataId = (ObjectId) object.get("dataId");
-                String queryId = dataId.toString();
-                queryIds.add(queryId);
+    public ResHelper<List<BcuDataBo>> bcuDataQueryByName(String deviceName) {
+        Criteria criteria = new Criteria();
+        criteria.and(DEVICE_NAME).is(deviceName);
+        Aggregation aggregation = Aggregation.newAggregation(Aggregation.match(criteria),
+                Aggregation.group("equipmentId").first("equipmentId").as("equipmentId"));
+        List<BasicDBObject> basicDBObjects = bcuDataDicBCUDao.aggregation(aggregation);
+        if (!CollectionUtils.isEmpty(basicDBObjects) && !basicDBObjects.isEmpty()) {
+            List<BcuDataDicBCU> bcuDataDicBCUS = new ArrayList<>();
+            for (BasicDBObject basicDBObject : basicDBObjects) {
+                Query findBatchQuery = new Query();
+                Integer equipmentId = (Integer) basicDBObject.get("equipmentId");
+                criteria.and(EQUIPMENT_ID).is(equipmentId);
+                findBatchQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+                BcuDataDicBCU bcuDataDicBCU = bcuDataDicBCUDao.findBcuData(findBatchQuery);
+                bcuDataDicBCUS.add(bcuDataDicBCU);
             }
-        }
-        if (!CollectionUtils.isEmpty(queryIds) && !queryIds.isEmpty()) {
-            List<BcuDataDicBCU> bcuDataDicBCUs = bcuDataDicBCUDao.query().in("_id", queryIds).results();
-            List<BcuDataBo> bcuDataBoList = bcuDataDicBCUs.stream().map(bcuDataDicBCU -> {
+            List<BcuDataBo> bcuDataBoList = bcuDataDicBCUS.stream().map(bcuDataDicBCU -> {
                 BcuDataBo bcuDataBo = new BcuDataBo();
                 BeanUtils.copyProperties(bcuDataDicBCU, bcuDataBo);
                 bcuDataBo.setGroupRunStatusMsg(getStateMsg(bcuDataDicBCU.getGroupRunStatus()));
@@ -165,34 +174,46 @@ public class RealTimeDataService {
         }
     }
 
-    public ResHelper<List<BmsCellDataBo>> bmscellDataQuery(String deviceName) {
-        Iterable<DBObject> tempIterable = bmsCellTempDataDicDao.aggregate().match(bmsCellTempDataDicDao.query().is(DEVICE_NAME, deviceName))
-                .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
-                .sort("{generationDataTime:-1}").limit(16).results();
-        Iterable<DBObject> volIterable = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is(DEVICE_NAME, deviceName))
-                .group("{_id:'$equipmentId','dataId':{$last:'$_id'}}")
-                .sort("{generationDataTime:-1}").limit(16).results();
-        List<String> tempIterableIds = new ArrayList<>();
-        List<String> volIterableIds = new ArrayList<>();
-        if (tempIterable != null) {
-            for (DBObject object : tempIterable) {
-                ObjectId dataId = (ObjectId) object.get("dataId");
-                tempIterableIds.add(dataId.toString());
+    public ResHelper<List<BmsCellDataBo>> cellDataQuery(String deviceName) {
+        Criteria criteriaTemp = new Criteria();
+        criteriaTemp.and(DEVICE_NAME).is(deviceName);
+        Aggregation aggregation = Aggregation.newAggregation(Aggregation.match(criteriaTemp),
+                Aggregation.group("equipmentId").first("equipmentId").as("equipmentId"));
+        List<BasicDBObject> aggregationTempResults = bmsCellTempDataDicDao.aggregation(aggregation);
+        List<BasicDBObject> aggregationVolResults = bmsCellVoltDataDicDao.aggregation(aggregation);
+        List<BmsCellTempDataDic> bmsCellTempData = new ArrayList<>();
+        if (!CollectionUtils.isEmpty(aggregationTempResults) && !aggregationTempResults.isEmpty()) {
+
+            for (BasicDBObject aggregationResult : aggregationTempResults) {
+                Criteria criteriaEquipmentId=new Criteria();
+                Query bmsTempQuery = new Query();
+                Integer equipmentId = (Integer) aggregationResult.get("equipmentId");
+                criteriaEquipmentId.and(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentId);
+                bmsTempQuery.addCriteria(criteriaEquipmentId);
+                bmsTempQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+                BmsCellTempDataDic bmsCellTempDataDic = bmsCellTempDataDicDao.findBmsCellTemp(bmsTempQuery);
+                bmsCellTempData.add(bmsCellTempDataDic);
             }
         }
-        if (volIterable != null) {
-            for (DBObject object : volIterable) {
-                ObjectId dataId = (ObjectId) object.get("dataId");
-                volIterableIds.add(dataId.toString());
+        List<BmsCellVoltDataDic> bmsCellVolData = new ArrayList<>();
+
+        if (!CollectionUtils.isEmpty(aggregationVolResults) && !aggregationVolResults.isEmpty()) {
+            for (BasicDBObject aggregationResult : aggregationVolResults) {
+                Criteria criteriaVol = new Criteria();
+                Query bmsVolQuery = new Query();
+                Integer equipmentId = (Integer) aggregationResult.get("equipmentId");
+                criteriaVol.and(DEVICE_NAME).is(deviceName).and(EQUIPMENT_ID).is(equipmentId);
+                bmsVolQuery.addCriteria(criteriaVol);
+                bmsVolQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+                BmsCellVoltDataDic bmsCellVoltDataDic = bmsCellVoltDataDicDao.findBmsCellVol(bmsVolQuery);
+                bmsCellVolData.add(bmsCellVoltDataDic);
             }
         }
-        List<BmsCellTempDataDic> bmsCellTempDataDicbyIds = bmsCellTempDataDicDao.query().in("_id", tempIterableIds).results();
-        List<BmsCellVoltDataDic> bmsCellVoltDataDicbyIds = bmsCellVoltDataDicDao.query().in("_id", volIterableIds).results();
         List<BmsCellDataBo> bmsCellDataBos = new ArrayList<>();
-        if (!CollectionUtils.isEmpty(bmsCellTempDataDicbyIds) && !bmsCellTempDataDicbyIds.isEmpty() &&
-                !CollectionUtils.isEmpty(bmsCellVoltDataDicbyIds) && !bmsCellVoltDataDicbyIds.isEmpty()) {
-            for (BmsCellTempDataDic bmsCellTempDataDic : bmsCellTempDataDicbyIds) {
-                for (BmsCellVoltDataDic bmsCellVoltDataDic : bmsCellVoltDataDicbyIds) {
+        if (!CollectionUtils.isEmpty(bmsCellTempData) && !bmsCellTempData.isEmpty() &&
+                !CollectionUtils.isEmpty(bmsCellVolData) && !bmsCellVolData.isEmpty()) {
+            for (BmsCellTempDataDic bmsCellTempDataDic : bmsCellTempData) {
+                for (BmsCellVoltDataDic bmsCellVoltDataDic : bmsCellVolData) {
                     if (bmsCellTempDataDic.getEquipmentId() == bmsCellVoltDataDic.getEquipmentId()) {
                         BmsCellDataBo bmsCellDataBo = new BmsCellDataBo();
                         bmsCellDataBo.setName(bmsCellTempDataDic.getName());
@@ -213,22 +234,22 @@ public class RealTimeDataService {
 
         if (propertiesConfig.getProductionDeviceNameList().contains(deviceName)) {
             if (equipmentId == 2) {
-                return ResHelper.success("", stationInfoQuery(fireControlDataDicDao, deviceName, equipmentId, userType));
+                return ResHelper.success("", fireControlDataDicDao.findFireControlQuery(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId == 4 || equipmentId == 7 || equipmentId == 12) {
-                return ResHelper.success("", stationInfoQuery(ammeterDataDicDao, deviceName, equipmentId, userType));
+                return ResHelper.success("",ammeterDataDicDao.findAmmeterQuery(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId == 13) {
-                return ResHelper.success("", stationInfoQuery(upsPowerDataDicDao, deviceName, equipmentId, userType));
+                return ResHelper.success("", upsPowerDataDicDao.findUpsPower(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId == 14 || equipmentId == 55) {
-                return ResHelper.success("", stationInfoQuery(airConditionDataDicDao, deviceName, equipmentId, userType));
+                return ResHelper.success("", airConditionDataDicDao.findAirCondition(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId == 36) {
-                return ResHelper.success("", stationInfoQuery(bamsDataDicBADao, deviceName, equipmentId, userType));
+                return ResHelper.success("", bamsDataDicBADao.findBamData(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId == 32 || equipmentId == 34 || equipmentId == 53) {
-                return ResHelper.success("", stationInfoQuery(temperatureMeterDataDicDao, deviceName, equipmentId, userType));
+                return ResHelper.success("",  temperatureMeterDataDicDao.findTemperatureMeterData(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId > 36 && equipmentId < 53) {
                 /**
@@ -238,22 +259,22 @@ public class RealTimeDataService {
             }
         } else {
             if (equipmentId == 1) {
-                return ResHelper.success("", stationInfoQuery(fireControlDataDicDao, deviceName, equipmentId, userType));
+                return ResHelper.success("", fireControlDataDicDao.findFireControlQuery(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId == 3 || equipmentId == 6 || equipmentId == 11) {
-                return ResHelper.success("", stationInfoQuery(ammeterDataDicDao, deviceName, equipmentId, userType));
+                return ResHelper.success("", ammeterDataDicDao.findAmmeterQuery(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId == 12) {
-                return ResHelper.success("", stationInfoQuery(upsPowerDataDicDao, deviceName, equipmentId, userType));
+                return ResHelper.success("", upsPowerDataDicDao.findUpsPower(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId == 13) {
-                return ResHelper.success("", stationInfoQuery(airConditionDataDicDao, deviceName, equipmentId, userType));
+                return ResHelper.success("", airConditionDataDicDao.findAirCondition(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId == 14) {
-                return ResHelper.success("", stationInfoQuery(bamsDataDicBADao, deviceName, equipmentId, userType));
+                return ResHelper.success("",  bamsDataDicBADao.findBamData(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId == 32 || equipmentId == 34 || equipmentId == 44) {
-                return ResHelper.success("", stationInfoQuery(temperatureMeterDataDicDao, deviceName, equipmentId, userType));
+                return ResHelper.success("",temperatureMeterDataDicDao.findTemperatureMeterData(getQuery(deviceName,equipmentId,userType)));
             }
             if (equipmentId > 35 && equipmentId < 54) {
                 /**
@@ -263,83 +284,64 @@ public class RealTimeDataService {
             }
         }
         if (equipmentId == 15) {
-            return ResHelper.success("", stationInfoQuery(pcsCabinetDicDao, deviceName, equipmentId, userType));
+            return ResHelper.success("", pcsChannelDicDao.findPcsChannel(getQuery(deviceName,equipmentId,userType)));
         }
         if (equipmentId > 15 && equipmentId < 32) {
-            return ResHelper.success("", stationInfoQuery(pcsChannelDicDao, deviceName, equipmentId, userType));
+            return ResHelper.success("", pcsChannelDicDao.findPcsChannel(getQuery(deviceName,equipmentId,userType)));
         }
         return ResHelper.success("");
     }
 
-    private BcuDataVolTemVo bcuDataVolTemp(String deviceName, Integer equipmentId) {
-        Iterable<DBObject> iterable = bcuDataDicBCUDao.aggregate().match(bcuDataDicBCUDao.query().is(DEVICE_NAME, deviceName)
-                .is("equipmentId", equipmentId)).sort("{generationDataTime:-1}").limit(1).results();
-        BcuDataVolTemVo bcuDataVolTemVo = null;
-        if (iterable != null) {
-            for (DBObject object : iterable) {
-                bcuDataVolTemVo = new BcuDataVolTemVo();
-                BcuDataDicBCU bcuDataDicBCU = MapperUtil.fromDBObject(BcuDataDicBCU.class, object);
-                BeanUtils.copyProperties(bcuDataDicBCU, bcuDataVolTemVo);
-            }
+    private Query getQuery(String deviceName, Integer equipmentId, Integer userType) {
+        Query fireControlQuery = new Query();
+        fireControlQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        if (userType == 2) {
+            fireControlQuery.with(Sort.by(Sort.Order.asc("generationDataTime"))).limit(1);
+        } else {
+            fireControlQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
         }
+        return fireControlQuery;
+    }
+
+    private BcuDataVolTemVo bcuDataVolTemp(String deviceName, Integer equipmentId) {
+        Query bcuDataQuery = new Query();
+        bcuDataQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        bcuDataQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+        BcuDataDicBCU bcuDataDicBCU = bcuDataDicBCUDao.findBcuData(bcuDataQuery);
+        BcuDataVolTemVo bcuDataVolTemVo = new BcuDataVolTemVo();
+        BeanUtils.copyProperties(bcuDataDicBCU, bcuDataVolTemVo);
         if (bcuDataVolTemVo == null) {
             return null;
         }
-        Iterable<DBObject> cellTempIte = bmsCellTempDataDicDao.aggregate().match(bcuDataDicBCUDao.query().is(DEVICE_NAME, deviceName)
-                .is("equipmentId", equipmentId))
-                .sort("{generationDataTime:-1}").limit(1).results();
-        if (cellTempIte != null) {
-            for (DBObject object : cellTempIte) {
-                BmsCellTempDataDic bmsCellTempDataDic = MapperUtil.fromDBObject(BmsCellTempDataDic.class, object);
-                Map<String, Integer> tempMap = bmsCellTempDataDic.getTempMap();
-                Iterator<Map.Entry<String, Integer>> iterator = tempMap.entrySet().iterator();
-                while (iterator.hasNext()) {
-                    Map.Entry<String, Integer> next = iterator.next();
-                    if (next.getValue() == 0) {
-                        iterator.remove();
-                    }
-                }
-                bcuDataVolTemVo.setTempMap(tempMap);
+        Query bmsCellTempQuery = new Query();
+        bmsCellTempQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        bmsCellTempQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+        BmsCellTempDataDic bmsCellTempDataDic = bmsCellTempDataDicDao.findBmsCellTemp(bmsCellTempQuery);
+        Map<String, Integer> tempMap = bmsCellTempDataDic.getTempMap();
+        Iterator<Map.Entry<String, Integer>> iterator = tempMap.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, Integer> next = iterator.next();
+            if (next.getValue() == 0) {
+                iterator.remove();
             }
         }
-        Iterable<DBObject> cellVolIte = bmsCellVoltDataDicDao.aggregate().match(bmsCellVoltDataDicDao.query().is(DEVICE_NAME, deviceName).is("equipmentId", equipmentId))
-                .sort("{generationDataTime:-1}").limit(1).results();
-        if (cellVolIte != null) {
-            for (DBObject object : cellVolIte) {
-                BmsCellVoltDataDic bmsCellVoltDataDic = MapperUtil.fromDBObject(BmsCellVoltDataDic.class, object);
-                Map<String, Integer> volMap = bmsCellVoltDataDic.getVolMap();
-                Iterator<Map.Entry<String, Integer>> iterator = volMap.entrySet().iterator();
-                while (iterator.hasNext()) {
-                    Map.Entry<String, Integer> next = iterator.next();
-                    if (next.getValue() == 0) {
-                        iterator.remove();
-                    }
-                }
-                bcuDataVolTemVo.setVolMap(volMap);
+        bcuDataVolTemVo.setTempMap(tempMap);
+        Query bmsCellVolQuery = new Query();
+        bmsCellVolQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        bmsCellVolQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+        BmsCellVoltDataDic bmsCellVoltDataDic = bmsCellVoltDataDicDao.findBmsCellVol(bmsCellVolQuery);
+        Map<String, Integer> volMap = bmsCellVoltDataDic.getVolMap();
+        Iterator<Map.Entry<String, Integer>> iteratorVol = volMap.entrySet().iterator();
+        while (iteratorVol.hasNext()) {
+            Map.Entry<String, Integer> next = iteratorVol.next();
+            if (next.getValue() == 0) {
+                iteratorVol.remove();
             }
         }
+        bcuDataVolTemVo.setVolMap(volMap);
         return bcuDataVolTemVo;
     }
 
-    public Object stationInfoQuery(BuguPageDao buguPageDao, String deviceName, Integer equipmentId, Integer userType) {
-        Iterable<DBObject> iterable;
-        if (userType == 2) {
-            iterable = buguPageDao.aggregate().match(buguPageDao.query().is(DEVICE_NAME, deviceName)
-                    .is("equipmentId", equipmentId)).sort("{generationDataTime:1}").limit(1).results();
-        } else {
-            iterable = buguPageDao.aggregate().match(buguPageDao.query().is(DEVICE_NAME, deviceName)
-                    .is("equipmentId", equipmentId)).sort("{generationDataTime:-1}").limit(1).results();
-        }
-        if (iterable != null) {
-            Object dbObject = null;
-            for (DBObject object : iterable) {
-                dbObject = MapperUtil.fromDBObject(buguPageDao.getEntityClass(), object);
-            }
-            return dbObject;
-        }
-
-        return null;
-    }
 
     public boolean verificationDeviceName(String deviceName, SysUser sysUser) {
         List<EssStation> essStationList = essStationService.getEssStationList(sysUser.getStationList());
@@ -355,325 +357,662 @@ public class RealTimeDataService {
         return false;
     }
 
-    public ResHelper<BuguPageQuery.Page<AmmeterDataDic>> ammeterDataQuery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
-        BuguPageQuery<AmmeterDataDic> query = ammeterDataDicDao.pageQuery();
+    public ResHelper<Page<AmmeterDataDic>> ammeterDataQuery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
+        Query ammeterQuery = new Query();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", query.resultWithNullPage());
+                    return ResHelper.success("", new Page<>(page, pageSize, 0, new ArrayList<>()));
                 }
             }
-            query.is(DEVICE_NAME, deviceName);
+            ammeterQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty() && StringUtils.isEmpty(deviceName)) {
-            query.in(DEVICE_NAME, deviceNames);
+            ammeterQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
-        query.is(EQUIPMENT_ID, equipmentId);
-        query.pageSize(pageSize).pageNumber(page);
+        ammeterQuery.addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        long totalRecord = ammeterDataDicDao.count(ammeterQuery);
+        ammeterQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
         if (!StringUtils.isEmpty(orderField)) {
             if (DESC.equals(order)) {
-                query.sortDesc(orderField);
+                ammeterQuery.with(Sort.by(Sort.Order.desc(orderField)));
             } else {
-                query.sortAsc(orderField);
+                ammeterQuery.with(Sort.by(Sort.Order.asc(orderField)));
             }
         } else {
-            query.sortDesc("_id");
+            ammeterQuery.with(Sort.by(Sort.Order.desc("_id")));
         }
-        BuguPageQuery.Page<AmmeterDataDic> ammeterDataDicPage = query.resultsWithPage();
-        return ResHelper.success("", ammeterDataDicPage);
+        List<AmmeterDataDic> ammeterDataList = ammeterDataDicDao.findBatchAmmeter(ammeterQuery);
+
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, ammeterDataList));
     }
 
-    public ResHelper<BuguPageQuery.Page<BamsDataDicBA>> bamsDataquery(Integer page, Integer pageSize, String deviceName, String orderField, Integer order, Integer equipmentId, SysUser user) {
-        BuguPageQuery<BamsDataDicBA> query = bamsDataDicBADao.pageQuery();
+    public ResHelper<Page<BamsDataDicBA>> bamDataQuery(Integer page, Integer pageSize, String deviceName, String orderField, Integer order, Integer equipmentId, SysUser user) {
+        Query bamDataQuery = new Query();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", query.resultWithNullPage());
+                    return ResHelper.success("", new Page<>(page, pageSize, 0, new ArrayList<>()));
                 }
             }
-            query.is(DEVICE_NAME, deviceName);
+            bamDataQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty() && StringUtils.isEmpty(deviceName)) {
-            query.in(DEVICE_NAME, deviceNames);
+            bamDataQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
-        query.is(EQUIPMENT_ID, equipmentId);
-        query.pageSize(pageSize).pageNumber(page);
+        bamDataQuery.addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        long totalRecord = bamsDataDicBADao.count(bamDataQuery);
+        bamDataQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
         if (!StringUtils.isEmpty(orderField)) {
             if (DESC.equals(order)) {
-                query.sortDesc(orderField);
+                bamDataQuery.with(Sort.by(Sort.Order.desc(orderField)));
             } else {
-                query.sortAsc(orderField);
+                bamDataQuery.with(Sort.by(Sort.Order.asc(orderField)));
             }
         } else {
-            query.sortDesc("_id");
+            bamDataQuery.with(Sort.by(Sort.Order.desc("_id")));
         }
-        BuguPageQuery.Page<BamsDataDicBA> bamsDataDicBAPage = query.resultsWithPage();
-        return ResHelper.success("", bamsDataDicBAPage);
+        List<BamsDataDicBA> bamDataDicList = bamsDataDicBADao.findBatchBamData(bamDataQuery);
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, bamDataDicList));
     }
 
-    public ResHelper<BuguPageQuery.Page<BmsCellTempDataDic>> bmsTempDataquery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, Date startTime, Date endTime, SysUser user) {
-        BuguPageQuery<BmsCellTempDataDic> query = bmsCellTempDataDicDao.pageQuery();
+    public ResHelper<Page<BmsCellTempDataDic>> bmsTempDataQuery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, Date startTime, Date endTime, SysUser user) {
+        Query bmsCellTempQuery = new Query();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", query.resultWithNullPage());
+                    return ResHelper.success("", new Page<>(page, pageSize, 0, new ArrayList<>()));
                 }
             }
-            query.is(DEVICE_NAME, deviceName);
+            bmsCellTempQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty() && StringUtils.isEmpty(deviceName)) {
-            query.in(DEVICE_NAME, deviceNames);
+            bmsCellTempQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
         if (startTime != null && endTime != null) {
-            query.greaterThanEquals(GENERATION_DATA_TIME, startTime);
-            query.lessThanEquals(GENERATION_DATA_TIME, endTime);
+            bmsCellTempQuery.addCriteria(Criteria.where(GENERATION_DATA_TIME).gte(startTime).lte(endTime));
         }
-        query.is(EQUIPMENT_ID, equipmentId);
-        query.pageSize(pageSize).pageNumber(page);
+        bmsCellTempQuery.addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        long totalRecord = bmsCellTempDataDicDao.count(bmsCellTempQuery);
+        bmsCellTempQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
         if (!StringUtils.isEmpty(orderField)) {
             if (DESC.equals(order)) {
-                query.sortDesc(orderField);
+                bmsCellTempQuery.with(Sort.by(Sort.Order.desc(orderField)));
             } else {
-                query.sortAsc(orderField);
+                bmsCellTempQuery.with(Sort.by(Sort.Order.asc(orderField)));
             }
         } else {
-            query.sortDesc("_id");
+            bmsCellTempQuery.with(Sort.by(Sort.Order.desc("_id")));
         }
-        BuguPageQuery.Page<BmsCellTempDataDic> bmsCellTempDataDicPage = query.resultsWithPage();
-        return ResHelper.success("", bmsCellTempDataDicPage);
+        List<BmsCellTempDataDic> bmsCellTempDataList = bmsCellTempDataDicDao.findBatchBmsCellTemp(bmsCellTempQuery);
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, bmsCellTempDataList));
     }
 
-    public ResHelper<BuguPageQuery.Page<BmsCellVoltDataDic>> bmsVoltDataquery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
-        BuguPageQuery<BmsCellVoltDataDic> query = bmsCellVoltDataDicDao.pageQuery();
+    public ResHelper<Page<BmsCellVoltDataDic>> bmsVoltDataQuery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
+        Query bmsCellVoltQuery = new Query();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", query.resultWithNullPage());
+                    return ResHelper.success("", new Page<>(page, pageSize, 0, new ArrayList<>()));
                 }
             }
-            query.is(DEVICE_NAME, deviceName);
+            bmsCellVoltQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty() && StringUtils.isEmpty(deviceName)) {
-            query.in(DEVICE_NAME, deviceNames);
+            bmsCellVoltQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
-        query.is(EQUIPMENT_ID, equipmentId);
-        query.pageSize(pageSize).pageNumber(page);
+        bmsCellVoltQuery.addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        long totalRecord = bmsCellVoltDataDicDao.count(bmsCellVoltQuery);
+        bmsCellVoltQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
         if (!StringUtils.isEmpty(orderField)) {
             if (DESC.equals(order)) {
-                query.sortDesc(orderField);
+                bmsCellVoltQuery.with(Sort.by(Sort.Order.desc(orderField)));
             } else {
-                query.sortAsc(orderField);
+                bmsCellVoltQuery.with(Sort.by(Sort.Order.asc(orderField)));
             }
         } else {
-            query.sortDesc("_id");
+            bmsCellVoltQuery.with(Sort.by(Sort.Order.desc("_id")));
         }
-        BuguPageQuery.Page<BmsCellVoltDataDic> bmsCellVoltDataDicPage = query.resultsWithPage();
-        return ResHelper.success("", bmsCellVoltDataDicPage);
+        List<BmsCellVoltDataDic> bmsCellVoltDataList = bmsCellVoltDataDicDao.findBatchQuery(bmsCellVoltQuery);
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, bmsCellVoltDataList));
     }
 
-    public ResHelper<BuguPageQuery.Page<BcuDataDicBCU>> bcuDataquery(Integer page, Integer pageSize, String deviceName, String orderField, Integer order, Integer equipmentId, SysUser user) {
-        BuguPageQuery<BcuDataDicBCU> query = bcuDataDicBCUDao.pageQuery();
+    public ResHelper<Page<BcuDataDicBCU>> bcuDataQuery(Integer page, Integer pageSize, String deviceName, String orderField, Integer order, Integer equipmentId, SysUser user) {
+        Query bcuDataQuery = new Query();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", query.resultWithNullPage());
+                    return ResHelper.success("", new Page<>(page, pageSize, 0, new ArrayList<>()));
                 }
             }
-            query.is(DEVICE_NAME, deviceName);
+            bcuDataQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty() && StringUtils.isEmpty(deviceName)) {
-            query.in(DEVICE_NAME, deviceNames);
+            bcuDataQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
-        query.is(EQUIPMENT_ID, equipmentId);
-        query.pageSize(pageSize).pageNumber(page);
+        bcuDataQuery.addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        long totalRecord = bcuDataDicBCUDao.count(bcuDataQuery);
+        bcuDataQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
         if (!StringUtils.isEmpty(orderField)) {
             if (DESC.equals(order)) {
-                query.sortDesc(orderField);
+                bcuDataQuery.with(Sort.by(Sort.Order.desc(orderField)));
             } else {
-                query.sortAsc(orderField);
+                bcuDataQuery.with(Sort.by(Sort.Order.asc(orderField)));
             }
         } else {
-            query.sortDesc("_id");
+            bcuDataQuery.with(Sort.by(Sort.Order.desc("_id")));
         }
-        BuguPageQuery.Page<BcuDataDicBCU> bcuDataDicBCUPage = query.resultsWithPage();
-        return ResHelper.success("", bcuDataDicBCUPage);
+        List<BcuDataDicBCU> bcuDataDicBCUS = bcuDataDicBCUDao.findBatchBcuData(bcuDataQuery);
+
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, bcuDataDicBCUS));
     }
 
-    public ResHelper<BuguPageQuery.Page<PcsCabinetDic>> pcsCabinetquery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
-        BuguPageQuery<PcsCabinetDic> query = pcsCabinetDicDao.pageQuery();
+    public ResHelper<Page<PcsCabinetDic>> pcsCabinetQuery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
+        Query pcsCabinetQuery = new Query();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", query.resultWithNullPage());
+                    return ResHelper.success("", new Page<>(page, pageSize, 0, new ArrayList<>()));
                 }
             }
-            query.is(DEVICE_NAME, deviceName);
+            pcsCabinetQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty() && StringUtils.isEmpty(deviceName)) {
-            query.in(DEVICE_NAME, deviceNames);
+            pcsCabinetQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
-        query.pageSize(pageSize).pageNumber(page);
+        long totalRecord = pcsCabinetDicDao.count(pcsCabinetQuery);
+        pcsCabinetQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
         if (!StringUtils.isEmpty(orderField)) {
             if (DESC.equals(order)) {
-                query.sortDesc(orderField);
+                pcsCabinetQuery.with(Sort.by(Sort.Order.desc(orderField)));
             } else {
-                query.sortAsc(orderField);
+                pcsCabinetQuery.with(Sort.by(Sort.Order.asc(orderField)));
             }
         } else {
-            query.sortDesc("_id");
+            pcsCabinetQuery.with(Sort.by(Sort.Order.desc("_id")));
         }
-        BuguPageQuery.Page<PcsCabinetDic> pcsCabinetDicPage = query.resultsWithPage();
-        return ResHelper.success("", pcsCabinetDicPage);
+        List<PcsCabinetDic> pcsCabinetList = pcsCabinetDicDao.findBatchPcsCabinet(pcsCabinetQuery);
+
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, pcsCabinetList));
     }
 
-    public ResHelper<BuguPageQuery.Page<PcsChannelDic>> pcsChannelquery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
-        BuguPageQuery<PcsChannelDic> query = pcsChannelDicDao.pageQuery();
+    public ResHelper<Page<PcsChannelDic>> pcsChannelQuery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
+        Query pcsChannelQuery = new Query();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", query.resultWithNullPage());
+                    return ResHelper.success("", new Page<>(page, pageSize, 0, new ArrayList<>()));
                 }
             }
-            query.is(DEVICE_NAME, deviceName);
+            pcsChannelQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty() && StringUtils.isEmpty(deviceName)) {
-            query.in(DEVICE_NAME, deviceNames);
+            pcsChannelQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
-        query.is(EQUIPMENT_ID, equipmentId);
-        query.pageSize(pageSize).pageNumber(page);
+        pcsChannelQuery.addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        long totalRecord = pcsChannelDicDao.count(pcsChannelQuery);
+        pcsChannelQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
         if (!StringUtils.isEmpty(orderField)) {
             if (DESC.equals(order)) {
-                query.sortDesc(orderField);
+                pcsChannelQuery.with(Sort.by(Sort.Order.desc(orderField)));
             } else {
-                query.sortAsc(orderField);
+                pcsChannelQuery.with(Sort.by(Sort.Order.asc(orderField)));
             }
         } else {
-            query.sortDesc("_id");
+            pcsChannelQuery.with(Sort.by(Sort.Order.desc("_id")));
         }
-        BuguPageQuery.Page<PcsChannelDic> pcsChannelDicPage = query.resultsWithPage();
-        return ResHelper.success("", pcsChannelDicPage);
+        List<PcsChannelDic> pcsChannelDicList = pcsChannelDicDao.findBatchPcsChannel(pcsChannelQuery);
+
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, pcsChannelDicList));
     }
 
-    public ResHelper<BuguPageQuery.Page<AirConditionDataDic>> airConditionquery(Integer page, Integer pageSize, String deviceName, String orderField, Integer order, Integer equipmentId, SysUser user) {
-        BuguPageQuery<AirConditionDataDic> query = airConditionDataDicDao.pageQuery();
+    public ResHelper<Page<AirConditionDataDic>> airConditionQuery(Integer page, Integer pageSize, String deviceName, String orderField, Integer order, Integer equipmentId, SysUser user) {
+        Query airConditionQuery = new Query();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", query.resultWithNullPage());
+                    return ResHelper.success("", new Page<>(page, pageSize, 0, new ArrayList<>()));
                 }
             }
-            query.is(DEVICE_NAME,deviceName);
+            airConditionQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty() && StringUtils.isEmpty(deviceName)) {
-            query.in(DEVICE_NAME, deviceNames);
+            airConditionQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
-        query.is(EQUIPMENT_ID,equipmentId);
-        query.pageSize(pageSize).pageNumber(page);
+        airConditionQuery.addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        long totalRecord = airConditionDataDicDao.count(airConditionQuery);
+        airConditionQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
         if (!StringUtils.isEmpty(orderField)) {
             if (DESC.equals(order)) {
-                query.sortDesc(orderField);
+                airConditionQuery.with(Sort.by(Sort.Order.desc(orderField)));
             } else {
-                query.sortAsc(orderField);
+                airConditionQuery.with(Sort.by(Sort.Order.asc(orderField)));
             }
         } else {
-            query.sortDesc("_id");
+            airConditionQuery.with(Sort.by(Sort.Order.desc("_id")));
         }
-        BuguPageQuery.Page<AirConditionDataDic> airConditionDataDicPage = query.resultsWithPage();
-        return ResHelper.success("", airConditionDataDicPage);
+        List<AirConditionDataDic> airConditionDataList = airConditionDataDicDao.findBatchAirCondition(airConditionQuery);
+
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, airConditionDataList));
     }
 
-    public ResHelper<BuguPageQuery.Page<TemperatureMeterDataDic>> temperatureMeterquery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
-        BuguPageQuery<TemperatureMeterDataDic> query = temperatureMeterDataDicDao.pageQuery();
+    public ResHelper<Page<TemperatureMeterDataDic>> temperatureMeterQuery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
+        Query temperatureQuery = new Query();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", query.resultWithNullPage());
+                    return ResHelper.success("", new Page<>(page, pageSize, 0, new ArrayList<>()));
                 }
             }
-            query.is(DEVICE_NAME,deviceName);
+            temperatureQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty() && StringUtils.isEmpty(deviceName)) {
-            query.in(DEVICE_NAME, deviceNames);
+            temperatureQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
-        query.is(EQUIPMENT_ID,equipmentId);
-        query.pageSize(pageSize).pageNumber(page);
+        temperatureQuery.addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        long totalRecord = temperatureMeterDataDicDao.count(temperatureQuery);
+        temperatureQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
         if (!StringUtils.isEmpty(orderField)) {
             if (DESC.equals(order)) {
-                query.sortDesc(orderField);
+                temperatureQuery.with(Sort.by(Sort.Order.desc(orderField)));
             } else {
-                query.sortAsc(orderField);
+                temperatureQuery.with(Sort.by(Sort.Order.asc(orderField)));
             }
         } else {
-            query.sort("{generationDataTime:-1}");
+            temperatureQuery.with(Sort.by(Sort.Order.desc("generationDataTime")));
         }
-        BuguPageQuery.Page<TemperatureMeterDataDic> temperatureMeterDataDicPage = query.resultsWithPage();
-        return ResHelper.success("", temperatureMeterDataDicPage);
+        List<TemperatureMeterDataDic> temperatureMeterDataList = temperatureMeterDataDicDao.findBatchTemperature(temperatureQuery);
+
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, temperatureMeterDataList));
     }
 
-    public ResHelper<BuguPageQuery.Page<FireControlDataDic>> fileControlquery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
-        BuguPageQuery<FireControlDataDic> query = fireControlDataDicDao.pageQuery();
+    public ResHelper<Page<FireControlDataDic>> fireControlQuery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
+        Query fireControlQuery = new Query();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", query.resultWithNullPage());
+                    return ResHelper.success("", new Page<>(page, pageSize, 0, new ArrayList<>()));
                 }
             }
-            query.is(DEVICE_NAME,deviceName);
+            fireControlQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty() && StringUtils.isEmpty(deviceName)) {
-            query.in(DEVICE_NAME, deviceNames);
+            fireControlQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
-        query.is(EQUIPMENT_ID,equipmentId);
-        query.pageSize(pageSize).pageNumber(page);
+        fireControlQuery.addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        long totalRecord = fireControlDataDicDao.count(fireControlQuery);
+        fireControlQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
         if (!StringUtils.isEmpty(orderField)) {
             if (DESC.equals(order)) {
-                query.sortDesc(orderField);
+                fireControlQuery.with(Sort.by(Sort.Order.desc(orderField)));
             } else {
-                query.sortAsc(orderField);
+                fireControlQuery.with(Sort.by(Sort.Order.asc(orderField)));
             }
         } else {
-            query.sortDesc("_id");
+            fireControlQuery.with(Sort.by(Sort.Order.desc("_id")));
         }
-        BuguPageQuery.Page<FireControlDataDic> fireControlDataDicPage = query.resultsWithPage();
-        return ResHelper.success("", fireControlDataDicPage);
+        List<FireControlDataDic> fireControlDataList = fireControlDataDicDao.findBatchFireControl(fireControlQuery);
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, fireControlDataList));
     }
 
-    public ResHelper<BuguPageQuery.Page<UpsPowerDataDic>> upsPowerquery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
-        BuguPageQuery<UpsPowerDataDic> query = upsPowerDataDicDao.pageQuery();
+    public ResHelper<Page<UpsPowerDataDic>> upsPowerQuery(Integer page, Integer pageSize, String deviceName, Integer order, String orderField, Integer equipmentId, SysUser user) {
+        Query upsPowerQuery = new Query();
         List<String> deviceNames = essStationService.getDeviceNames(user.getStationList());
         if (!StringUtils.isEmpty(deviceName)) {
             if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
                 if (!deviceNames.contains(deviceName)) {
-                    return ResHelper.success("", query.resultWithNullPage());
+                    return ResHelper.success("", new Page<>(page, pageSize, 0L, new ArrayList<>()));
                 }
             }
-            query.is(DEVICE_NAME,deviceName);
+            upsPowerQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName));
         }
         if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty() && StringUtils.isEmpty(deviceName)) {
-            query.in(DEVICE_NAME, deviceNames);
+            upsPowerQuery.addCriteria(Criteria.where(DEVICE_NAME).in(deviceNames));
         }
-        query.is(EQUIPMENT_ID,equipmentId);
-        query.pageSize(pageSize).pageNumber(page);
+        upsPowerQuery.addCriteria(Criteria.where(EQUIPMENT_ID).is(equipmentId));
+        long totalRecord = upsPowerDataDicDao.count(upsPowerQuery);
+        upsPowerQuery.skip(((long) page - 1) * pageSize).limit(pageSize);
         if (!StringUtils.isEmpty(orderField)) {
             if (DESC.equals(order)) {
-                query.sortDesc(orderField);
+                upsPowerQuery.with(Sort.by(Sort.Order.desc(orderField)));
             } else {
-                query.sortAsc(orderField);
+                upsPowerQuery.with(Sort.by(Sort.Order.asc(orderField)));
             }
         } else {
-            query.sortDesc("_id");
+            upsPowerQuery.with(Sort.by(Sort.Order.desc("_id")));
         }
-        BuguPageQuery.Page<UpsPowerDataDic> upsPowerDataDicPage = query.resultsWithPage();
-        return ResHelper.success("", upsPowerDataDicPage);
+        List<UpsPowerDataDic> upsPowerDataList = upsPowerDataDicDao.findBatchUpsPower(upsPowerQuery);
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, upsPowerDataList));
+    }
+
+    public Map<String, Object> equipmentRealTimeData(String accessToken) {
+        String corpSecret = SecretUtil.decryptWithBase64(accessToken.replaceAll(" ", "+"), propertiesConfig.getSecretKey()).split("-")[1];
+        Query corpQuery = new Query();
+        corpQuery.addCriteria(Criteria.where("corpAccessSecret").is(corpSecret));
+        Corp corp = corpDao.findCorp(corpQuery);
+        List<JSONObject> resultObject = new ArrayList<>();
+        JSONObject jsonObject = new JSONObject();
+
+        for (String deviceName : corp.getDeviceName()) {
+            List<BamsDataDicBA> bamDataDicBAS = new ArrayList<>();
+            Query bamQuery = new Query();
+            bamQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).addCriteria(Criteria.where("equipmentId").is(36));
+            bamQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+            BamsDataDicBA bamsDataDicBA = bamsDataDicBADao.findBamData(bamQuery);
+            bamDataDicBAS.add(bamsDataDicBA);
+
+            List<BcuDataDicBCU> bcuDataDicBCUS = new ArrayList<>();
+            for (int i = 37; i < 45; i++) {
+                Query bcuQuery = new Query();
+                bcuQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).addCriteria(Criteria.where("equipmentId").is(i));
+                bcuQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+                BcuDataDicBCU bcuDataDicBCU = bcuDataDicBCUDao.findBcuData(bcuQuery);
+                bcuDataDicBCUS.add(bcuDataDicBCU);
+            }
+            List<PcsCabinetDic> pcsCabinets = new ArrayList<>();
+            Query pcsCabinetQuery = new Query();
+            pcsCabinetQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).addCriteria(Criteria.where("equipmentId").is(15));
+            pcsCabinetQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+            PcsCabinetDic pcsCabinetDic = pcsCabinetDicDao.findPcsCabinet(pcsCabinetQuery);
+            pcsCabinets.add(pcsCabinetDic);
+            List<PcsChannelDic> pcsChannels = new ArrayList<>();
+            for (int i = 16; i < 24; i++) {
+                Query pcsChannelQuery = new Query();
+                pcsChannelQuery.addCriteria(Criteria.where(DEVICE_NAME).is(deviceName)).addCriteria(Criteria.where("equipmentId").is(i));
+                pcsChannelQuery.with(Sort.by(Sort.Order.desc("generationDataTime"))).limit(1);
+                PcsChannelDic pcsChannelDic = pcsChannelDicDao.findPcsChannel(pcsChannelQuery);
+                pcsChannels.add(pcsChannelDic);
+            }
+            jsonObject.put("deviceName", deviceName);
+            jsonObject.put("pcsChannelData", getJsonOfPcsChannel(pcsChannels));
+            jsonObject.put("pcsCabinetData", getJsonOfPcsCabinet(pcsCabinets));
+            jsonObject.put("cbmuData", getJsonOfBcuData(bcuDataDicBCUS));
+            jsonObject.put("sbmuData", getJsonOfBamData(bamDataDicBAS));
+
+            resultObject.add(jsonObject);
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("data", resultObject);
+        return result;
+    }
+
+    private List<JSONObject> getJsonOfPcsChannel(List<PcsChannelDic> pcsChannels) {
+        List<JSONObject> jsonOfPcsData = new ArrayList<>();
+
+        for (PcsChannelDic pcsChannelDic : pcsChannels) {
+            JSONObject channelJsonObject = new JSONObject();
+            channelJsonObject.put("generationDataTime", pcsChannelDic.getGenerationDataTime().getTime());
+            channelJsonObject.put("equipmentId", pcsChannelDic.getEquipmentId());
+            channelJsonObject.put("equipChannelStatus", pcsChannelDic.getEquipChannelStatus());
+            channelJsonObject.put("powerOnOff", pcsChannelDic.getPowerOnOff());
+
+
+            channelJsonObject.put("maxChargeCurrent", pcsChannelDic.getMaxChargeCurrent());
+            channelJsonObject.put("maxDischargeCurrent", pcsChannelDic.getMaxDischargeCurrent());
+
+            channelJsonObject.put("voltageProtectHighLimit", pcsChannelDic.getVoltageProtectHighLimit());
+            channelJsonObject.put("voltageProtectLowLimit", pcsChannelDic.getVoltageProtectLowLimit());
+
+            channelJsonObject.put("modelEnable", pcsChannelDic.getModelEnable());
+
+            channelJsonObject.put("activePower", pcsChannelDic.getActivePower());
+            channelJsonObject.put("reactivePower", pcsChannelDic.getReactivePower());
+
+            channelJsonObject.put("chargeDischargeStatus", pcsChannelDic.getChargeDischargeStatus());
+            channelJsonObject.put("disableCharge", pcsChannelDic.getDisableCharge());
+            channelJsonObject.put("disableDischarge", pcsChannelDic.getDisableDischarge());
+
+            channelJsonObject.put("runningStatus", pcsChannelDic.getRunningStatus());
+
+            channelJsonObject.put("inEnvHighTemp", pcsChannelDic.getInEnvHighTemp());
+            channelJsonObject.put("bmsCommFault", pcsChannelDic.getBmsCommFault());
+            channelJsonObject.put("dcReverse", pcsChannelDic.getDcReverse());
+            channelJsonObject.put("dcOverCurrent", pcsChannelDic.getDcOverCurrent());
+            channelJsonObject.put("overLoadAlarm", pcsChannelDic.getOverLoadAlarm());
+            channelJsonObject.put("dcOverVoltage", pcsChannelDic.getDcOverVoltage());
+            channelJsonObject.put("dcUnderVoltage", pcsChannelDic.getDcUnderVoltage());
+
+            channelJsonObject.put("dcInputOverVolt", pcsChannelDic.getDcInputOverVolt());
+            channelJsonObject.put("elecVoltException", pcsChannelDic.getElecVoltException());
+            channelJsonObject.put("acOverCurrProtect", pcsChannelDic.getAcOverCurrProtect());
+            channelJsonObject.put("powerGridReverse", pcsChannelDic.getPowerGridReverse());
+            channelJsonObject.put("outputOverLoadTime", pcsChannelDic.getOutputOverLoadTime());
+            channelJsonObject.put("envTempDerating", pcsChannelDic.getEnvTempDerating());
+
+            channelJsonObject.put("dCPower", pcsChannelDic.getDCPower());
+            channelJsonObject.put("dCVoltage", pcsChannelDic.getDCVoltage());
+            channelJsonObject.put("dCCurrent", pcsChannelDic.getDCCurrent());
+
+
+            channelJsonObject.put("bmsWorkStatus", pcsChannelDic.getBmsWorkStatus());
+
+            channelJsonObject.put("bClusterVol", pcsChannelDic.getBClusterVol());
+            channelJsonObject.put("bClusterCur", pcsChannelDic.getBClusterCur());
+            channelJsonObject.put("groupRechargeableQuantity", pcsChannelDic.getGroupRechargeableQuantity());
+            channelJsonObject.put("soc", pcsChannelDic.getSoc());
+            channelJsonObject.put("groupRedischargeableQuantity", pcsChannelDic.getGroupRedischargeableQuantity());
+            channelJsonObject.put("minVoltage", pcsChannelDic.getMinVoltage());
+            channelJsonObject.put("maxVoltage", pcsChannelDic.getMaxVoltage());
+            channelJsonObject.put("maxSoc", pcsChannelDic.getMaxSoc());
+            channelJsonObject.put("minSoc", pcsChannelDic.getMinSoc());
+            channelJsonObject.put("minTemp", pcsChannelDic.getMinTemp());
+            channelJsonObject.put("maxTemp", pcsChannelDic.getMaxTemp());
+
+            channelJsonObject.put("aVoltage", pcsChannelDic.getAVoltage());
+            channelJsonObject.put("bVoltage", pcsChannelDic.getBVoltage());
+            channelJsonObject.put("cVoltage", pcsChannelDic.getCVoltage());
+            channelJsonObject.put("aBVoltage", pcsChannelDic.getABVoltage());
+            channelJsonObject.put("bCVoltage", pcsChannelDic.getBCVoltage());
+            channelJsonObject.put("cAVoltage", pcsChannelDic.getCAVoltage());
+            channelJsonObject.put("aRate", pcsChannelDic.getARate());
+            channelJsonObject.put("bRate", pcsChannelDic.getBRate());
+            channelJsonObject.put("cRate", pcsChannelDic.getCRate());
+            channelJsonObject.put("aFactor", pcsChannelDic.getAFactor());
+            channelJsonObject.put("bFactor", pcsChannelDic.getBFactor());
+            channelJsonObject.put("cFactor", pcsChannelDic.getCFactor());
+            channelJsonObject.put("aCurrent", pcsChannelDic.getACurrent());
+            channelJsonObject.put("bCurrent", pcsChannelDic.getBCurrent());
+            channelJsonObject.put("cCurrent", pcsChannelDic.getCCurrent());
+            channelJsonObject.put("aPower", pcsChannelDic.getAPower());
+            channelJsonObject.put("bPower", pcsChannelDic.getBPower());
+            channelJsonObject.put("cPower", pcsChannelDic.getCPower());
+
+            channelJsonObject.put("aReactivePower", pcsChannelDic.getAReactivePower());
+            channelJsonObject.put("bReactivePower", pcsChannelDic.getBReactivePower());
+            channelJsonObject.put("cReactivePower", pcsChannelDic.getCReactivePower());
+            channelJsonObject.put("aApparentPower", pcsChannelDic.getAApparentPower());
+            channelJsonObject.put("bApparentPower", pcsChannelDic.getBApparentPower());
+            channelJsonObject.put("cApparentPower", pcsChannelDic.getCApparentPower());
+
+            channelJsonObject.put("sumPower", pcsChannelDic.getSumPower());
+            channelJsonObject.put("sumRelativePower", pcsChannelDic.getSumRelativePower());
+            channelJsonObject.put("sumApparentPower", pcsChannelDic.getSumApparentPower());
+            channelJsonObject.put("sumPowerFactor", pcsChannelDic.getSumPowerFactor());
+
+            channelJsonObject.put("maxChargePower", pcsChannelDic.getMaxChargePower());
+            channelJsonObject.put("maxDischargePower", pcsChannelDic.getMaxDischargePower());
+            jsonOfPcsData.add(channelJsonObject);
+        }
+        return jsonOfPcsData;
+    }
+
+    private List<JSONObject> getJsonOfPcsCabinet(List<PcsCabinetDic> pcsCabinets) {
+        List<JSONObject> jsonOfPcsData = new ArrayList<>();
+        for (PcsCabinetDic pcsCabinetDic : pcsCabinets) {
+            JSONObject pcsJsonObject = new JSONObject();
+            pcsJsonObject.put("generationDataTime", pcsCabinetDic.getGenerationDataTime().getTime());
+            pcsJsonObject.put("equipmentId", pcsCabinetDic.getEquipmentId());
+            pcsJsonObject.put("equipChannelStatus", pcsCabinetDic.getEquipChannelStatus());
+
+            pcsJsonObject.put("activePower", pcsCabinetDic.getActivePower());
+            pcsJsonObject.put("reactivePower", pcsCabinetDic.getReactivePower());
+            pcsJsonObject.put("isOffGrid", pcsCabinetDic.getIsOffGrid());
+            pcsJsonObject.put("chargeDischargeStatus", pcsCabinetDic.getChargeDischargeStatus());
+            pcsJsonObject.put("aBVol", pcsCabinetDic.getABVol());
+            pcsJsonObject.put("bCVol", pcsCabinetDic.getBCVol());
+            pcsJsonObject.put("cAVol", pcsCabinetDic.getCAVol());
+            pcsJsonObject.put("aVol", pcsCabinetDic.getAVol());
+            pcsJsonObject.put("bVol", pcsCabinetDic.getBVol());
+            pcsJsonObject.put("cVol", pcsCabinetDic.getCVol());
+            pcsJsonObject.put("aRate", pcsCabinetDic.getARate());
+            pcsJsonObject.put("bRate", pcsCabinetDic.getBRate());
+            pcsJsonObject.put("cRate", pcsCabinetDic.getCRate());
+            pcsJsonObject.put("aPF", pcsCabinetDic.getAPF());
+            pcsJsonObject.put("bPF", pcsCabinetDic.getBPF());
+            pcsJsonObject.put("cPF", pcsCabinetDic.getCPF());
+            pcsJsonObject.put("aCurrent", pcsCabinetDic.getACurrent());
+            pcsJsonObject.put("bCurrent", pcsCabinetDic.getBCurrent());
+            pcsJsonObject.put("cCurrent", pcsCabinetDic.getCCurrent());
+            pcsJsonObject.put("aPower", pcsCabinetDic.getAPower());
+            pcsJsonObject.put("bPower", pcsCabinetDic.getBPower());
+            pcsJsonObject.put("cPower", pcsCabinetDic.getCPower());
+            pcsJsonObject.put("aReactivePower", pcsCabinetDic.getAReactivePower());
+            pcsJsonObject.put("bReactivePower", pcsCabinetDic.getBReactivePower());
+            pcsJsonObject.put("cReactivePower", pcsCabinetDic.getCReactivePower());
+
+            pcsJsonObject.put("sumPower", pcsCabinetDic.getSumPower());
+            pcsJsonObject.put("sumReactivePower", pcsCabinetDic.getSumReactivePower());
+            pcsJsonObject.put("sumApparentPower", pcsCabinetDic.getSumApparentPower());
+            pcsJsonObject.put("sumPowerFactor", pcsCabinetDic.getSumPowerFactor());
+            pcsJsonObject.put("sumCharge", pcsCabinetDic.getSumCharge());
+            pcsJsonObject.put("sumDischarge", pcsCabinetDic.getSumDischarge());
+            pcsJsonObject.put("daySumCharge", pcsCabinetDic.getDaySumCharge());
+            pcsJsonObject.put("daySumDischarge", pcsCabinetDic.getDaySumDischarge());
+            pcsJsonObject.put("maxChargePower", pcsCabinetDic.getMaxChargePower());
+            pcsJsonObject.put("maxDischargePower", pcsCabinetDic.getMaxDischargePower());
+            pcsJsonObject.put("desiredPower", pcsCabinetDic.getDesiredPower());
+            pcsJsonObject.put("desiredReactivePower", pcsCabinetDic.getDesiredReactivePower());
+            jsonOfPcsData.add(pcsJsonObject);
+        }
+        return jsonOfPcsData;
+    }
+
+    private List<JSONObject> getJsonOfBcuData(List<BcuDataDicBCU> bcuDataDicBCUS) {
+        List<JSONObject> jsonOfBcuData = new ArrayList<>();
+
+        for (BcuDataDicBCU bcuDataDicBCU : bcuDataDicBCUS) {
+            JSONObject bcuJsonObject = new JSONObject();
+            bcuJsonObject.put("generationDataTime", bcuDataDicBCU.getGenerationDataTime().getTime());
+            bcuJsonObject.put("equipmentId", bcuDataDicBCU.getEquipmentId());
+            bcuJsonObject.put("equipChannelStatus", bcuDataDicBCU.getEquipChannelStatus());
+
+            bcuJsonObject.put("groupRunStatus", bcuDataDicBCU.getGroupRunStatus());
+
+            bcuJsonObject.put("groupChargeDischargeStatus", bcuDataDicBCU.getGroupChargeDischargeStatus());
+
+            bcuJsonObject.put("groupTemperatureCount", bcuDataDicBCU.getGroupTemperatureCount());
+            bcuJsonObject.put("groupBatteryCount", bcuDataDicBCU.getGroupBatteryCount());
+            bcuJsonObject.put("groupPackCount", bcuDataDicBCU.getGroupPackCount());
+            bcuJsonObject.put("maxIndexVoltage", bcuDataDicBCU.getMaxIndexVoltage());
+            bcuJsonObject.put("minIndexVoltage", bcuDataDicBCU.getMinIndexVoltage());
+            bcuJsonObject.put("maxIndexTemperature", bcuDataDicBCU.getMaxIndexTemperature());
+            bcuJsonObject.put("minIndexTemperature", bcuDataDicBCU.getMinIndexTemperature());
+            bcuJsonObject.put("maxIndexSoc", bcuDataDicBCU.getMaxIndexSoc());
+            bcuJsonObject.put("minIndexSoc", bcuDataDicBCU.getMinIndexSoc());
+            bcuJsonObject.put("maxIndexSoh", bcuDataDicBCU.getMaxIndexSoh());
+            bcuJsonObject.put("minIndexSoh", bcuDataDicBCU.getMinIndexSoh());
+
+            bcuJsonObject.put("groupVoltage", bcuDataDicBCU.getGroupVoltage());
+            bcuJsonObject.put("groupCurrent", bcuDataDicBCU.getGroupCurrent());
+            bcuJsonObject.put("groupSoc", bcuDataDicBCU.getGroupSoc());
+            bcuJsonObject.put("groupSoh", bcuDataDicBCU.getGroupSoh());
+            bcuJsonObject.put("envTemperature", bcuDataDicBCU.getEnvTemperature());
+            bcuJsonObject.put("groupRechargeableQuantity", bcuDataDicBCU.getGroupRechargeableQuantity());
+            bcuJsonObject.put("groupRedischargeableQuantity", bcuDataDicBCU.getGroupRedischargeableQuantity());
+            bcuJsonObject.put("groupSingleChargeQuantity", bcuDataDicBCU.getGroupSingleChargeQuantity());
+            bcuJsonObject.put("groupSingleDischargeQuantity", bcuDataDicBCU.getGroupSingleDischargeQuantity());
+            bcuJsonObject.put("groupAccuChargeQuantity", bcuDataDicBCU.getGroupAccuChargeQuantity());
+            bcuJsonObject.put("groupAccuDischargeQuantity", bcuDataDicBCU.getGroupAccuDischargeQuantity());
+            bcuJsonObject.put("avgSingleVoltage", bcuDataDicBCU.getAvgSingleVoltage());
+            bcuJsonObject.put("maxSingleVoltage", bcuDataDicBCU.getMaxSingleVoltage());
+            bcuJsonObject.put("minSingleVoltage", bcuDataDicBCU.getMinSingleVoltage());
+            bcuJsonObject.put("cellVoltageDiff", bcuDataDicBCU.getCellVoltageDiff());
+
+            bcuJsonObject.put("avgSingleTemperature", bcuDataDicBCU.getAvgSingleTemperature());
+            bcuJsonObject.put("maxSingleTemperature", bcuDataDicBCU.getMaxSingleTemperature());
+            bcuJsonObject.put("minSingleTemperature", bcuDataDicBCU.getMinSingleTemperature());
+            bcuJsonObject.put("cellTemperatureDiff", bcuDataDicBCU.getCellTemperatureDiff());
+            bcuJsonObject.put("avgSingleSoc", bcuDataDicBCU.getAvgSingleSoc());
+            bcuJsonObject.put("maxSingleSoc", bcuDataDicBCU.getMaxSingleSoc());
+            bcuJsonObject.put("minSingleSoc", bcuDataDicBCU.getMinSingleSoc());
+            bcuJsonObject.put("avgSingleSoh", bcuDataDicBCU.getAvgSingleSoh());
+            bcuJsonObject.put("maxSingleSoh", bcuDataDicBCU.getMaxSingleSoh());
+            bcuJsonObject.put("minSingleSoh", bcuDataDicBCU.getMinSingleSoh());
+            bcuJsonObject.put("maxGroupAllowChargePower", bcuDataDicBCU.getMaxGroupAllowChargePower());
+            bcuJsonObject.put("maxGroupAllowDischargePower", bcuDataDicBCU.getMaxGroupAllowDischargePower());
+            bcuJsonObject.put("maxGroupAllowChargeCurrent", bcuDataDicBCU.getMaxGroupAllowChargeCurrent());
+            bcuJsonObject.put("maxGroupAllowDischargeCurrent", bcuDataDicBCU.getMaxGroupAllowDischargeCurrent());
+            jsonOfBcuData.add(bcuJsonObject);
+        }
+        return jsonOfBcuData;
+    }
+
+    private List<JSONObject> getJsonOfBamData(List<BamsDataDicBA> bamDataDicBAS) {
+        List<JSONObject> jsonOfBamData = new ArrayList<>();
+        for (BamsDataDicBA bamsDataDicBA : bamDataDicBAS) {
+            JSONObject bamJSONObject = new JSONObject();
+            bamJSONObject.put("generationDataTime", bamsDataDicBA.getGenerationDataTime().getTime());
+            bamJSONObject.put("equipmentId", bamsDataDicBA.getEquipmentId());
+            bamJSONObject.put("equipChannelStatus", bamsDataDicBA.getEquipChannelStatus());
+            //运行状态
+            bamJSONObject.put("runningState", bamsDataDicBA.getRunningState());
+            bamJSONObject.put("maxSocBcuIdx", bamsDataDicBA.getMaxSocBcuIdx());
+            bamJSONObject.put("minSocBcuIdx", bamsDataDicBA.getMinSocBcuIdx());
+
+            bamJSONObject.put("maxVolBcuIdx", bamsDataDicBA.getMaxVolBcuIdx());
+            bamJSONObject.put("minVolBcuIdx", bamsDataDicBA.getMinVolBcuIdx());
+
+            bamJSONObject.put("maxCellVolBcuIdx", bamsDataDicBA.getMaxCellVolBcuIdx());
+            bamJSONObject.put("maxCellVolCellIdx", bamsDataDicBA.getMaxCellVolCellIdx());
+
+            bamJSONObject.put("minCellVolBcuIdx", bamsDataDicBA.getMinCellVolBcuIdx());
+            bamJSONObject.put("minCellVolCellIdx", bamsDataDicBA.getMinCellVolCellIdx());
+
+            bamJSONObject.put("maxCellTempBcuIdx", bamsDataDicBA.getMaxCellTempBcuIdx());
+            bamJSONObject.put("maxCellTempCellIdx", bamsDataDicBA.getMaxCellTempCellIdx());
+            bamJSONObject.put("minCellTempBcuIdx", bamsDataDicBA.getMinCellTempBcuIdx());
+            bamJSONObject.put("minCellTempCellIdx", bamsDataDicBA.getMinCellTempCellIdx());
+
+
+            bamJSONObject.put("voltage", bamsDataDicBA.getVoltage());
+            bamJSONObject.put("current", bamsDataDicBA.getCurrent());
+            bamJSONObject.put("soc", bamsDataDicBA.getSoc());
+            bamJSONObject.put("soh", bamsDataDicBA.getSoh());
+
+            bamJSONObject.put("chargeCapacity", bamsDataDicBA.getChargeCapacity());
+            bamJSONObject.put("dischargeCapacity", bamsDataDicBA.getDischargeCapacity());
+            bamJSONObject.put("curChargeCapacity", bamsDataDicBA.getCurChargeCapacity());
+            bamJSONObject.put("curDischargeCapacity", bamsDataDicBA.getCurDischargeCapacity());
+            bamJSONObject.put("chargeCapacitySum", bamsDataDicBA.getChargeCapacitySum());
+            bamJSONObject.put("dischargeCapacitySum", bamsDataDicBA.getDischargeCapacitySum());
+            bamJSONObject.put("cellVolDiff", bamsDataDicBA.getCellVolDiff());
+            bamJSONObject.put("maxCellVol", bamsDataDicBA.getMaxCellVol());
+            bamJSONObject.put("minCellVol", bamsDataDicBA.getMinCellVol());
+            bamJSONObject.put("cellTempDiff", bamsDataDicBA.getCellTempDiff());
+            bamJSONObject.put("maxCellTemp", bamsDataDicBA.getMaxCellTemp());
+            bamJSONObject.put("minCellTemp", bamsDataDicBA.getMinCellTemp());
+            bamJSONObject.put("bcuSocDiff", bamsDataDicBA.getBcuSocDiff());
+            bamJSONObject.put("maxBcuSoc", bamsDataDicBA.getMaxBcuSoc());
+            bamJSONObject.put("minBcuSoc", bamsDataDicBA.getMinBcuSoc());
+            bamJSONObject.put("bcuVolDiff", bamsDataDicBA.getBcuVolDiff());
+            bamJSONObject.put("maxBcuVol", bamsDataDicBA.getMaxBcuVol());
+            bamJSONObject.put("minBcuVol", bamsDataDicBA.getMinBcuVol());
+            bamJSONObject.put("allowedMaxChargePower", bamsDataDicBA.getAllowedMaxChargePower());
+            bamJSONObject.put("allowedMaxDischargePower", bamsDataDicBA.getAllowedMaxDischargePower());
+            bamJSONObject.put("allowedMaxChargeCur", bamsDataDicBA.getAllowedMaxChargeCur());
+            bamJSONObject.put("allowedMaxDischargeCur", bamsDataDicBA.getAllowedMaxDischargeCur());
+            jsonOfBamData.add(bamJSONObject);
+        }
+        return jsonOfBamData;
     }
 }

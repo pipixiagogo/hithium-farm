@@ -1,9 +1,5 @@
 package com.bugull.hithium.core.entity;
 
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.awt.image.ShortLookupTable;
@@ -13,9 +9,7 @@ import java.util.Date;
  * 后备电源
  */
 @Data
-@Entity
-@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1}")
-public class UpsPowerDataDic extends SimpleEntity {
+public class UpsPowerDataDic{
 
     private String deviceName;
     /**
@@ -36,7 +30,6 @@ public class UpsPowerDataDic extends SimpleEntity {
      */
     private String name;//设备名称
     private Date generationDataTime;
-    @Ignore
     private String time;
     private Integer equipmentId;//设备ID
     private Integer equipChannelStatus;//前置机连接的设备的通道状态	"0-正常，1-异常

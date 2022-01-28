@@ -32,7 +32,6 @@ public class RedisConfig {
         poolConfig.setMaxTotal(maxTotal);//最大连接数，连接全部用完，进行等待
         poolConfig.setMinIdle(minIdle); //最小空余数
         poolConfig.setMaxIdle(maxIdle); //最大空余数
-        poolConfig.setMaxWaitMillis(maxWatiMillis);
         poolConfig.setTestOnBorrow(testOnBorrow);
         return poolConfig;
         //pool = new JedisPool("127.0.0.1",6379);

@@ -1,9 +1,5 @@
 package com.bugull.hithium.core.entity;
 
-import com.bugull.mongo.SimpleEntity;
-import com.bugull.mongo.annotations.EnsureIndex;
-import com.bugull.mongo.annotations.Entity;
-import com.bugull.mongo.annotations.Ignore;
 import lombok.Data;
 
 import java.util.Date;
@@ -12,9 +8,7 @@ import java.util.Date;
  * 空调
  */
 @Data
-@Entity
-@EnsureIndex("{deviceName:1,equipmentId:1,generationDataTime:-1}")
-public class AirConditionDataDic extends SimpleEntity {
+public class AirConditionDataDic {
 
     private String deviceName;
     /**
@@ -36,7 +30,6 @@ public class AirConditionDataDic extends SimpleEntity {
      */
     private String name;//设备名称
     private Date generationDataTime;
-    @Ignore
     private String time;//时间
     private Integer equipmentId;//设备ID
     private Integer equipChannelStatus;//前置机连接的设备的通道状态	"0-正常，1-异常 默认值异常

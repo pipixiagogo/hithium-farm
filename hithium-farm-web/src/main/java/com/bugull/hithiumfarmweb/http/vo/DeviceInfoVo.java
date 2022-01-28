@@ -43,8 +43,7 @@ public class DeviceInfoVo {
     private String chargeCapacitySum;
 
     private List<PcsStatusVo> pcsStatusVoList;
-    private List<String> imgUrl;
-    private String uploadImgId;
 
+    private List<String> deviceImgIdWithUrls;
 
 }

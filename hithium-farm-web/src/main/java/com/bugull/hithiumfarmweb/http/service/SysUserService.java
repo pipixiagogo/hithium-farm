@@ -1,8 +1,8 @@
 package com.bugull.hithiumfarmweb.http.service;
 
 
-import com.bugull.hithiumfarmweb.common.BuguPageQuery;
 import com.bugull.hithiumfarmweb.common.Const;
+import com.bugull.hithiumfarmweb.common.Page;
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.bo.LoginFormBo;
 import com.bugull.hithiumfarmweb.http.bo.PasswordForm;
@@ -11,22 +11,25 @@ import com.bugull.hithiumfarmweb.http.bo.UpdateUserBo;
 import com.bugull.hithiumfarmweb.http.dao.EssStationDao;
 import com.bugull.hithiumfarmweb.http.dao.RoleEntityDao;
 import com.bugull.hithiumfarmweb.http.dao.SysUserDao;
+import com.bugull.hithiumfarmweb.http.entity.EssStation;
 import com.bugull.hithiumfarmweb.http.entity.RoleEntity;
 import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import com.bugull.hithiumfarmweb.http.oauth2.TokenGenerator;
 import com.bugull.hithiumfarmweb.http.vo.InfoUserVo;
 import com.bugull.hithiumfarmweb.http.vo.LoginVo;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
-import com.bugull.hithiumfarmweb.utils.PagetLimitUtil;
 import com.bugull.hithiumfarmweb.utils.PatternUtil;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
-import com.bugull.mongo.BuguUpdater;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.shiro.crypto.hash.Sha256Hash;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -68,13 +71,22 @@ public class SysUserService {
             /**
              * 邮箱+用户名相同  或者 电话 +用户名相同 即为同一用户
              */
-            if (sysUserDao.query().is("userName", sysUser.getUserName()).exists() || sysUserDao.query().is("mobile", sysUser.getMobile()).exists()
-                    || sysUserDao.query().is("email", sysUser.getEmail()).exists()) {
+            Query existsUserNameQuery = new Query();
+            existsUserNameQuery.addCriteria(Criteria.where("userName").is(sysUser.getUserName()));
+
+            Query existMobileQuery = new Query();
+            existMobileQuery.addCriteria(Criteria.where("mobile").is(sysUser.getMobile()));
+
+            Query existEmailQuery = new Query();
+            existEmailQuery.addCriteria(Criteria.where("email").is(sysUser.getEmail()));
+            if (sysUserDao.exists(existsUserNameQuery) || sysUserDao.exists(existMobileQuery) || sysUserDao.exists(existEmailQuery)) {
                 return ResHelper.error("用户名/手机号/邮箱已存在");
             }
             if (!CollectionUtils.isEmpty(sysUser.getStationList()) && !sysUser.getStationList().isEmpty()) {
                 for (String stationId : sysUser.getStationList()) {
-                    if (!essStationDao.exists(stationId)) {
+                    Query existEssStation = new Query();
+                    existEssStation.addCriteria(Criteria.where("_id").is(stationId));
+                    if (!essStationDao.exists(existEssStation)) {
                         return ResHelper.pamIll();
                     }
                 }
@@ -83,7 +95,9 @@ public class SysUserService {
                 /**
                  * 验证roleIds的参数
                  */
-                List<RoleEntity> roleEntities = roleEntityDao.query().in("_id", sysUser.getRoleIds()).results();
+                Query roleBatch = new Query();
+                roleBatch.addCriteria(Criteria.where("_id").in(sysUser.getRoleIds()));
+                List<RoleEntity> roleEntities = roleEntityDao.findBatch(roleBatch);
                 if (!CollectionUtils.isEmpty(roleEntities) && !roleEntities.isEmpty()) {
                 } else {
                     return ResHelper.error("角色不存在");
@@ -100,7 +114,7 @@ public class SysUserService {
             String salt = RandomStringUtils.randomAlphanumeric(20);
             sysUser.setPassword(new Sha256Hash(sysUser.getPassword(), salt).toHex());
             sysUser.setSalt(salt);
-            sysUserDao.insert(sysUser);
+            sysUserDao.saveUser(sysUser);
             return ResHelper.success("添加用户成功");
         } catch (Exception e) {
             log.error("添加角色异常", e);
@@ -108,62 +122,58 @@ public class SysUserService {
         }
     }
 
-    public InfoUserVo infoUserById(String userId) {
-        SysUser sysUser = sysUserDao.query().is("_id", userId).notReturnFields("salt", "password", "token", "tokenExpireTime").result();
+    public InfoUserVo infoUserById(Long userId) {
+        Query findQuery = new Query();
+        findQuery.addCriteria(Criteria.where("_id").is(userId)).fields().exclude("salt").exclude("password").exclude("token").exclude("tokenExpireTime");
+        SysUser sysUser = sysUserDao.findUser(findQuery);
         InfoUserVo infoUserVo = new InfoUserVo();
         if (sysUser != null) {
             BeanUtils.copyProperties(sysUser, infoUserVo);
             /**
              * TODO 设置电站信息 看需求是否需要
              */
-            infoUserVo.setEssStationList(essStationDao.query().in("_id", sysUser.getStationList()).results());
+            Query essStationQuery = new Query();
+            essStationQuery.addCriteria(Criteria.where("_id").in(sysUser.getStationList()));
+            List<EssStation> essStationList = essStationDao.findEssStationBatch(essStationQuery);
+            infoUserVo.setEssStationList(essStationList);
+            return infoUserVo;
         }
-        return infoUserVo;
+        return null;
+
     }
 
-    public ResHelper<BuguPageQuery.Page<InfoUserVo>> list(Map<String, Object> params) {
-        BuguPageQuery<SysUser> query = sysUserDao.pageQuery();
-        String userName = (String) params.get("userName");
-        if (!StringUtils.isBlank(userName)) {
-            query.regexCaseInsensitive("userName", userName);
-        }
-        query.notReturnFields("salt", "password", "token", "tokenExpireTime");
-        if (!PagetLimitUtil.pageLimit(query, params)) {
-            return ResHelper.pamIll();
-        }
-        query.sortDesc("_id");
-        BuguPageQuery.Page<SysUser> userResults = query.resultsWithPage();
-        List<SysUser> userList = userResults.getDatas();
-        List<InfoUserVo> infoUserVos = getInfoUserVoList(userList);
-        BuguPageQuery.Page<InfoUserVo> infoUserVoPage = new BuguPageQuery.Page<>(userResults.getPage(), userResults.getPageSize(), userResults.getTotalRecord(), infoUserVos);
-        return ResHelper.success("", infoUserVoPage);
-    }
 
     private List<InfoUserVo> getInfoUserVoList(List<SysUser> userList) {
         if (!CollectionUtils.isEmpty(userList) && !userList.isEmpty()) {
             return userList.stream().map(user -> {
                 InfoUserVo infoUserVo = new InfoUserVo();
                 List<RoleEntityOfUserBo> roleEntityOfUserBoList = new ArrayList<>();
-                if (user.getId().equals("1")) {
+                if (user.getId()==1L) {
                     RoleEntityOfUserBo roleEntity = new RoleEntityOfUserBo();
                     roleEntity.setRoleName("超级管理员");
                     roleEntityOfUserBoList.add(roleEntity);
-                    infoUserVo.setRoleEntityLsit(roleEntityOfUserBoList);
+                    infoUserVo.setRoleEntityList(roleEntityOfUserBoList);
                 } else {
                     if (!CollectionUtils.isEmpty(user.getRoleIds()) && !user.getRoleIds().isEmpty()) {
-                        List<RoleEntity> roleEntities = roleEntityDao.query().in("_id", user.getRoleIds()).results();
+                        Query roleQuery = new Query();
+                        roleQuery.addCriteria(Criteria.where("_id").in(user.getRoleIds()));
+                        List<RoleEntity> roleEntities = roleEntityDao.findBatch(roleQuery);
                         BeanUtils.copyProperties(user, infoUserVo);
                         for (RoleEntity roleEntity : roleEntities) {
                             RoleEntityOfUserBo roleEntityOfUserBo = new RoleEntityOfUserBo();
                             BeanUtils.copyProperties(roleEntity, roleEntityOfUserBo);
                             roleEntityOfUserBoList.add(roleEntityOfUserBo);
                         }
-                        infoUserVo.setRoleEntityLsit(roleEntityOfUserBoList);
+                        infoUserVo.setRoleEntityList(roleEntityOfUserBoList);
                     }
                 }
+                infoUserVo.setId(user.getId());
                 BeanUtils.copyProperties(user, infoUserVo);
                 if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                    infoUserVo.setEssStationList(essStationDao.query().in("_id", user.getStationList()).results());
+                    Query essStationQuery = new Query();
+                    essStationQuery.addCriteria(Criteria.where("_id").in(user.getStationList()));
+                    List<EssStation> essStationBatch = essStationDao.findEssStationBatch(essStationQuery);
+                    infoUserVo.setEssStationList(essStationBatch);
                 }
                 return infoUserVo;
             }).collect(Collectors.toList());
@@ -174,31 +184,39 @@ public class SysUserService {
 
     public ResHelper<Void> updateById(UpdateUserBo user) {
         try {
-            if (sysUserDao.query().is("_id", String.valueOf(user.getId())).exists()) {
+            Query existsQuery = new Query();
+            existsQuery.addCriteria(Criteria.where("_id").is(user.getId()));
+            if (sysUserDao.exists(existsQuery)) {
                 if (user.getId() == 1) {
                     return ResHelper.error("管理员账号无法修改");
                 }
-                BuguUpdater<SysUser> update = sysUserDao.update();
+                Update sysUserUpdate = new Update();
                 if (user.getStatus() != null) {
-                    update.set("status", user.getStatus());
+                    sysUserUpdate.set("status", user.getStatus());
                 }
                 if (!StringUtils.isEmpty(user.getMobile())) {
                     if (!PatternUtil.isMobile(user.getMobile())) {
                         return ResHelper.error("手机号码格式错误");
                     }
-                    if (sysUserDao.query().is("mobile", user.getMobile()).notEquals("_id", String.valueOf(user.getId())).exists()) {
+                    Query existsSysUserQuery = new Query();
+                    existsSysUserQuery.addCriteria(Criteria.where("mobile").is(user.getMobile()))
+                            .addCriteria(Criteria.where("_id").ne(String.valueOf(user.getId())));
+                    if (sysUserDao.exists(existsSysUserQuery)) {
                         return ResHelper.error("该手机号已存在");
                     }
-                    update.set("mobile", user.getMobile());
+                    sysUserUpdate.set("mobile", user.getMobile());
                 } else {
                     return ResHelper.error("参数错误");
                 }
 
                 if (!StringUtils.isEmpty(user.getEmail())) {
-                    if (sysUserDao.query().is("email", user.getEmail()).notEquals("_id", String.valueOf(user.getId())).exists()) {
+                    Query existsSysUserQuery = new Query();
+                    existsSysUserQuery.addCriteria(Criteria.where("email").is(user.getEmail()))
+                            .addCriteria(Criteria.where("id").ne(String.valueOf(user.getId())));
+                    if (sysUserDao.exists(existsSysUserQuery)) {
                         return ResHelper.error("该邮箱已存在");
                     }
-                    update.set("email", user.getEmail());
+                    sysUserUpdate.set("email", user.getEmail());
                 } else {
                     return ResHelper.error("参数错误");
                 }
@@ -210,50 +228,60 @@ public class SysUserService {
                     if (!new Date().before(userExpireTime)) {
                         return ResHelper.error("账号过期时间:日期小于当前时间");
                     }
-                    update.set("userExpireTime", userExpireTime);
+                    sysUserUpdate.set("userExpireTime", userExpireTime);
                 } else {
-                    update.set("userExpireTime", null);
+                    sysUserUpdate.set("userExpireTime", null);
                 }
                 if (!StringUtils.isEmpty(user.getUserName())) {
-                    if (sysUserDao.query().is("userName", user.getUserName()).notEquals("_id", String.valueOf(user.getId())).exists()) {
+                    Query existsSysUserQuery = new Query();
+                    existsSysUserQuery.addCriteria(Criteria.where("userName").is(user.getUserName()))
+                            .addCriteria(Criteria.where("_id").ne(user.getId()));
+                    if (sysUserDao.exists(existsSysUserQuery)) {
                         return ResHelper.error("该用户名已存在");
                     } else {
-                        update.set("userName", user.getUserName());
+                        sysUserUpdate.set("userName", user.getUserName());
                     }
                 }
                 if (!CollectionUtils.isEmpty(user.getRoleIds()) && !user.getRoleIds().isEmpty()) {
-                    List<RoleEntity> roleEntities = roleEntityDao.query().in("_id", user.getRoleIds()).results();
+                    Query batchRoleQuery = new Query();
+                    batchRoleQuery.addCriteria(Criteria.where("_id").in(user.getRoleIds()));
+                    List<RoleEntity> roleEntities = roleEntityDao.findBatch(batchRoleQuery);
                     if (!CollectionUtils.isEmpty(roleEntities) && !roleEntities.isEmpty()) {
-                        update.set("roleIds", user.getRoleIds());
+                        sysUserUpdate.set("roleIds", user.getRoleIds());
                     } else {
                         return ResHelper.pamIll();
                     }
                 }
                 if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
                     for (String stationId : user.getStationList()) {
-                        if (!essStationDao.exists(stationId)) {
+                        Query existsQueryId = new Query();
+                        existsQueryId.addCriteria(Criteria.where("_id").is(stationId));
+                        if (!essStationDao.exists(existsQueryId)) {
                             return ResHelper.pamIll();
                         }
                     }
-                    update.set("stationList", user.getStationList());
+                    sysUserUpdate.set("stationList", user.getStationList());
                 } else {
-                    update.set("stationList", new ArrayList<>());
+                    sysUserUpdate.set("stationList", new ArrayList<>());
                 }
                 if (!StringUtils.isEmpty(user.getRemarks())) {
-                    update.set("remarks", user.getRemarks());
+                    sysUserUpdate.set("remarks", user.getRemarks());
                 }
                 if (user.getUserType() == null) {
                     return ResHelper.pamIll();
                 }
                 if (user.getUserType() == 0 || user.getUserType() == 1) {
-                    update.set("perms", "sys:device");
+                    sysUserUpdate.set("perms", "sys:device");
                 } else if (user.getUserType() == 2) {
-                    update.set("perms", null);
+                    sysUserUpdate.set("perms", null);
                 } else {
                     return ResHelper.pamIll();
                 }
-                update.set("userType", user.getUserType());
-                update.execute(sysUserDao.query().is("_id", String.valueOf(user.getId())));
+                sysUserUpdate.set("userType", user.getUserType());
+
+                Query updateQuery = new Query();
+                updateQuery.addCriteria(Criteria.where("_id").is(user.getId()));
+                sysUserDao.updateByQuery(updateQuery,sysUserUpdate);
                 return ResHelper.success("修改用户成功");
             } else {
                 return ResHelper.error("该用户不存在");
@@ -267,7 +295,9 @@ public class SysUserService {
 
 
     public ResHelper<LoginVo> loginByPassword(LoginFormBo loginFormBo) {
-        SysUser sysUser = sysUserDao.query().is("userName", loginFormBo.getUserName()).result();
+        Query findQuery = new Query();
+        findQuery.addCriteria(Criteria.where("userName").is( loginFormBo.getUserName()));
+        SysUser sysUser = sysUserDao.findUser(findQuery);
         if (sysUser == null || !sysUser.getPassword().equals(new Sha256Hash(loginFormBo.getPassword(), sysUser.getSalt()).toHex())) {
             return ResHelper.error("账号或密码错误");
         }
@@ -277,9 +307,6 @@ public class SysUserService {
         if (sysUser.getUserExpireTime() != null && !sysUser.getUserExpireTime().after(new Date())) {
             return ResHelper.error("账号过期,请联系管理员");
         }
-        //删除验证码 在生成验证码时候执行
-//        captchaDao.remove(captchaDao.query().is("uuid", loginFormBo.getUuid()));
-
         return ResHelper.success("登录成功", createToken(sysUser));
     }
 
@@ -295,12 +322,15 @@ public class SysUserService {
          */
         String refreshToken = TokenGenerator.generateValue();
         Date refreshTokenExpireTime = new Date(System.currentTimeMillis() + 2 * propertiesConfig.getTokenExpireTime());
-        sysUserDao.update().set("token", token)
+        Update update = new Update();
+        update.set("token", token)
                 .set("tokenExpireTime", expireTime)
                 .set("createTokenTime", new Date(System.currentTimeMillis()))
                 .set("refreshToken", refreshToken)
-                .set("refreshTokenExpireTime", refreshTokenExpireTime)
-                .execute(sysUserDao.query().is("_id", sysUser.getId()));
+                .set("refreshTokenExpireTime", refreshTokenExpireTime);
+        Query query = new Query();
+        query.addCriteria(Criteria.where("_id").is(sysUser.getId()));
+        sysUserDao.updateByQuery(query,update);
         loginVo.setToken(token);
         loginVo.setTokenExpireTime(expireTime);
         loginVo.setRefreshToken(refreshToken);
@@ -312,14 +342,22 @@ public class SysUserService {
 
     public ResHelper<Void> deleteUser(List<String> userIds) {
         if (!CollectionUtils.isEmpty(userIds) && !userIds.isEmpty()) {
-            sysUserDao.remove(userIds);
+            Query query = new Query();
+            query.addCriteria(Criteria.where("_id").is( userIds.stream().map(Long::valueOf).collect(Collectors.toList())));
+            sysUserDao.removeByQuery(query);
         }
         return ResHelper.success("删除成功");
     }
 
-    public String queryAmindId() {
-        SysUser sysUser = sysUserDao.query().is("_id", "1").result();
-        return sysUser.getId();
+    public Long queryAdminId() {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("_id").is(1));
+        SysUser sysUser = sysUserDao.findUser(query);
+        if(sysUser != null){
+            return sysUser.getId();
+        }
+        return null;
+
     }
 
     public ResHelper<Void> password(PasswordForm passwordForm, SysUser sysUser) {
@@ -335,7 +373,9 @@ public class SysUserService {
         String password = new Sha256Hash(passwordForm.getPassword(), sysUser.getSalt()).toHex();
         passwordForm.setPassword(password);
         //sha256加密
-        SysUser userName = sysUserDao.query().is("userName", sysUser.getUserName()).result();
+        Query findQuery = new Query();
+        findQuery.addCriteria(Criteria.where("userName").is(sysUser.getUserName()));
+        SysUser userName = sysUserDao.findUser(findQuery);
         if (userName != null && sysUser.getPassword().equals(password)) {
             //当前时间
             Date now = new Date();
@@ -347,13 +387,16 @@ public class SysUserService {
              */
             String salt = RandomStringUtils.randomAlphanumeric(20);
             passwordForm.setNewPassword(new Sha256Hash(passwordForm.getNewPassword(), salt).toHex());
-            sysUserDao.update().set("password", passwordForm.getNewPassword())
+            Update update = new Update();
+            update.set("password", passwordForm.getNewPassword())
                     .set("salt", salt)
                     .set("token", TokenGenerator.generateValue())
                     .set("tokenExpireTime", expireTime)
                     .set("refreshToken", TokenGenerator.generateValue())
-                    .set("refreshTokenExpireTime", refreshTokenExpireTime)
-                    .execute(sysUser);
+                    .set("refreshTokenExpireTime", refreshTokenExpireTime);
+            Query updateQuery = new Query();
+            updateQuery.addCriteria(Criteria.where("_id").is(userName.getId()));
+            sysUserDao.updateByQuery(updateQuery,update);
             return ResHelper.success("修改密码成功,请重新登录");
         } else {
             return ResHelper.error("原密码不正确");
@@ -364,7 +407,9 @@ public class SysUserService {
         if (StringUtils.isEmpty(refreshToken)) {
             return ResHelper.pamIll();
         }
-        SysUser sysUser = sysUserDao.query().is("refreshToken", refreshToken).result();
+        Query findQuery = new Query();
+        findQuery.addCriteria(Criteria.where("refreshToken").is(refreshToken));
+        SysUser sysUser =  sysUserDao.findUser(findQuery);
         if (sysUser != null) {
             if (sysUser.getRefreshToken().equals(refreshToken) && !sysUser.getRefreshTokenExpireTime().before(new Date())) {
                 return ResHelper.success("刷新token成功", this.createToken(sysUser));
@@ -388,30 +433,32 @@ public class SysUserService {
             users.forEach(userId -> {
                 String salt = RandomStringUtils.randomAlphanumeric(20);
                 String resetPwd = new Sha256Hash(RESET_PWD, salt).toHex();
-                sysUserDao.update().set("salt", salt)
+                Update update = new Update();
+                update.set("salt", salt)
                         .set("password", resetPwd)
                         .set("token", TokenGenerator.generateValue())
                         .set("tokenExpireTime", expireTime)
                         .set("refreshToken", TokenGenerator.generateValue())
-                        .set("refreshTokenExpireTime", refreshTokenExpireTime)
-                        .execute(userId);
+                        .set("refreshTokenExpireTime", refreshTokenExpireTime);
+                Query query = new Query();
+                query.addCriteria(Criteria.where("_id").is(Long.valueOf(userId)));
+                sysUserDao.updateByQuery(query,update);
             });
             return ResHelper.success("重置密码成功");
         }
         return ResHelper.error("");
     }
 
-    public ResHelper<BuguPageQuery.Page<InfoUserVo>> list(Integer page, Integer pageSize, String userName) {
-        BuguPageQuery<SysUser> query = sysUserDao.pageQuery();
+    public ResHelper<Page<InfoUserVo>> list(Integer page, Integer pageSize, String userName) {
+        Query batchUserQuery = new Query();
         if (!StringUtils.isEmpty(userName)) {
-            query.regexCaseInsensitive("userName", userName);
+            batchUserQuery.addCriteria(Criteria.where("userName").regex(userName));
         }
-        query.notReturnFields("salt", "password", "token", "tokenExpireTime");
-        query.pageSize(pageSize).pageNumber(page).sortDesc("_id");
-        BuguPageQuery.Page<SysUser> userResults = query.resultsWithPage();
-        List<SysUser> userList = userResults.getDatas();
+        batchUserQuery.fields().exclude("salt").exclude("password").exclude("token").exclude("tokenExpireTime");
+        long totalRecord = sysUserDao.countNumberUser(batchUserQuery);
+        batchUserQuery.skip(((long) page - 1) * pageSize).limit(pageSize).with(Sort.by(Sort.Order.desc("_id")));
+        List<SysUser> userList = sysUserDao.findBatchUser(batchUserQuery);
         List<InfoUserVo> infoUserVos = getInfoUserVoList(userList);
-        BuguPageQuery.Page<InfoUserVo> infoUserVoPage = new BuguPageQuery.Page<>(userResults.getPage(), userResults.getPageSize(), userResults.getTotalRecord(), infoUserVos);
-        return ResHelper.success("", infoUserVoPage);
+        return ResHelper.success("", new Page<>(page, pageSize, totalRecord, infoUserVos));
     }
 }

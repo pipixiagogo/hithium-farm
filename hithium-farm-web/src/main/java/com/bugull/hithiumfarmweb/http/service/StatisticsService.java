@@ -1,5 +1,7 @@
 package com.bugull.hithiumfarmweb.http.service;
 
+import com.alibaba.fastjson.JSON;
+import com.bugull.hithiumfarmweb.common.Const;
 import com.bugull.hithiumfarmweb.config.PropertiesConfig;
 import com.bugull.hithiumfarmweb.http.bo.AreaInfoBo;
 import com.bugull.hithiumfarmweb.http.bo.AreaNetInNumBo;
@@ -9,15 +11,15 @@ import com.bugull.hithiumfarmweb.http.entity.*;
 import com.bugull.hithiumfarmweb.http.vo.*;
 import com.bugull.hithiumfarmweb.utils.DateUtils;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
-import com.bugull.mongo.BuguAggregation;
-import com.bugull.mongo.BuguQuery;
-import com.bugull.mongo.utils.StringUtil;
-import com.bugull.mongo.utils.ThreadUtil;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
@@ -67,9 +69,8 @@ public class StatisticsService {
         }
         Date startTime = getStartTimeOfYear(areaNetInNumBo.getYear());
         Date endTime = getEndTimeOfYear(areaNetInNumBo.getYear());
-        BuguQuery<Device> query = deviceDao.query()
-                .greaterThanEquals("accessTime", startTime)
-                .lessThanEquals("accessTime", endTime);
+        Criteria criteria = new Criteria();
+        criteria.and("accessTime").gte(startTime).lte(endTime);
         if (!StringUtils.isEmpty(areaNetInNumBo.getProvince())) {
             if (!propertiesConfig.getProToCitys().containsKey(areaNetInNumBo.getProvince())) {
                 return ResHelper.pamIll();
@@ -77,17 +78,19 @@ public class StatisticsService {
             if (!StringUtils.isEmpty(areaNetInNumBo.getCity()) && !propertiesConfig.getProToCitys().get(areaNetInNumBo.getProvince()).contains(areaNetInNumBo.getCity())) {
                 return ResHelper.pamIll();
             }
-            query.is(PROVINCE, areaNetInNumBo.getProvince());
+            criteria.and(PROVINCE).is(areaNetInNumBo.getProvince());
         }
         if (!StringUtils.isEmpty(areaNetInNumBo.getCity())) {
             if (!propertiesConfig.getCitys().containsKey(areaNetInNumBo.getCity())
                     || !propertiesConfig.getCitys().get(areaNetInNumBo.getCity()).equals(areaNetInNumBo.getProvince())) {
                 return ResHelper.pamIll();
             }
-            query.is("city", areaNetInNumBo.getCity());
+            criteria.and("city").is(areaNetInNumBo.getCity());
         }
         if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-            List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
+            Query essStationQuery = new Query();
+            essStationQuery.addCriteria(Criteria.where("_id").in(user.getStationList()));
+            List<EssStation> essStationList = essStationDao.findEssStationBatch(essStationQuery);
             if (!CollectionUtils.isEmpty(essStationList) && !essStationList.isEmpty()) {
                 List<String> deviceNames = new ArrayList<>();
                 for (EssStation essStation : essStationList) {
@@ -95,25 +98,31 @@ public class StatisticsService {
                     deviceNames.addAll(deviceNameList);
                 }
                 if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                    query.in(DEVICE_NAME, deviceNames);
+                    criteria.and(DEVICE_NAME).in(deviceNames);
                 }
             }
         }
-        Iterable<DBObject> objs = deviceDao.aggregate().match(query)
-                .group("{_id:{ $dateToString: { format: '%Y-%m', date: '$accessTime' } },count:{$sum:{$toDouble:'$stationPower'}}}").results();
+        Aggregation aggregation = Aggregation.newAggregation(Aggregation.match(criteria),
+                Aggregation.project().andExpression("{ $dateToString: { format: '%Y-%m', date: '$accessTime' } }").as("time")
+                        .andExpression("{$toDouble:'$stationPower'}").as("stationPower"),
+                Aggregation.group("time").sum("stationPower").as("count")
+        );
+        List<BasicDBObject> dbObjectList = deviceDao.aggregation(aggregation);
+
         Map<String, StatisticBo> map = getDefaultBo(areaNetInNumBo.getYear());
-        if (objs != null) {
-            for (DBObject obj : objs) {
+        if (!CollectionUtils.isEmpty(dbObjectList) && !dbObjectList.isEmpty()) {
+            for (DBObject obj : dbObjectList) {
                 String name = obj.get("_id").toString();
                 String count = obj.get("count").toString();
                 String decimal = new BigDecimal(count).setScale(4, BigDecimal.ROUND_HALF_UP).toString();
-                Double countDoub = Double.valueOf(decimal);
+                Double countDouble = Double.valueOf(decimal);
                 StatisticBo bo = map.get(name);
                 if (bo != null) {
-                    bo.setCount(countDoub);
+                    bo.setCount(countDouble);
                 }
             }
         }
+
         List<StatisticBo> aim = new ArrayList<>(map.values());
         Collections.sort(aim, (x, y) -> Integer.parseInt(x.getDate()) - Integer.parseInt(y.getDate()));
         List<StatisticBo> result = new ArrayList<>(map.values().size());
@@ -186,48 +195,56 @@ public class StatisticsService {
     }
 
     public ResHelper<CapacityNumVo> statisticCapacityNum(AreaInfoBo areaInfoBo, SysUser user) {
-        BuguQuery<Device> query = deviceDao.query();
+        Criteria criteria = new Criteria();
         if (areaInfoBo != null) {
-            if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
+            if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
                 if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
                     return ResHelper.pamIll();
                 }
                 if (!StringUtils.isEmpty(areaInfoBo.getCity()) && !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
                     return ResHelper.pamIll();
                 }
-                query.is(PROVINCE, areaInfoBo.getProvince());
+                criteria.and(PROVINCE).is(areaInfoBo.getProvince());
             }
             if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
                 if (!propertiesConfig.getCitys().containsKey(areaInfoBo.getCity())
                         || !propertiesConfig.getCitys().get(areaInfoBo.getCity()).equals(areaInfoBo.getProvince())) {
                     return ResHelper.pamIll();
                 }
-                query.is("city", areaInfoBo.getCity());
+                criteria.and("city").is(areaInfoBo.getCity());
             }
             if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
+                List<EssStation> essStationList = essStationDao.findEssStationBatch(new Query().addCriteria(Criteria.where("_id").in(user.getStationList())));
                 List<String> deviceNames = new ArrayList<>();
                 for (EssStation essStation : essStationList) {
                     List<String> deviceNameList = essStation.getDeviceNameList();
                     deviceNames.addAll(deviceNameList);
                 }
                 if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                    query.in(DEVICE_NAME, deviceNames);
+                    criteria.and(DEVICE_NAME).in(deviceNames);
                 }
             }
         }
-        Iterable<DBObject> chargeIterable = deviceDao.aggregate().match(query).group("{_id:null,count:{$sum:{$toDouble:'$chargeCapacitySum'}}}").limit(1).results();
-        Iterable<DBObject> dischargeIterable = deviceDao.aggregate().match(query).group("{_id:null,count:{$sum:{$toDouble:'$dischargeCapacitySum'}}}").limit(1).results();
+        Aggregation chargeAggregation = Aggregation.newAggregation(Aggregation.match(criteria),
+                Aggregation.project().andExpression("{$toDouble:'$chargeCapacitySum'}").as("chargeCapacitySum"),
+                Aggregation.group().sum("chargeCapacitySum").as("count"),
+                Aggregation.limit(1));
+        Aggregation disChargeAggregation = Aggregation.newAggregation(Aggregation.match(criteria),
+                Aggregation.project().andExpression("{$toDouble:'$dischargeCapacitySum'}").as("dischargeCapacitySum"),
+                Aggregation.group().sum("dischargeCapacitySum").as("count"),
+                Aggregation.limit(1));
+        List<BasicDBObject> chargeAggregationResult = deviceDao.aggregation(chargeAggregation);
+        List<BasicDBObject> disChargeAggregationResult = deviceDao.aggregation(disChargeAggregation);
         CapacityNumVo capacityNumBo = new CapacityNumVo();
-        if (chargeIterable != null) {
-            for (DBObject object : chargeIterable) {
+        if (!CollectionUtils.isEmpty(chargeAggregationResult) && !chargeAggregationResult.isEmpty()) {
+            for (DBObject object : chargeAggregationResult) {
                 Double sum = Double.valueOf(object.get("count").toString());
                 BigDecimal bigDecimal = BigDecimal.valueOf(sum).setScale(2, BigDecimal.ROUND_HALF_UP);
                 capacityNumBo.setChargeCapacitySum(bigDecimal.toString());
             }
         }
-        if (dischargeIterable != null) {
-            for (DBObject object : dischargeIterable) {
+        if (!CollectionUtils.isEmpty(disChargeAggregationResult) && !disChargeAggregationResult.isEmpty()) {
+            for (DBObject object : disChargeAggregationResult) {
                 Double sum = Double.valueOf(object.get("count").toString());
                 BigDecimal bigDecimal = BigDecimal.valueOf(sum).setScale(2, BigDecimal.ROUND_HALF_UP);
                 capacityNumBo.setDischargeCapacitySum(bigDecimal.toString());
@@ -241,7 +258,7 @@ public class StatisticsService {
 
     public ResHelper<AlarmNumVo> statisticAlarmNum(AreaInfoBo areaInfoBo, SysUser user) {
         if (areaInfoBo != null) {
-            BuguQuery<Device> query = deviceDao.query();
+            Criteria criteria = new Criteria();
             if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
                 if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
                     return ResHelper.pamIll();
@@ -249,53 +266,50 @@ public class StatisticsService {
                 if (!StringUtils.isEmpty(areaInfoBo.getCity()) && !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
                     return ResHelper.pamIll();
                 }
-                query.is(PROVINCE, areaInfoBo.getProvince());
+                criteria.and(PROVINCE).is(areaInfoBo.getProvince());
             }
             if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
                 if (!propertiesConfig.getCitys().containsKey(areaInfoBo.getCity()) ||
                         !propertiesConfig.getCitys().get(areaInfoBo.getCity()).equals(areaInfoBo.getProvince())) {
                     return ResHelper.pamIll();
                 }
-                query.is("city", areaInfoBo.getCity());
+                criteria.and("city").is(areaInfoBo.getCity());
             }
             if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
+                List<EssStation> essStationList = essStationDao.findEssStationBatch(new Query().addCriteria(Criteria.where("_id").in(user.getStationList())));
                 List<String> deviceNames = new ArrayList<>();
                 for (EssStation essStation : essStationList) {
                     List<String> deviceNameList = essStation.getDeviceNameList();
                     deviceNames.addAll(deviceNameList);
                 }
                 if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                    query.in(DEVICE_NAME, deviceNames);
+                    criteria.and(DEVICE_NAME).in(deviceNames);
                 }
             }
-            return ResHelper.success("", getAlarmNumVo(query, areaInfoBo));
+            return ResHelper.success("", getAlarmNumVo(criteria, areaInfoBo));
         }
         return ResHelper.pamIll();
 
 
     }
 
-    private AlarmNumVo getAlarmNumVo(BuguQuery<Device> query, AreaInfoBo areaInfoBo) {
-        return createAlarmNumVo(query, areaInfoBo);
+    private AlarmNumVo getAlarmNumVo(Criteria criteria, AreaInfoBo areaInfoBo) {
+        return createAlarmNumVo(criteria, areaInfoBo);
     }
 
-    public AlarmNumVo getAlarmNumVo() {
-        return createAlarmNumVo(null, null);
-    }
 
-    private AlarmNumVo createAlarmNumVo(BuguQuery<Device> query, AreaInfoBo areaInfoBo) {
+    private AlarmNumVo createAlarmNumVo(Criteria criteria, AreaInfoBo areaInfoBo) {
         AlarmNumVo alarmNumVo = new AlarmNumVo();
         if (areaInfoBo != null) {
             alarmNumVo.setCity(areaInfoBo.getCity());
             alarmNumVo.setProvince(areaInfoBo.getProvince());
         }
-        BuguQuery<BreakDownLog> downLogBuguQuery = breakDownLogDao.query().is("status", true);
-        Iterable<DBObject> results = breakDownLogDao.aggregate().match(downLogBuguQuery).match(query)
-                .group("{_id:'$null',count:{$sum:1}}").limit(1)
-                .results();
-        if (results != null) {
-            for (DBObject object : results) {
+        criteria.and("status").is(true);
+        Aggregation aggregation = Aggregation.newAggregation(Aggregation.match(criteria),
+                Aggregation.group("status").count().as("count"));
+        List<BasicDBObject> basicDBObjects = breakDownLogDao.aggregation(aggregation);
+        if (!CollectionUtils.isEmpty(basicDBObjects) && !basicDBObjects.isEmpty()) {
+            for (DBObject object : basicDBObjects) {
                 Integer count = (Integer) object.get("count");
                 alarmNumVo.setNumber(count);
             }
@@ -304,140 +318,171 @@ public class StatisticsService {
         return alarmNumVo;
     }
 
-    public ResHelper<SaveEnergyVo> saveEnergyNum(AreaInfoBo areaInfoBo) {
-        BuguQuery<Device> query = deviceDao.query();
+    public ResHelper<Map<String, BigDecimal>> saveEnergyNum(AreaInfoBo areaInfoBo, SysUser user) {
+        Criteria criteria = new Criteria();
         if (areaInfoBo != null) {
-            if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
+            if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
                 if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
                     return ResHelper.pamIll();
                 }
                 if (!StringUtils.isEmpty(areaInfoBo.getCity()) && !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
                     return ResHelper.pamIll();
                 }
-                query.is(PROVINCE, areaInfoBo.getProvince());
+                criteria.and(PROVINCE).is(areaInfoBo.getProvince());
             }
             if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
                 if (!propertiesConfig.getCitys().containsKey(areaInfoBo.getCity())
                         || !propertiesConfig.getCitys().get(areaInfoBo.getCity()).equals(areaInfoBo.getProvince())) {
                     return ResHelper.pamIll();
                 }
-                query.is("city", areaInfoBo.getCity());
+                criteria.and("city").is(areaInfoBo.getCity());
+            }
+            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+                List<EssStation> essStationList = essStationDao.findEssStationBatch(new Query().addCriteria(Criteria.where("_id").in(user.getStationList())));
+                List<String> deviceNames = new ArrayList<>();
+                for (EssStation essStation : essStationList) {
+                    List<String> deviceNameList = essStation.getDeviceNameList();
+                    deviceNames.addAll(deviceNameList);
+                }
+                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                    criteria.and(DEVICE_NAME).in(deviceNames);
+                }
             }
         }
-
-        return ResHelper.error("");
+        Map<String, BigDecimal> resultDecimal = new HashMap<>();
+        Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(criteria),
+                Aggregation.project().andExpression("{$toDouble:'$chargeCapacitySum'}").as("chargeCapacitySum"),
+                Aggregation.group().sum("chargeCapacitySum").as("count")
+        );
+        List<BasicDBObject> chargeAggregation = deviceDao.aggregation(aggregation);
+        if (!CollectionUtils.isEmpty(chargeAggregation) && !chargeAggregation.isEmpty()) {
+            for (DBObject object : chargeAggregation) {
+                Double sum = Double.valueOf(object.get("count").toString());
+                BigDecimal bigDecimal = BigDecimal.valueOf(sum).setScale(2, BigDecimal.ROUND_HALF_UP);
+                resultDecimal.put(CARBON_DIOXIDE, bigDecimal.multiply(new BigDecimal(0.9590)));
+                resultDecimal.put(SULFUR_DIOXIDE, bigDecimal.multiply(new BigDecimal(0.3619).multiply(new BigDecimal(177.9))));
+                resultDecimal.put(NOX, bigDecimal.multiply(new BigDecimal(0.3619).multiply(new BigDecimal(87.7))));
+                resultDecimal.put(SMOKE, bigDecimal.multiply(new BigDecimal(0.3619).multiply(new BigDecimal(48.4))));
+            }
+        }
+        return ResHelper.success("", resultDecimal);
     }
 
     public ResHelper<RunNumVO> runNumStatistic(AreaInfoBo areaInfoBo, SysUser user) {
-        BuguQuery<Device> deviceBuguQuery = deviceDao.query();
-        if (areaInfoBo != null) {
-            if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
-                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())
-                        || !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
-                    return ResHelper.pamIll();
-                }
-                deviceBuguQuery.is(PROVINCE, areaInfoBo.getProvince());
-            }
-            if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
-                if (!propertiesConfig.getCitys().containsKey(areaInfoBo.getCity())) {
-                    return ResHelper.pamIll();
-                }
-                if (!StringUtils.isEmpty(areaInfoBo.getCity()) && !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
-                    return ResHelper.pamIll();
-                }
-                deviceBuguQuery.is("city", areaInfoBo.getCity());
-            }
-            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
-                List<String> deviceNames = new ArrayList<>();
-                for (EssStation essStation : essStationList) {
-                    List<String> deviceNameList = essStation.getDeviceNameList();
-                    deviceNames.addAll(deviceNameList);
-                }
-                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                    deviceBuguQuery.in(DEVICE_NAME, deviceNames);
-                }
-            }
-        }
-        long count = deviceBuguQuery.count();
-        List<Device> deviceNameList = deviceBuguQuery.returnFields(DEVICE_NAME).results();
-        List<String> deviceNameStrList = deviceNameList.stream().map(Device::getDeviceName).collect(Collectors.toList());
-        Date date = DateUtils.addDateMinutes(new Date(), -30);
-        int runNum = 0;
-        if (!CollectionUtils.isEmpty(deviceNameStrList) && !deviceNameStrList.isEmpty()) {
-            //设备总数
-            //运行设备数量
-            Iterable<DBObject> iterable = bamsDataDicBADao.aggregate()
-                    .match(deviceDao.query().in(DEVICE_NAME, deviceNameStrList))
-                    .match(bamsDataDicBADao.query().greaterThanEquals("generationDataTime", date)).group("{_id:'$deviceName'}").results();
-            if (iterable != null) {
-                while (iterable.iterator().hasNext()) {
-                    runNum++;
-                }
-            }
-        }
-        RunNumVO runNumVO = new RunNumVO();
-        runNumVO.setRunNum(runNum);
-        runNumVO.setNotRunNum(Integer.valueOf((int) count - runNum));
-        return ResHelper.success("", runNumVO);
+//        List<Criteria> criteriaList = new ArrayList<>();
+//        if (areaInfoBo != null) {
+//            if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
+//                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())
+//                        || !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
+//                    return ResHelper.pamIll();
+//                }
+//                criteriaList.add(Criteria.where(PROVINCE).is(areaInfoBo.getProvince()));
+//            }
+//            if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
+//                if (!propertiesConfig.getCitys().containsKey(areaInfoBo.getCity())) {
+//                    return ResHelper.pamIll();
+//                }
+//                if (!StringUtils.isEmpty(areaInfoBo.getCity()) && !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
+//                    return ResHelper.pamIll();
+//                }
+//                criteriaList.add(Criteria.where("city").is(areaInfoBo.getCity()));
+//            }
+//            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+//                List<EssStation> essStationList = essStationDao.findEssStationBatch(new Query().addCriteria(Criteria.where("_id").in(user.getStationList())));
+//                List<String> deviceNames = new ArrayList<>();
+//                for (EssStation essStation : essStationList) {
+//                    List<String> deviceNameList = essStation.getDeviceNameList();
+//                    deviceNames.addAll(deviceNameList);
+//                }
+//                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+//                    criteriaList.add(Criteria.where(DEVICE_NAME).in(deviceNames));
+//                }
+//            }
+//        }
+//        Query deviceQuery = new Query().addCriteria(new Criteria().andOperator(criteriaList));
+//        long count =deviceDao.count(deviceQuery);
+//
+//        List<String> deviceNameStrList = deviceDao.findBatchDevices(deviceQuery).stream().map(Device::getDeviceName).collect(Collectors.toList());
+//        Date date = DateUtils.addDateMinutes(new Date(), -30);
+//        int runNum = 0;
+//        if (!CollectionUtils.isEmpty(deviceNameStrList) && !deviceNameStrList.isEmpty()) {
+//            //设备总数
+//            //运行设备数量
+//            Iterable<DBObject> iterable = bamsDataDicBADao.aggregate()
+//                    .match(deviceDao.query().in(DEVICE_NAME, deviceNameStrList))
+//                    .match(bamsDataDicBADao.query().greaterThanEquals("generationDataTime", date)).group("{_id:'$deviceName'}").results();
+//            if (iterable != null) {
+//                while (iterable.iterator().hasNext()) {
+//                    runNum++;
+//                }
+//            }
+//        }
+//        RunNumVO runNumVO = new RunNumVO();
+//        runNumVO.setRunNum(runNum);
+//        runNumVO.setNotRunNum(Integer.valueOf((int) count - runNum));
+//        return ResHelper.success("", runNumVO);
+        return null;
     }
 
     public ResHelper<IncomeStatisticVo> incomeStatistic(AreaInfoBo areaInfoBo, SysUser user) {
-        BuguQuery<Device> query = deviceDao.query().existsField("income");
-        IncomeStatisticVo incomeStatisticVo = new IncomeStatisticVo();
-        if (areaInfoBo != null) {
-            if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
-                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
-                    return ResHelper.pamIll();
-                }
-                if (!StringUtils.isEmpty(areaInfoBo.getCity()) && !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
-                    return ResHelper.pamIll();
-                }
-                query.is(PROVINCE, areaInfoBo.getProvince());
-                incomeStatisticVo.setProvince(areaInfoBo.getProvince());
-            }
-            if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
-                if (!propertiesConfig.getCitys().containsKey(areaInfoBo.getCity())
-                        || !propertiesConfig.getCitys().get(areaInfoBo.getCity()).equals(areaInfoBo.getProvince())) {
-                    return ResHelper.pamIll();
-                }
-                query.is("city", areaInfoBo.getCity());
-                incomeStatisticVo.setCity(areaInfoBo.getCity());
-            }
-            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
-                List<String> deviceNames = new ArrayList<>();
-                for (EssStation essStation : essStationList) {
-                    List<String> deviceNameList = essStation.getDeviceNameList();
-                    deviceNames.addAll(deviceNameList);
-                }
-                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                    query.in(DEVICE_NAME, deviceNames);
-                }
-            }
-        }
-        DBObject group = new BasicDBObject();
-        group.put("_id", null);
-        DBObject toDouble = new BasicDBObject();
-        toDouble.put("$toDouble", "$income");
-        DBObject dbObject = new BasicDBObject("$sum", toDouble);
-        group.put("count", dbObject);
-        Iterable<DBObject> iterable = deviceDao.aggregate().match(query).group(group).results();
-        BigDecimal bigDecimal = new BigDecimal("0");
-        if (iterable != null) {
-            for (DBObject object : iterable) {
-                Double income = (Double) object.get("count");
-                bigDecimal = bigDecimal.add(BigDecimal.valueOf(income).setScale(2, BigDecimal.ROUND_HALF_UP));
-            }
-        }
-        incomeStatisticVo.setIncome(bigDecimal.toString());
-        return ResHelper.success("", incomeStatisticVo);
+//        BuguQuery<Device> query = deviceDao.query().existsField("income");
+//
+//        IncomeStatisticVo incomeStatisticVo = new IncomeStatisticVo();
+//        if (areaInfoBo != null) {
+//            if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
+//                if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
+//                    return ResHelper.pamIll();
+//                }
+//                if (!StringUtils.isEmpty(areaInfoBo.getCity()) && !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
+//                    return ResHelper.pamIll();
+//                }
+//                query.is(PROVINCE, areaInfoBo.getProvince());
+//                incomeStatisticVo.setProvince(areaInfoBo.getProvince());
+//            }
+//            if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
+//                if (!propertiesConfig.getCitys().containsKey(areaInfoBo.getCity())
+//                        || !propertiesConfig.getCitys().get(areaInfoBo.getCity()).equals(areaInfoBo.getProvince())) {
+//                    return ResHelper.pamIll();
+//                }
+//                query.is("city", areaInfoBo.getCity());
+//                incomeStatisticVo.setCity(areaInfoBo.getCity());
+//            }
+//            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+//                List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
+//                List<String> deviceNames = new ArrayList<>();
+//                for (EssStation essStation : essStationList) {
+//                    List<String> deviceNameList = essStation.getDeviceNameList();
+//                    deviceNames.addAll(deviceNameList);
+//                }
+//                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+//                    query.in(DEVICE_NAME, deviceNames);
+//                }
+//            }
+//        }
+//        DBObject group = new BasicDBObject();
+//        group.put("_id", null);
+//        DBObject toDouble = new BasicDBObject();
+//        toDouble.put("$toDouble", "$income");
+//        DBObject dbObject = new BasicDBObject("$sum", toDouble);
+//        group.put("count", dbObject);
+//        Iterable<DBObject> iterable = deviceDao.aggregate().match(query).group(group).results();
+//        BigDecimal bigDecimal = new BigDecimal("0");
+//        if (iterable != null) {
+//            for (DBObject object : iterable) {
+//                Double income = (Double) object.get("count");
+//                bigDecimal = bigDecimal.add(BigDecimal.valueOf(income).setScale(2, BigDecimal.ROUND_HALF_UP));
+//            }
+//        }
+//        incomeStatisticVo.setIncome(bigDecimal.toString());
+//        return ResHelper.success("", incomeStatisticVo);
+        return null;
     }
 
     public ResHelper<Map<String, IncomeStatisticVo>> incomeStatistics(AreaInfoBo areaInfoBo, SysUser user) {
 
         if (areaInfoBo != null) {
-            if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
+            if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
                 if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
                     return ResHelper.pamIll();
                 }
@@ -452,19 +497,26 @@ public class StatisticsService {
                 }
             }
         }
-        ExecutorService executorService = Executors.newFixedThreadPool(4);
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
         CountDownLatch countDownLatch = new CountDownLatch(4);
-        IncomeStatisOfMongo g1 = new IncomeStatisOfMongo(countDownLatch, "DAY", areaInfoBo, user);
+        IncomeStaticsOfMongo g1 = new IncomeStaticsOfMongo(countDownLatch, "DAY", areaInfoBo, user);
         executorService.execute(g1);
-        IncomeStatisOfMongo g2 = new IncomeStatisOfMongo(countDownLatch, "MONTH", areaInfoBo, user);
+        IncomeStaticsOfMongo g2 = new IncomeStaticsOfMongo(countDownLatch, "MONTH", areaInfoBo, user);
         executorService.execute(g2);
-        IncomeStatisOfMongo g3 = new IncomeStatisOfMongo(countDownLatch, "YEAR", areaInfoBo, user);
+        IncomeStaticsOfMongo g3 = new IncomeStaticsOfMongo(countDownLatch, "YEAR", areaInfoBo, user);
         executorService.execute(g3);
-        IncomeStatisOfMongo g4 = new IncomeStatisOfMongo(countDownLatch, "SAFE_OF_DAY", areaInfoBo, user);
+        IncomeStaticsOfMongo g4 = new IncomeStaticsOfMongo(countDownLatch, "SAFE_DAYS", areaInfoBo, user);
         executorService.execute(g4);
+        IncomeStaticsOfMongo g5 = new IncomeStaticsOfMongo(countDownLatch, TOTAL, areaInfoBo, user);
+        executorService.execute(g5);
         try {
             countDownLatch.await(120L, TimeUnit.SECONDS);
-            ThreadUtil.safeClose(executorService);
+            if (executorService != null) {
+                executorService.shutdown();
+                if (!executorService.awaitTermination(5L, TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                }
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -473,18 +525,14 @@ public class StatisticsService {
         resultMap.put(MONTH, g2.getIncomeStatisticVo());
         resultMap.put(YEAR, g3.getIncomeStatisticVo());
         resultMap.put(SAFE_OF_DAY, g4.getIncomeStatisticVo());
+        resultMap.put(TOTAL, g5.getIncomeStatisticVo());
         return ResHelper.success("", resultMap);
     }
 
-    private IncomeStatisticVo getSafeDays(List<String> deviceNames) {
-        IncomeStatisticVo incomeStatisticVo = new IncomeStatisticVo();
-
-        return null;
-    }
 
     public ResHelper<Map<String, List<IncomeStatisticOfDayVo>>> incomeStatisticOfAll(AreaInfoBo areaInfoBo, SysUser user) {
         if (areaInfoBo != null) {
-            if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
+            if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
                 if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
                     return ResHelper.pamIll();
                 }
@@ -501,38 +549,47 @@ public class StatisticsService {
         }
         ExecutorService executorService = Executors.newFixedThreadPool(3);
         CountDownLatch countDownLatch = new CountDownLatch(3);
-        IncomeStatisOfDb incomeStatisOfDb1 = new IncomeStatisOfDb(countDownLatch, areaInfoBo, INCOMEOFDAY, 7, user);
-        executorService.execute(incomeStatisOfDb1);
-        IncomeStatisOfDb incomeStatisOfDb2 = new IncomeStatisOfDb(countDownLatch, areaInfoBo, INCOMEOFMONTH, 6, user);
-        executorService.execute(incomeStatisOfDb2);
-        IncomeStatisOfDb incomeStatisOfDb3 = new IncomeStatisOfDb(countDownLatch, areaInfoBo, INCOMEOFYEAR, 5, user);
-        executorService.execute(incomeStatisOfDb3);
+        IncomeStaticsOfDb incomeStaticsOfDb1 = new IncomeStaticsOfDb(countDownLatch, areaInfoBo, INCOME_OF_DAY, 7, user);
+        executorService.execute(incomeStaticsOfDb1);
+        IncomeStaticsOfDb incomeStaticsOfDb2 = new IncomeStaticsOfDb(countDownLatch, areaInfoBo, INCOME_OF_MONTH, 6, user);
+        executorService.execute(incomeStaticsOfDb2);
+        IncomeStaticsOfDb incomeStaticsOfDb3 = new IncomeStaticsOfDb(countDownLatch, areaInfoBo, INCOME_OF_YEAR, 5, user);
+        executorService.execute(incomeStaticsOfDb3);
         try {
             countDownLatch.await(120L, TimeUnit.SECONDS);
-            ThreadUtil.safeClose(executorService);
+            if (executorService != null) {
+                executorService.shutdown();
+                if (!executorService.awaitTermination(5L, TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                }
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         Map<String, List<IncomeStatisticOfDayVo>> map = new HashMap<>();
-        map.put(DAY, incomeStatisOfDb1.getIncomeStatisticOfDayVos());
-        map.put(MONTH, incomeStatisOfDb2.getIncomeStatisticOfDayVos());
-        map.put(YEAR, incomeStatisOfDb3.getIncomeStatisticOfDayVos());
+        map.put(DAY, incomeStaticsOfDb1.getIncomeStatisticOfDayVos());
+        map.put(MONTH, incomeStaticsOfDb2.getIncomeStatisticOfDayVos());
+        map.put(YEAR, incomeStaticsOfDb3.getIncomeStatisticOfDayVos());
         return ResHelper.success("", map);
     }
 
     public ResHelper<Map<String, List<IncomeStatisticOfDayVo>>> deviceOfIncomeStatistic(String deviceName) {
-
         ExecutorService executorService = Executors.newFixedThreadPool(3);
         CountDownLatch countDownLatch = new CountDownLatch(3);
-        IncomeOfDevice incomeOfDevice1 = new IncomeOfDevice(countDownLatch, deviceName, INCOMEOFDAY, 7);
+        IncomeOfDevice incomeOfDevice1 = new IncomeOfDevice(countDownLatch, deviceName, DAY, 7);
         executorService.execute(incomeOfDevice1);
-        IncomeOfDevice incomeOfDevice2 = new IncomeOfDevice(countDownLatch, deviceName, INCOMEOFMONTH, 6);
+        IncomeOfDevice incomeOfDevice2 = new IncomeOfDevice(countDownLatch, deviceName, MONTH, 6);
         executorService.execute(incomeOfDevice2);
-        IncomeOfDevice incomeOfDevice3 = new IncomeOfDevice(countDownLatch, deviceName, INCOMEOFYEAR, 5);
+        IncomeOfDevice incomeOfDevice3 = new IncomeOfDevice(countDownLatch, deviceName, YEAR, 5);
         executorService.execute(incomeOfDevice3);
         try {
             countDownLatch.await(120L, TimeUnit.SECONDS);
-            ThreadUtil.safeClose(executorService);
+            if (executorService != null) {
+                executorService.shutdown();
+                if (!executorService.awaitTermination(5L, TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                }
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -543,45 +600,38 @@ public class StatisticsService {
         return ResHelper.success("", map);
     }
 
-    //
     public ResHelper<Map<String, List<CapacityVo>>> capacityNumOfDate(SysUser user, AreaInfoBo areaInfoBo) {
-        BuguQuery<Device> query = deviceDao.query();
+        Criteria criteria = new Criteria();
         if (areaInfoBo != null) {
-            if (!StringUtil.isEmpty(areaInfoBo.getProvince())) {
+            if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
                 if (!propertiesConfig.getProToCitys().containsKey(areaInfoBo.getProvince())) {
                     return ResHelper.pamIll();
                 }
                 if (!StringUtils.isEmpty(areaInfoBo.getCity()) && !propertiesConfig.getProToCitys().get(areaInfoBo.getProvince()).contains(areaInfoBo.getCity())) {
                     return ResHelper.pamIll();
                 }
-                query.is(PROVINCE, areaInfoBo.getProvince());
+                criteria.and(PROVINCE).is(areaInfoBo.getProvince());
             }
             if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
                 if (!propertiesConfig.getCitys().containsKey(areaInfoBo.getCity())
                         || !propertiesConfig.getCitys().get(areaInfoBo.getCity()).equals(areaInfoBo.getProvince())) {
                     return ResHelper.pamIll();
                 }
-                query.is("city", areaInfoBo.getCity());
+                criteria.and("city").is(areaInfoBo.getCity());
             }
             if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
+                List<EssStation> essStationList = essStationDao.findEssStationBatch(new Query().addCriteria(Criteria.where("_id").in(user.getStationList())));
                 List<String> deviceNames = new ArrayList<>();
                 for (EssStation essStation : essStationList) {
                     List<String> deviceNameList = essStation.getDeviceNameList();
                     deviceNames.addAll(deviceNameList);
                 }
                 if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                    query.in(DEVICE_NAME, deviceNames);
+                    criteria.and(DEVICE_NAME).in(deviceNames);
                 }
             }
         }
-        List<String> deviceNameList = query.results().stream().map(device -> device.getDeviceName()).collect(Collectors.toList());
-        BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
-        BuguAggregation<BamsDischargeCapacity> aggregate = bamsDischargeCapacityDao.aggregate();
-        if (!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()) {
-            bamsDataDicBABuguQuery.in(DEVICE_NAME, deviceNameList);
-            aggregate.match(bamsDataDicBABuguQuery);
-        }
+        List<String> deviceNameList = deviceDao.findBatchDevices(new Query(criteria)).stream().map(Device::getDeviceName).collect(Collectors.toList());
         ExecutorService executorService = Executors.newFixedThreadPool(3);
         CountDownLatch countDownLatch = new CountDownLatch(3);
         CapacityOfDevice capacityOfDevice1 = new CapacityOfDevice(countDownLatch, DISCHARGECAPACITY_HOUR, deviceNameList, 24, "HOUR");
@@ -592,7 +642,12 @@ public class StatisticsService {
         executorService.execute(capacityOfDevice3);
         try {
             countDownLatch.await(120L, TimeUnit.SECONDS);
-            ThreadUtil.safeClose(executorService);
+            if (executorService != null) {
+                executorService.shutdown();
+                if (!executorService.awaitTermination(5L, TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                }
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -605,10 +660,10 @@ public class StatisticsService {
 
     public ResHelper<ChargeCapacityStationVo> capacityNumOfStation(String stationId) {
         ChargeCapacityStationVo chargeCapacityStationVo = new ChargeCapacityStationVo();
-        EssStation essStation = essStationDao.query().is("_id", stationId).result();
+        EssStation essStation = essStationDao.findEssStation(new Query().addCriteria(Criteria.where("_id").is(stationId)));
         if (essStation != null) {
             if (!CollectionUtils.isEmpty(essStation.getDeviceNameList()) && !essStation.getDeviceNameList().isEmpty()) {
-                List<Device> deviceList = deviceDao.query().in(DEVICE_NAME, essStation.getDeviceNameList()).results();
+                List<Device> deviceList = deviceDao.findBatchDevices(new Query().addCriteria(Criteria.where(DEVICE_NAME).in(essStation.getDeviceNameList())));
                 List<BigDecimal> chargeCapacitySumList = deviceList.stream().map(device -> new BigDecimal(device.getChargeCapacitySum())).collect(Collectors.toList());
                 BigDecimal chargeCapacityDecimal = chargeCapacitySumList.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
                 List<BigDecimal> disChargeCapacitySumList = deviceList.stream().map(device -> new BigDecimal(device.getDischargeCapacitySum())).collect(Collectors.toList());
@@ -616,7 +671,6 @@ public class StatisticsService {
                 chargeCapacityStationVo.setChargeCapacity(chargeCapacityDecimal.toString());
                 chargeCapacityStationVo.setDisChargeCapacity(disChargeCapacityDecimal.toString());
                 chargeCapacityStationVo.setStationName(essStation.getStationName());
-
                 getTotalStationIncome(essStation.getDeviceNameList(), chargeCapacityStationVo);
                 getDayStationIncome(essStation.getDeviceNameList(), chargeCapacityStationVo);
                 return ResHelper.success("", chargeCapacityStationVo);
@@ -629,7 +683,9 @@ public class StatisticsService {
 
     private void getDayStationIncome(List<String> deviceNameList, ChargeCapacityStationVo chargeCapacityStationVo) {
         String dateToStr = DateUtils.dateToStr(new Date());
-        List<IncomeEntity> incomeEntities = incomeEntityDao.query().in("deviceName", deviceNameList).is("incomeOfDay", dateToStr).results();
+        Query incomeQuery = new Query();
+        incomeQuery.addCriteria(new Criteria().and(DEVICE_NAME).in(deviceNameList).and("incomeOfDay").is(dateToStr));
+        List<IncomeEntity> incomeEntities = incomeEntityDao.findBatchIncome(incomeQuery);
         BigDecimal incomeBigDecimal = new BigDecimal(0);
         for (IncomeEntity incomeEntity : incomeEntities) {
             incomeBigDecimal = incomeBigDecimal.add(incomeEntity.getIncome().setScale(4, BigDecimal.ROUND_HALF_UP));
@@ -638,10 +694,15 @@ public class StatisticsService {
     }
 
     private void getTotalStationIncome(List<String> deviceNameList, ChargeCapacityStationVo chargeCapacityStationVo) {
-        Iterable<DBObject> incomeIterable = incomeEntityDao.aggregate().match(incomeEntityDao.query().in("deviceName", deviceNameList))
-                .group("{_id:null,count:{$sum:{$toDouble:'$income'}}}").limit(1).results();
-        if (incomeIterable != null) {
-            for (DBObject object : incomeIterable) {
+        Criteria criteria = new Criteria().and(DEVICE_NAME).in(deviceNameList);
+        Aggregation aggregation = Aggregation.newAggregation(Aggregation.match(criteria),
+                Aggregation.project().andExpression("{$toDouble:'$income'}").as("income"),
+                Aggregation.group().sum("income").as("count"),
+                Aggregation.limit(1));
+
+        List<BasicDBObject> basicDBObjects = incomeEntityDao.aggregate(aggregation);
+        if (!CollectionUtils.isEmpty(basicDBObjects) && !basicDBObjects.isEmpty()) {
+            for (DBObject object :basicDBObjects) {
                 Double count = (Double) object.get("count");
                 BigDecimal incomeBigDecimal = BigDecimal.valueOf(count).setScale(4, BigDecimal.ROUND_HALF_UP);
                 chargeCapacityStationVo.setTotalStationIncome(incomeBigDecimal.toString());
@@ -672,42 +733,6 @@ public class StatisticsService {
         }
 
 
-        private void initHoursMapData() {
-            this.initData = new TreeMap<>();
-            for (int i = 0; i < limit; i++) {
-                String key = i > 9 ? String.valueOf(i) : "0" + i;
-                initData.put(key, new CapacityVo(key, "0"));
-            }
-            BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
-            BuguAggregation<BamsDischargeCapacity> aggregate = bamsDischargeCapacityDao.aggregate();
-            if (!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()) {
-                bamsDataDicBABuguQuery.in(DEVICE_NAME, deviceNameList);
-                aggregate.match(bamsDataDicBABuguQuery);
-            }
-            Iterable<DBObject> iterable =
-                    aggregate.match(bamsDischargeCapacityDao.query()
-                            .greaterThanEquals("generationDataTime", DateUtils.getStartTime(new Date())).lessThanEquals("generationDataTime", DateUtils.getEndTime(new Date()))).group(groupMsg)
-                            .sort("{generationDataTime:-1}").limit(limit)
-                            .results();
-            if (iterable != null) {
-                for (DBObject object : iterable) {
-                    String[] id = object.get("_id").toString().split(" ");
-                    CapacityVo capacityVo = initData.get(id[1]);
-                    if (capacityVo != null) {
-                        capacityVo.setNumber(BigDecimal.valueOf(Double.valueOf(object.get("count").toString())).setScale(2,BigDecimal.ROUND_HALF_UP).toString());
-                    }
-                }
-            }
-            List<CapacityVo> capacityVos = new ArrayList<>(initData.values());
-            Collections.sort(capacityVos, new Comparator<CapacityVo>() {
-                @Override
-                public int compare(CapacityVo o1, CapacityVo o2) {
-                    return Integer.parseInt(o1.getDate()) - Integer.parseInt(o2.getDate());
-                }
-            });
-            this.capacityVos = capacityVos;
-        }
-
         @Override
         public void run() {
             try {
@@ -723,29 +748,31 @@ public class StatisticsService {
             }
         }
 
-        private void initMonthMapData() {
-            this.initData = new HashMap<>();
-            for (int i = 1; i <= limit; i++) {
+        private void initHoursMapData() {
+            this.initData = new TreeMap<>();
+            for (int i = 0; i < limit; i++) {
                 String key = i > 9 ? String.valueOf(i) : "0" + i;
                 initData.put(key, new CapacityVo(key, "0"));
             }
-            BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
-            BuguAggregation<BamsDischargeCapacity> aggregate = bamsDischargeCapacityDao.aggregate();
+            Criteria criteria = new Criteria();
             if (!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()) {
-                bamsDataDicBABuguQuery.in(DEVICE_NAME, deviceNameList);
-                aggregate.match(bamsDataDicBABuguQuery);
+                criteria.and(DEVICE_NAME).in(deviceNameList);
             }
-            Iterable<DBObject> iterable = aggregate
-                    .match(bamsDischargeCapacityDao.query().greaterThanEquals("generationDataTime", DateUtils.getCurrentYearStartTime())
-                            .lessThanEquals("generationDataTime", DateUtils.getCurrentYearEndTime())).group(groupMsg)
-                    .sort("{generationDataTime:-1}").limit(limit)
-                    .results();
-            if (iterable != null) {
-                for (DBObject object : iterable) {
-                    String[] idSplit = object.get("_id").toString().split("-");
-                    CapacityVo capacityVo = initData.get(idSplit[1]);
+            criteria.and("generationDataTime").gte(DateUtils.getStartTime(new Date())).lte(DateUtils.getEndTime(new Date()));
+            Aggregation aggregation = Aggregation.newAggregation(Aggregation.match(criteria),
+                    Aggregation.project().andExpression("{$dateToString:{format:'%Y-%m-%d %H',date: {$add:{'$generationDataTime',28800000}}}}").as("_id")
+                            .andExpression("{$toDouble:'$dischargeCapacitySubtract'}").as("dischargeCapacitySubtract"),
+                    Aggregation.group("_id").sum("dischargeCapacitySubtract").as("count"),
+                    Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                    Aggregation.limit(limit)
+            );
+            List<BasicDBObject> basicDBObjects = bamsDischargeCapacityDao.aggregation(aggregation);
+            if (!CollectionUtils.isEmpty(basicDBObjects) && !basicDBObjects.isEmpty()) {
+                for (DBObject object : basicDBObjects) {
+                    String[] id = object.get("_id").toString().split(" ");
+                    CapacityVo capacityVo = initData.get(id[1]);
                     if (capacityVo != null) {
-                        capacityVo.setNumber(BigDecimal.valueOf(Double.valueOf(object.get("count").toString())).setScale(2,BigDecimal.ROUND_HALF_UP).toString());
+                        capacityVo.setNumber(BigDecimal.valueOf(Double.valueOf(object.get("count").toString())).setScale(2, BigDecimal.ROUND_HALF_UP).toString());
                     }
                 }
             }
@@ -754,6 +781,52 @@ public class StatisticsService {
                 @Override
                 public int compare(CapacityVo o1, CapacityVo o2) {
                     return Integer.parseInt(o1.getDate()) - Integer.parseInt(o2.getDate());
+                }
+            });
+            this.capacityVos = capacityVos;
+        }
+
+        private void initMonthMapData() {
+            this.initData = new HashMap<>();
+            Calendar c = Calendar.getInstance();
+            for (int i = limit - 1; i >= 0; i--) {
+                c.setTime(new Date());
+                c.add(Calendar.MONTH, -i);
+                String key = DateUtils.formatYYYYMM(c.getTime());
+                initData.put(key, new CapacityVo(key, "0"));
+            }
+            Criteria criteria = new Criteria();
+            if (!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()) {
+                criteria.and(DEVICE_NAME).in(deviceNameList);
+            }
+            criteria.and("generationDataTime").gte(DateUtils.getPreviousYearStartTime(new Date())).lte(DateUtils.getEndTime(new Date()));
+            Aggregation aggregation = Aggregation.newAggregation(Aggregation.match(criteria),
+                    Aggregation.project().andExpression("{$dateToString:{format:'%Y-%m',date: {$add:{'$generationDataTime',28800000}}}}").as("_id")
+                            .andExpression("{$toDouble:'$dischargeCapacitySubtract'}").as("dischargeCapacitySubtract"),
+                    Aggregation.group("_id").sum("dischargeCapacitySubtract").as("count"),
+                    Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                    Aggregation.limit(limit)
+            );
+            List<BasicDBObject> basicDBObjects = bamsDischargeCapacityDao.aggregation(aggregation);
+            if (!CollectionUtils.isEmpty(basicDBObjects) && !basicDBObjects.isEmpty()) {
+                for (DBObject object : basicDBObjects) {
+                    String id = object.get("_id").toString();
+                    CapacityVo capacityVo = initData.get(id);
+                    if (capacityVo != null) {
+                        capacityVo.setNumber(BigDecimal.valueOf(Double.valueOf(object.get("count").toString())).setScale(2, BigDecimal.ROUND_HALF_UP).toString());
+                    }
+                }
+            }
+            List<CapacityVo> capacityVos = new ArrayList<>(initData.values());
+            Collections.sort(capacityVos, new Comparator<CapacityVo>() {
+                @Override
+                public int compare(CapacityVo o1, CapacityVo o2) {
+                    String[] splitVo1 = o1.getDate().split("-");
+                    String[] splitVo2 = o2.getDate().split("-");
+                    if (splitVo1[0].equals(splitVo2[0])) {
+                        return Integer.parseInt(splitVo1[1]) - Integer.parseInt(splitVo2[1]);
+                    }
+                    return Integer.parseInt(splitVo1[0]) - Integer.parseInt(splitVo2[0]);
                 }
             });
             this.capacityVos = capacityVos;
@@ -772,23 +845,27 @@ public class StatisticsService {
                 String key = DateUtils.dateToStrMMDD(startTimeOfDay);
                 initData.put(key, new CapacityVo(key, "0"));
             }
-            BuguQuery<BamsDataDicBA> bamsDataDicBABuguQuery = bamsDataDicBADao.query();
-            BuguAggregation<BamsDischargeCapacity> aggregate = bamsDischargeCapacityDao.aggregate();
+//            public static final String DISCHARGECAPACITY_MONTH="{_id:{$dateToString:{format:'%Y-%m',date:{$add:['$generationDataTime',28800000]}}},count:{$sum:{$toDouble:'$dischargeCapacitySubtract'}}}";
+            Criteria criteria = new Criteria();
             if (!CollectionUtils.isEmpty(deviceNameList) && !deviceNameList.isEmpty()) {
-                bamsDataDicBABuguQuery.in(DEVICE_NAME, deviceNameList);
-                aggregate.match(bamsDataDicBABuguQuery);
+                criteria.and(DEVICE_NAME).in(deviceNameList);
             }
-            Iterable<DBObject> iterable = aggregate
-                    .match(bamsDischargeCapacityDao.query().greaterThanEquals("generationDataTime", dayOfSevenAgo).lessThanEquals("generationDataTime", DateUtils.getEndTime(new Date()))).group(groupMsg)
-                    .sort("{generationDataTime:-1}").limit(limit)
-                    .results();
-            Map<String, CapacityVo> dbOfResultOfHour = new HashMap<>();
-            if (iterable != null) {
-                for (DBObject object : iterable) {
+
+            criteria.and("generationDataTime").gte(dayOfSevenAgo).lte(DateUtils.getEndTime(new Date()));
+            Aggregation aggregation = Aggregation.newAggregation(Aggregation.match(criteria),
+                    Aggregation.project().andExpression("{$dateToString:{format:'%Y-%m',date: {$add:{'$generationDataTime',28800000}}}}").as("_id")
+                            .andExpression("{$toDouble:'$dischargeCapacitySubtract'}").as("dischargeCapacitySubtract"),
+                    Aggregation.group("_id").sum("dischargeCapacitySubtract").as("count"),
+                    Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                    Aggregation.limit(limit)
+            );
+            List<BasicDBObject> basicDBObjects = bamsDischargeCapacityDao.aggregation(aggregation);
+            if (!CollectionUtils.isEmpty(basicDBObjects) && !basicDBObjects.isEmpty()) {
+                for (DBObject object : basicDBObjects) {
                     String[] id = object.get("_id").toString().split(" ");
                     CapacityVo capacityVo = initData.get(id[1]);
                     if (capacityVo != null) {
-                        capacityVo.setNumber(BigDecimal.valueOf(Double.valueOf(object.get("count").toString())).setScale(2,BigDecimal.ROUND_HALF_UP).toString());
+                        capacityVo.setNumber(BigDecimal.valueOf(Double.valueOf(object.get("count").toString())).setScale(2, BigDecimal.ROUND_HALF_UP).toString());
                     }
                 }
             }
@@ -801,6 +878,9 @@ public class StatisticsService {
                     if (splitOne[0].equals(splitTwo[0])) {
                         return Integer.parseInt(splitOne[1]) - Integer.parseInt(splitTwo[1]);
                     }
+                    if (new BigDecimal(Integer.parseInt(splitOne[0])).subtract(new BigDecimal(Integer.parseInt(splitTwo[0]))).abs().compareTo(new BigDecimal(11)) == 0) {
+                        return 1;
+                    }
                     return Integer.parseInt(splitOne[0]) - Integer.parseInt(splitTwo[0]);
                 }
             });
@@ -812,8 +892,10 @@ public class StatisticsService {
     class IncomeOfDevice implements Runnable {
         private CountDownLatch countDownLatch;
         private String deviceName;
+        private Aggregation aggregation;
         private String groupMsg;
         private Integer limit;
+        private Criteria criteria;
         private List<IncomeStatisticOfDayVo> incomeStatisticOfDayVos = new ArrayList<>();
 
         public List<IncomeStatisticOfDayVo> getIncomeStatisticOfDayVos() {
@@ -825,43 +907,66 @@ public class StatisticsService {
             this.deviceName = deviceName;
             this.limit = limit;
             this.groupMsg = groupMsg;
-            initIncomeStatis();
+            this.criteria = new Criteria().and(DEVICE_NAME).is(deviceName);
+            initIncomeStatics();
         }
 
-        private void initIncomeStatis() {
-            if (groupMsg.equals(INCOMEOFDAY)) {
+        private void initIncomeStatics() {
+            if (groupMsg.equals(DAY)) {
                 for (int i = 0; i < limit; i++) {
                     IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
                     incomeStatisticOfDayVo.setDay(DateUtils.format(DateUtils.addDateDays(new Date(), -i)));
                     incomeStatisticOfDayVos.add(incomeStatisticOfDayVo);
                 }
-            } else if (groupMsg.equals(INCOMEOFMONTH)) {
+                this.aggregation = Aggregation.newAggregation(
+                        Aggregation.match(criteria),
+                        Aggregation.project().andExpression("{$toDouble:'$income'}").as("income").andExpression("'$incomeOfDay'").as("day"),
+                        Aggregation.group("day").sum("income").as("count"),
+                        Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                        Aggregation.limit(limit)
+                );
+            } else if (groupMsg.equals(MONTH)) {
                 for (int i = 0; i < limit; i++) {
                     IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
                     incomeStatisticOfDayVo.setDay(DateUtils.formatYYYYMM(DateUtils.addDateMonths(new Date(), -i)));
                     incomeStatisticOfDayVos.add(incomeStatisticOfDayVo);
                 }
-            } else if (groupMsg.equals(INCOMEOFYEAR)) {
+                this.aggregation = Aggregation.newAggregation(
+                        Aggregation.match(criteria),
+                        Aggregation.project().andExpression("{substr($incomeOfDay,0,7)}").as("day")
+                                .andExpression("{$toDouble:'$income'}").as("income"),
+                        Aggregation.group("day").sum("income").as("count"),
+                        Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                        Aggregation.limit(limit)
+                );
+            } else if (groupMsg.equals(YEAR)) {
                 for (int i = 0; i < limit; i++) {
                     IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
                     incomeStatisticOfDayVo.setDay(DateUtils.formatYYYY(DateUtils.addDateYears(new Date(), -i)));
                     incomeStatisticOfDayVos.add(incomeStatisticOfDayVo);
                 }
+                this.aggregation = Aggregation.newAggregation(
+                        Aggregation.match(criteria),
+                        Aggregation.project().andExpression("{substr(incomeOfDay,0,4)}").as("day")
+                                .andExpression("{$toDouble:'$income'}").as("income"),
+                        Aggregation.group("day").sum("income").as("count"),
+                        Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                        Aggregation.limit(limit)
+                );
             }
         }
 
         @Override
         public void run() {
             try {
-                Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityDao.query().is("deviceName", deviceName))
-                        .group(groupMsg).sort("{_id:-1}").limit(limit).results();
-                if (iterable != null) {
+                List<BasicDBObject> aggregate = incomeEntityDao.aggregate(aggregation);
+                if (!CollectionUtils.isEmpty(aggregate) && !aggregate.isEmpty()) {
                     List<IncomeStatisticOfDayVo> resultStatisticOfDayList = new ArrayList<>();
-                    for (DBObject object : iterable) {
-                        String incomeOfDay = object.get("_id").toString();
-                        Double counct = Double.valueOf(object.get("count").toString());
+                    for (DBObject object : aggregate) {
+                        String incomeOfDay = (String) object.get("_id");
+                        Double count = Double.valueOf(object.get("count").toString());
                         IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
-                        incomeStatisticOfDayVo.setIncome(BigDecimal.valueOf(counct).setScale(2, BigDecimal.ROUND_HALF_UP).toString());
+                        incomeStatisticOfDayVo.setIncome(BigDecimal.valueOf(count).setScale(2, BigDecimal.ROUND_HALF_UP).toString());
                         incomeStatisticOfDayVo.setDay(incomeOfDay);
                         resultStatisticOfDayList.add(incomeStatisticOfDayVo);
                     }
@@ -882,45 +987,93 @@ public class StatisticsService {
         }
     }
 
-    class IncomeStatisOfDb implements Runnable {
+    class IncomeStaticsOfDb implements Runnable {
         private CountDownLatch countDownLatch;
         private AreaInfoBo areaInfoBo;
         private String aggregateMsg;
         private Integer limit;
         private SysUser user;
+        private Criteria criteria;
+        private Aggregation aggregation;
         private List<IncomeStatisticOfDayVo> incomeStatisticOfDayVos = new ArrayList<>();
 
-        public IncomeStatisOfDb(CountDownLatch countDownLatch, AreaInfoBo areaInfoBo, String aggregateMsg, Integer limit, SysUser user) {
+        public IncomeStaticsOfDb(CountDownLatch countDownLatch, AreaInfoBo areaInfoBo, String aggregateMsg, Integer limit, SysUser user) {
             this.countDownLatch = countDownLatch;
             this.areaInfoBo = areaInfoBo;
             this.aggregateMsg = aggregateMsg;
             this.limit = limit;
             this.user = user;
-            initIncomeStatis();
+            getCriteriaList();
+            initIncomeStatics();
         }
 
         public List<IncomeStatisticOfDayVo> getIncomeStatisticOfDayVos() {
             return this.incomeStatisticOfDayVos;
         }
 
-        private void initIncomeStatis() {
-            if (aggregateMsg.equals(INCOMEOFDAY)) {
+        private void initIncomeStatics() {
+            if (aggregateMsg.equals(INCOME_OF_DAY)) {
                 for (int i = 0; i < limit; i++) {
                     IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
                     incomeStatisticOfDayVo.setDay(DateUtils.format(DateUtils.addDateDays(new Date(), -i)));
                     incomeStatisticOfDayVos.add(incomeStatisticOfDayVo);
                 }
-            } else if (aggregateMsg.equals(INCOMEOFMONTH)) {
+                this.aggregation = Aggregation.newAggregation(
+                        Aggregation.match(criteria),
+                        Aggregation.project().andExpression("{$toDouble:'$income'}").as("income")
+                        .andExpression("'$incomeOfDay'").as("day"),
+                        Aggregation.group("day").sum("income").as("count"),
+                        Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                        Aggregation.limit(limit)
+                );
+            } else if (aggregateMsg.equals(INCOME_OF_MONTH)) {
                 for (int i = 0; i < limit; i++) {
                     IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
                     incomeStatisticOfDayVo.setDay(DateUtils.formatYYYYMM(DateUtils.addDateMonths(new Date(), -i)));
                     incomeStatisticOfDayVos.add(incomeStatisticOfDayVo);
                 }
-            } else if (aggregateMsg.equals(INCOMEOFYEAR)) {
+                this.aggregation = Aggregation.newAggregation(
+                        Aggregation.match(criteria),
+                        Aggregation.project().andExpression("{substr(incomeOfDay,0,7)}").as("day")
+                                .andExpression("{$toDouble:'$income'}").as("income"),
+                        Aggregation.group("day").sum("income").as("count"),
+                        Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                        Aggregation.limit(limit)
+                );
+            } else if (aggregateMsg.equals(INCOME_OF_YEAR)) {
                 for (int i = 0; i < limit; i++) {
                     IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
                     incomeStatisticOfDayVo.setDay(DateUtils.formatYYYY(DateUtils.addDateYears(new Date(), -i)));
                     incomeStatisticOfDayVos.add(incomeStatisticOfDayVo);
+                }
+                this.aggregation = Aggregation.newAggregation(
+                        Aggregation.match(criteria),
+                        Aggregation.project().andExpression("{substr(incomeOfDay,0,4)}").as("day")
+                                .andExpression("{$toDouble:'$income'}").as("income"),
+                        Aggregation.group("day").sum("income").as("count"),
+                        Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                        Aggregation.limit(limit)
+                );
+            }
+        }
+
+        private void getCriteriaList() {
+            this.criteria=new Criteria();
+            if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
+               criteria.and(PROVINCE).is(areaInfoBo.getProvince());
+            }
+            if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
+                criteria.and("city").is(areaInfoBo.getCity());
+            }
+            if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
+                List<EssStation> essStationList = essStationDao.findEssStationBatch(new Query().addCriteria(Criteria.where("_id").in(user.getStationList())));
+                List<String> deviceNames = new ArrayList<>();
+                for (EssStation essStation : essStationList) {
+                    List<String> deviceNameList = essStation.getDeviceNameList();
+                    deviceNames.addAll(deviceNameList);
+                }
+                if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
+                    criteria.and(DEVICE_NAME).in(deviceNames);
                 }
             }
         }
@@ -928,29 +1081,10 @@ public class StatisticsService {
         @Override
         public void run() {
             try {
-                BuguQuery<IncomeEntity> incomeEntityBuguQuery = incomeEntityDao.query();
-                if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
-                    incomeEntityBuguQuery.is(PROVINCE, areaInfoBo.getProvince());
-                }
-                if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
-                    incomeEntityBuguQuery.is("city", areaInfoBo.getCity());
-                }
-                if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                    List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
-                    List<String> deviceNames = new ArrayList<>();
-                    for (EssStation essStation : essStationList) {
-                        List<String> deviceNameList = essStation.getDeviceNameList();
-                        deviceNames.addAll(deviceNameList);
-                    }
-                    if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                        incomeEntityBuguQuery.in(DEVICE_NAME, deviceNames);
-                    }
-                }
-                Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityBuguQuery)
-                        .group(aggregateMsg).sort("{_id:-1}").limit(limit).results();
-                if (iterable != null) {
+                List<BasicDBObject> aggregate = incomeEntityDao.aggregate(aggregation);
+                if (!CollectionUtils.isEmpty(aggregate) && !aggregate.isEmpty()) {
                     List<IncomeStatisticOfDayVo> incomeStatisticOfDayVoList = new ArrayList<>();
-                    for (DBObject object : iterable) {
+                    for (DBObject object : aggregate) {
                         IncomeStatisticOfDayVo incomeStatisticOfDayVo = new IncomeStatisticOfDayVo();
                         String incomeOfDay = (String) object.get("_id");
                         Double count = (Double) object.get("count");
@@ -975,7 +1109,7 @@ public class StatisticsService {
         }
     }
 
-    class IncomeStatisOfMongo implements Runnable {
+    class IncomeStaticsOfMongo implements Runnable {
 
         private String type;
         private CountDownLatch countDownLatch;
@@ -984,11 +1118,11 @@ public class StatisticsService {
         private SysUser user;
         private List<String> deviceNameList;
 
-        public IncomeStatisOfMongo(CountDownLatch countDownLatch, String type, AreaInfoBo areaInfoBo, SysUser user) {
+        public IncomeStaticsOfMongo(CountDownLatch countDownLatch, String type, AreaInfoBo areaInfoBo, SysUser user) {
             this.type = type;
             this.countDownLatch = countDownLatch;
             this.areaInfoBo = areaInfoBo;
-            incomeStatisticVo = new IncomeStatisticVo();
+            this.incomeStatisticVo = new IncomeStatisticVo();
             this.user = user;
         }
 
@@ -998,37 +1132,42 @@ public class StatisticsService {
 
         @Override
         public void run() {
-            BuguQuery<IncomeEntity> incomeEntityBuguQuery = incomeEntityDao.query();
+            Criteria criteria = new Criteria();
             if (!StringUtils.isEmpty(areaInfoBo.getProvince())) {
                 incomeStatisticVo.setProvince(areaInfoBo.getProvince());
-                incomeEntityBuguQuery.is(PROVINCE, areaInfoBo.getProvince());
+                criteria.and(PROVINCE).is(areaInfoBo.getProvince());
             }
             if (!StringUtils.isEmpty(areaInfoBo.getCity())) {
                 incomeStatisticVo.setCity(areaInfoBo.getCity());
-                incomeEntityBuguQuery.is("city", areaInfoBo.getCity());
+                criteria.and("city").is(areaInfoBo.getCity());
             }
             if (!CollectionUtils.isEmpty(user.getStationList()) && !user.getStationList().isEmpty()) {
-                List<EssStation> essStationList = essStationDao.query().in("_id", user.getStationList()).results();
+                List<EssStation> essStationList = essStationDao.findEssStationBatch(new Query(Criteria.where("_id").in(user.getStationList())));
                 List<String> deviceNames = new ArrayList<>();
                 for (EssStation essStation : essStationList) {
                     List<String> deviceNameList = essStation.getDeviceNameList();
                     deviceNames.addAll(deviceNameList);
                 }
                 if (!CollectionUtils.isEmpty(deviceNames) && !deviceNames.isEmpty()) {
-                    incomeEntityBuguQuery.in(DEVICE_NAME, deviceNames);
+                    criteria.and(DEVICE_NAME).in(deviceNames);
                     this.deviceNameList = deviceNames;
                 }
             }
             //统计当天的收益、当年的收益 当月的收益
             try {
                 if (!StringUtils.isEmpty(type)) {
-                    Date date = new Date();
+                    Date date = new Date(System.currentTimeMillis());
                     if (DAY.equals(type)) {
-                        incomeEntityBuguQuery.is("incomeOfDay", DateUtils.dateToStr(date));
-                        Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityBuguQuery)
-                                .group(INCOMEOFDAY).sort("{_id:-1}").limit(1).results();
-                        if (iterable != null) {
-                            for (DBObject object : iterable) {
+                        criteria.and("incomeOfDay").is(DateUtils.dateToStr(date));
+                        Aggregation aggregation = Aggregation.newAggregation(
+                                Aggregation.match(criteria),
+                                Aggregation.project().andExpression("{$toDouble:'$income'}").as("income"),
+                                Aggregation.group().sum("income").as("count"),
+                                Aggregation.limit(1)
+                        );
+                        List<BasicDBObject> aggregate = incomeEntityDao.aggregate(aggregation);
+                        if (!CollectionUtils.isEmpty(aggregate) && !aggregate.isEmpty()) {
+                            for (DBObject object : aggregate) {
                                 Double count = (Double) object.get("count");
                                 BigDecimal decimal = BigDecimal.valueOf(count);
                                 incomeStatisticVo.setIncome(decimal.setScale(2, BigDecimal.ROUND_HALF_UP).toString());
@@ -1036,11 +1175,18 @@ public class StatisticsService {
                         }
                         incomeStatisticVo.setDate(date);
                     } else if (MONTH.equals(type)) {
-                        incomeEntityBuguQuery.regexCaseInsensitive("incomeOfDay", DateUtils.dateToStryyyymm(date));
-                        Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityBuguQuery)
-                                .group(INCOMEOFMONTH).sort("{_id:-1}").limit(1).results();
-                        if (iterable != null) {
-                            for (DBObject object : iterable) {
+                        criteria.and("incomeOfDay").regex(DateUtils.dateToStryyyymm(date));
+                        Aggregation aggregation = Aggregation.newAggregation(
+                                Aggregation.match(criteria),
+                                Aggregation.project().andExpression("{substr(incomeOfDay,0,7)}").as("_id")
+                                        .andExpression("{$toDouble:'$income'}").as("income"),
+                                Aggregation.group("_id").sum("income").as("count"),
+                                Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                                Aggregation.limit(1)
+                        );
+                        List<BasicDBObject> dbObjects = incomeEntityDao.aggregate(aggregation);
+                        if (!CollectionUtils.isEmpty(dbObjects) && !dbObjects.isEmpty()) {
+                            for (DBObject object : dbObjects) {
                                 Double count = (Double) object.get("count");
                                 BigDecimal decimal = BigDecimal.valueOf(count);
                                 incomeStatisticVo.setIncome(decimal.setScale(2, BigDecimal.ROUND_HALF_UP).toString());
@@ -1048,18 +1194,25 @@ public class StatisticsService {
                         }
                         incomeStatisticVo.setDate(date);
                     } else if (YEAR.equals(type)) {
-                        incomeEntityBuguQuery.regexCaseInsensitive("incomeOfDay", DateUtils.dateToStryyyy(date));
-                        Iterable<DBObject> iterable = incomeEntityDao.aggregate().match(incomeEntityBuguQuery)
-                                .group(INCOMEOFYEAR).sort("{_id:-1}").limit(1).results();
-                        if (iterable != null) {
-                            for (DBObject object : iterable) {
+                        criteria.and("incomeOfDay").regex(DateUtils.dateToStryyyy(date));
+                        Aggregation aggregation = Aggregation.newAggregation(
+                                Aggregation.match(criteria),
+                                Aggregation.project().andExpression("{substr(incomeOfDay,0,4)}").as("_id")
+                                        .andExpression("{$toDouble:'$income'}").as("income"),
+                                Aggregation.group("_id").sum("income").as("count"),
+                                Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                                Aggregation.limit(1)
+                        );
+                        List<BasicDBObject> basicDBObjects = incomeEntityDao.aggregate(aggregation);
+                        if (!CollectionUtils.isEmpty(basicDBObjects) && !basicDBObjects.isEmpty()) {
+                            for (DBObject object : basicDBObjects) {
                                 Double count = (Double) object.get("count");
                                 BigDecimal decimal = BigDecimal.valueOf(count);
                                 incomeStatisticVo.setIncome(decimal.setScale(2, BigDecimal.ROUND_HALF_UP).toString());
                             }
                         }
                         incomeStatisticVo.setDate(date);
-                    } else {
+                    } else if (SAFE_OF_DAY.equals(type)) {
                         /**
                          * 计算安全天数
                          */
@@ -1067,13 +1220,13 @@ public class StatisticsService {
                             /**
                              * 有绑定电站情况
                              */
-                            List<Device> deviceList = deviceDao.query().in("deviceName", deviceNameList).results();
-                            if(!CollectionUtils.isEmpty(deviceList) && !deviceList.isEmpty()){
+                            List<Device> deviceList = deviceDao.findBatchDevices(new Query().addCriteria(Criteria.where(DEVICE_NAME).in(deviceNameList)));
+                            if (!CollectionUtils.isEmpty(deviceList) && !deviceList.isEmpty()) {
                                 Device device = deviceList.get(0);
                                 incomeStatisticVo.setIncome(String.valueOf((date.getTime() - device.getAccessTime().getTime()) / DAY_OF_MILLISECONDS));
-                            }else {
-                                Device device = deviceDao.findOne();
-                                if(device != null){
+                            } else {
+                                Device device = deviceDao.findDevice(new Query());
+                                if (device != null) {
                                     incomeStatisticVo.setIncome(String.valueOf((date.getTime() - device.getAccessTime().getTime()) / DAY_OF_MILLISECONDS));
                                 }
                             }
@@ -1081,9 +1234,28 @@ public class StatisticsService {
                             /**
                              * 没有绑定电站情况  直接取第一台设备
                              */
-                            Device device = deviceDao.findOne();
-                            if(device != null){
+                            Device device = deviceDao.findDevice(new Query());
+                            if (device != null) {
                                 incomeStatisticVo.setIncome(String.valueOf((date.getTime() - device.getAccessTime().getTime()) / DAY_OF_MILLISECONDS));
+                            }
+                        }
+                        incomeStatisticVo.setDate(date);
+                    } else if (TOTAL.equals(type)) {
+                        /**
+                         * TODO 计算全部收益
+                         */
+                        Aggregation aggregation = Aggregation.newAggregation(Aggregation.match(criteria),
+                                Aggregation.project().andExpression("{$toDouble:'$income'}").as("income"),
+                                Aggregation.group().sum("income").as("count"),
+                                Aggregation.sort(Sort.by(Sort.Order.desc("_id"))),
+                                Aggregation.limit(1)
+                        );
+                        List<BasicDBObject> dbObjects = incomeEntityDao.aggregate(aggregation);
+                        if (!CollectionUtils.isEmpty(dbObjects) && !dbObjects.isEmpty()) {
+                            for (DBObject object : dbObjects) {
+                                Double count = (Double) object.get("count");
+                                BigDecimal decimal = BigDecimal.valueOf(count);
+                                incomeStatisticVo.setIncome(decimal.setScale(2, BigDecimal.ROUND_HALF_UP).toString());
                             }
                         }
                         incomeStatisticVo.setDate(date);

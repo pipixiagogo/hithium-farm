@@ -8,6 +8,8 @@ import com.bugull.hithiumfarmweb.http.entity.SysUser;
 import com.bugull.hithiumfarmweb.http.vo.MenuVo;
 import com.bugull.hithiumfarmweb.utils.ResHelper;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -27,24 +29,26 @@ public class MenuService {
 
 
     public ResHelper<List<MenuEntity>> select() {
-        List<MenuEntity> menuEntities = menuEntityDao.query().results();
+        List<MenuEntity> menuEntities = menuEntityDao.findMenu(new Query());
         return ResHelper.success("", menuEntities);
     }
 
     public List<MenuEntity> getUserMenuList(SysUser sysUser) {
         List<MenuEntity> menuEntityList;
-        if (Integer.valueOf(sysUser.getId()) == 1) {
-            menuEntityList = menuEntityDao.query().results();
+        if (sysUser.getId() == 1L) {
+            menuEntityList = menuEntityDao.findMenu(new Query());
         } else {
             /**
              * 非管理员
              */
             List<String> roleIds = sysUser.getRoleIds();
             if (!CollectionUtils.isEmpty(roleIds) && !roleIds.isEmpty()) {
-                List<RoleEntity> roleEntityList = roleIds.stream().map(role -> roleEntityDao.query().is("_id", role).result()).collect(Collectors.toList());
+
+                List<RoleEntity> roleEntityList = roleIds.stream().map(role -> roleEntityDao.findRole(new Query().addCriteria(Criteria.where("id").is(role)))).collect(Collectors.toList());
                 List<MenuEntity> menuEntities = new ArrayList<>();
                 roleEntityList.stream().forEach(role -> {
-                    List<MenuEntity> menus = menuEntityDao.query().in("_id", role.getMenuIdList()).results();
+
+                    List<MenuEntity> menus = menuEntityDao.findMenu(new Query().addCriteria(Criteria.where("id").in(role.getMenuIdList())));
                     menuEntities.addAll(menus);
                 });
                 menuEntityList = menuEntities.stream().distinct().collect(Collectors.toList());
@@ -52,7 +56,7 @@ public class MenuService {
                 /**
                  * 生成用户时候未指定角色
                  */
-                menuEntityList = menuEntityDao.query().notExistsField("perms").results();
+                menuEntityList = menuEntityDao.findMenu(new Query().addCriteria(Criteria.where("perms").exists(false)));
             }
         }
         return menuEntityList;
@@ -87,7 +91,7 @@ public class MenuService {
     }
 
     public ResHelper<List<MenuVo>> selectByLevel() {
-        List<MenuEntity> menuEntities = menuEntityDao.query().results();
+        List<MenuEntity> menuEntities = menuEntityDao.findMenu(new Query());
         List<MenuVo> menuVos = copyProperties(menuEntities);
         return ResHelper.success("", menuVos);
     }
